@@ -24,7 +24,7 @@
     <artifactId>sling-cli</artifactId>
     <version>1.0-SNAPSHOT</version>
 
-    <description>Sling CLI tool for development usage</description>
+    <description>Apache Sling Committer CLI</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
