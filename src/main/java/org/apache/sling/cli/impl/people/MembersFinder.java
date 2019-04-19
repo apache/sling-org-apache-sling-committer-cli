@@ -21,8 +21,10 @@ package org.apache.sling.cli.impl.people;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.text.Collator;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Set;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -103,7 +105,7 @@ public class MembersFinder {
         return members;
     }
 
-    public Member getMemberById(String id) {
+    public Member findById(String id) {
         for (Member member : findMembers()) {
             if (id.equals(member.getId())) {
                 return member;
@@ -112,8 +114,19 @@ public class MembersFinder {
         return null;
     }
 
+    public Member findByNameOrEmail(String name, String email) {
+        Collator collator = Collator.getInstance(Locale.US);
+        collator.setDecomposition(Collator.NO_DECOMPOSITION);
+        for (Member member : findMembers()) {
+            if (email.equals(member.getEmail()) || collator.compare(name, member.getName()) == 0) {
+                return member;
+            }
+        }
+        return null;
+    }
+
     public Member getCurrentMember() {
-         return getMemberById(credentialsService.getCredentials().getUsername());
+        return findById(credentialsService.getCredentials().getUsername());
     }
 
 }

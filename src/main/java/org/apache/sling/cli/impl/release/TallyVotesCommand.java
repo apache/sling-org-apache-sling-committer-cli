@@ -17,14 +17,15 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
+import java.text.Collator;
 import java.util.Arrays;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.mail.Email;
-import org.apache.sling.cli.impl.mail.EmailThread;
 import org.apache.sling.cli.impl.mail.VoteThreadFinder;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
@@ -84,24 +85,28 @@ public class TallyVotesCommand implements Command {
                     .stream()
                     .map(Release::getFullName)
                     .collect(Collectors.joining(", "));
-            EmailThread voteThread = voteThreadFinder.findVoteThread(releaseName);
 
-            Set<String> bindingVoters = new HashSet<>();
-            Set<String> nonBindingVoters = new HashSet<>();
-            for (Email e : voteThread.getEmails()) {
-                if (isPositiveVote(e)) {
-                    String sender = e.getFrom().replaceAll("<.*>", "").trim();
-                    for (Member m : membersFinder.findMembers()) {
-                        if (sender.equals(m.getName())) {
+            Set<String> bindingVoters = new LinkedHashSet<>();
+            Set<String> nonBindingVoters = new LinkedHashSet<>();
+            Collator collator = Collator.getInstance(Locale.US);
+            collator.setDecomposition(Collator.NO_DECOMPOSITION);
+            voteThreadFinder.findVoteThread(releaseName).stream().skip(1).filter(this::isPositiveVote).forEachOrdered(
+                    email -> {
+                        String from = email.getFrom().getAddress();
+                        String name = email.getFrom().getPersonal();
+                        Member m = membersFinder.findByNameOrEmail(name, from);
+                        if (m != null) {
                             if (m.isPMCMember()) {
-                                bindingVoters.add(sender);
+                                bindingVoters.add(m.getName());
                             } else {
-                                nonBindingVoters.add(sender);
+                                nonBindingVoters.add(m.getName());
                             }
+                        } else {
+                            nonBindingVoters.add(name);
                         }
                     }
-                }
-            }
+            );
+
             String email = EMAIL_TEMPLATE
                 .replace("##RELEASE_NAME##", releaseFullName)
                 .replace("##BINDING_VOTERS##", String.join(", ", bindingVoters))
