@@ -44,4 +44,10 @@ public class Version {
     public void setRelatedIssuesCount(int relatedIssuesCount) {
         this.issuesFixedCount = relatedIssuesCount;
     }
+    
+    @Override
+    public String toString() {
+        
+        return "Version: " + name + " (id=" + id+", fixed issues="+issuesFixedCount+")";
+    }
 }

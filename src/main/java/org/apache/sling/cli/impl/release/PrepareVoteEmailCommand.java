@@ -89,7 +89,7 @@ public class PrepareVoteEmailCommand implements Command {
             StagingRepository repo = repoFinder.find(repoId);
             List<Release> releases = Release.fromString(repo.getDescription());
             List<Version> versions = releases.stream()
-                    .map( r -> versionFinder.find(r.getName()))
+                    .map( r -> versionFinder.find(r))
                     .collect(Collectors.toList());
             
             String releaseName = releases.stream()
