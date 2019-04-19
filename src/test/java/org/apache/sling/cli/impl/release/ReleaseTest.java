@@ -64,7 +64,6 @@ public class ReleaseTest {
     }
     
     @Test
-    @Ignore("Broken after refactoring, needs separate issue")
     public void releaseWithRCSuffixOnly() {
         List<Release> releases = Release.fromString("Apache Sling Resource Resolver 1.6.12 RC");
         

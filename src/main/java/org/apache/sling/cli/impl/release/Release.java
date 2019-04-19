@@ -31,7 +31,7 @@ public final class Release {
         Group 4: RC status (optional)
      */
     private static final Pattern RELEASE_PATTERN = Pattern.compile("^\\h*(Apache Sling\\h*)?([()a-zA-Z0-9\\-.\\h]+)\\h([0-9\\-.]+)" +
-            "\\h?(RC[0-9.]+)?\\h*$");
+            "\\h?(RC[0-9.]*)?\\h*$");
     
     public static List<Release> fromString(String repositoryDescription) {
 
