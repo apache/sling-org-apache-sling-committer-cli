@@ -76,8 +76,15 @@ public class TallyVotesCommand implements Command {
         try {
             
             StagingRepository repository = repoFinder.find(Integer.parseInt(target));
-            Release release = Release.fromString(repository.getDescription());
-            EmailThread voteThread = voteThreadFinder.findVoteThread(release.getFullName());
+            String releaseName = Release.fromString(repository.getDescription())
+                    .stream()
+                    .map(Release::getName)
+                    .collect(Collectors.joining(", "));
+            String releaseFullName = Release.fromString(repository.getDescription())
+                    .stream()
+                    .map(Release::getFullName)
+                    .collect(Collectors.joining(", "));
+            EmailThread voteThread = voteThreadFinder.findVoteThread(releaseName);
 
             Set<String> bindingVoters = new HashSet<>();
             Set<String> nonBindingVoters = new HashSet<>();
@@ -96,7 +103,7 @@ public class TallyVotesCommand implements Command {
                 }
             }
             String email = EMAIL_TEMPLATE
-                .replace("##RELEASE_NAME##", release.getFullName())
+                .replace("##RELEASE_NAME##", releaseFullName)
                 .replace("##BINDING_VOTERS##", String.join(", ", bindingVoters))
                 .replace("##USER_NAME##", membersFinder.getCurrentMember().getName());
             if (nonBindingVoters.isEmpty()) {

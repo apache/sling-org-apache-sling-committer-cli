@@ -70,22 +70,24 @@ public class UpdateReporterCommand implements Command {
     public void execute(String target) {
         try {
             StagingRepository repository = repoFinder.find(Integer.parseInt(target));
-            Release release = Release.fromString(repository.getDescription());
+            
             try (CloseableHttpClient client =
                          HttpClients.custom().setDefaultCredentialsProvider(credentialsProvider).build()) {
-                HttpPost post = new HttpPost("https://reporter.apache.org/addrelease.py");
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                List<NameValuePair> parameters = new ArrayList<>();
-                Date now = new Date();
-                parameters.add(new BasicNameValuePair("date", Long.toString(now.getTime() / 1000)));
-                parameters.add(new BasicNameValuePair("committee", "sling"));
-                parameters.add(new BasicNameValuePair("version", release.getFullName()));
-                parameters.add(new BasicNameValuePair("xdate", simpleDateFormat.format(now)));
-                post.setEntity(new UrlEncodedFormEntity(parameters, StandardCharsets.UTF_8));
-                try (CloseableHttpResponse response = client.execute(post)) {
-                    if (response.getStatusLine().getStatusCode() != 200) {
-                        throw new IOException(String.format("The Apache Reporter System update failed. Got response code %s instead of " +
-                                "200.", response.getStatusLine().getStatusCode()));
+                for ( Release release : Release.fromString(repository.getDescription()) ) {
+                    HttpPost post = new HttpPost("https://reporter.apache.org/addrelease.py");
+                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+                    List<NameValuePair> parameters = new ArrayList<>();
+                    Date now = new Date();
+                    parameters.add(new BasicNameValuePair("date", Long.toString(now.getTime() / 1000)));
+                    parameters.add(new BasicNameValuePair("committee", "sling"));
+                    parameters.add(new BasicNameValuePair("version", release.getFullName()));
+                    parameters.add(new BasicNameValuePair("xdate", simpleDateFormat.format(now)));
+                    post.setEntity(new UrlEncodedFormEntity(parameters, StandardCharsets.UTF_8));
+                    try (CloseableHttpResponse response = client.execute(post)) {
+                        if (response.getStatusLine().getStatusCode() != 200) {
+                            throw new IOException(String.format("The Apache Reporter System update failed. Got response code %s instead of " +
+                                    "200.", response.getStatusLine().getStatusCode()));
+                        }
                     }
                 }
             }

@@ -18,16 +18,16 @@ package org.apache.sling.cli.impl.release;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class ReleaseTest {
@@ -35,8 +35,14 @@ public class ReleaseTest {
     @Test
     public void fromRepositoryDescription() {
         
-        Release rel1 = Release.fromString("Apache Sling Resource Merger 1.3.10 RC1");
-        Release rel2 = Release.fromString("   Apache Sling Resource Merger    1.3.10   ");
+        List<Release> releases1 = Release.fromString("Apache Sling Resource Merger 1.3.10 RC1");
+        List<Release> releases2 = Release.fromString("   Apache Sling Resource Merger    1.3.10   ");
+        
+        assertEquals(1, releases1.size());
+        assertEquals(1, releases2.size());
+        
+        Release rel1 = releases1.get(0);
+        Release rel2 = releases2.get(0);
 
         assertEquals("Resource Merger 1.3.10", rel1.getName());
         assertEquals("Apache Sling Resource Merger 1.3.10", rel1.getFullName());
@@ -47,11 +53,33 @@ public class ReleaseTest {
     }
 
     @Test
+    public void fromRepositoryDescriptionWithMultipleArtifacts() {
+        List<Release> releases = Release.fromString("Apache Sling Parent 35, Apache Sling Bundle Parent 35");
+        assertEquals(2, releases.size());
+    }
+    
+    @Test(expected = IllegalArgumentException.class)
+    public void noReleasesFailsFast() {
+        Release.fromString("");
+    }
+    
+    @Test
+    @Ignore("Broken after refactoring, needs separate issue")
+    public void releaseWithRCSuffixOnly() {
+        List<Release> releases = Release.fromString("Apache Sling Resource Resolver 1.6.12 RC");
+        
+        assertEquals(1, releases.size());
+        assertEquals("Apache Sling Resource Resolver 1.6.12", releases.get(0).getFullName());
+    }
+
+    @Test
     public void testReleaseParsingWithJIRAInfo() throws URISyntaxException, IOException {
         BufferedReader reader = new BufferedReader(new FileReader(new File(getClass().getResource("/jira_versions.txt").toURI())));
         reader.lines().forEach(line -> {
             if (!line.startsWith("#") && !"".equals(line)) {
-                Release jiraRelease = Release.fromString(line);
+                List<Release> jiraReleases = Release.fromString(line);
+                assertEquals(1, jiraReleases.size());
+                Release jiraRelease = jiraReleases.get(0);
                 String releaseFullName = jiraRelease.getFullName();
                 if (releaseFullName == null) {
                     fail("Failed to parse JIRA version: " + line);

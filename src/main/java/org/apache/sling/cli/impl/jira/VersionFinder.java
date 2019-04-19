@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.lang.reflect.Type;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -35,12 +36,14 @@ import com.google.gson.reflect.TypeToken;
 @Component(service = VersionFinder.class)
 public class VersionFinder {
 
-    public Version find(String versionName) throws IOException {
+    public Version find(String versionName) {
         Version version;
         
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             version = findVersion(versionName, client);
             populateRelatedIssuesCount(client, version);
+        } catch ( IOException e ) {
+            throw new RuntimeException(e);
         }
         
         return version;
@@ -58,9 +61,13 @@ public class VersionFinder {
                 Gson gson = new Gson();
                 Type collectionType = TypeToken.getParameterized(List.class, Version.class).getType();
                 List<Version> versions = gson.fromJson(reader, collectionType);
-                Release filter = Release.fromString(versionName);
+                List<String> filter = Release.fromString(versionName)
+                        .stream()
+                        .map( Release::getName )
+                        .collect(Collectors.toList());
+                
                 version = versions.stream()
-                    .filter(v -> filter.equals(Release.fromString(v.getName())))
+                    .filter(v -> filter.contains(v.getName()))
                     .findFirst()
                     .orElseThrow( () -> new IllegalArgumentException("No version found with name " + versionName));
             }
