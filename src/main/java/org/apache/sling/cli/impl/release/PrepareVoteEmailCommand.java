@@ -17,6 +17,8 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.jira.Version;
@@ -44,8 +46,9 @@ public class PrepareVoteEmailCommand implements Command {
             "\n" + 
             "Hi,\n" + 
             "\n" + 
-            "We solved ##FIXED_ISSUES_COUNT## issues in this release:\n" + 
-            "https://issues.apache.org/jira/browse/SLING/fixforversion/##VERSION_ID##\n" + 
+            "We solved ##FIXED_ISSUES_COUNT## issue(s) in ##RELEASE_OR_RELEASES##:\n" +
+            "\n" + 
+            "##RELEASE_JIRA_LINKS##\n" +
             "\n" + 
             "Staging repository:\n" + 
             "https://repository.apache.org/content/repositories/orgapachesling-##RELEASE_ID##/\n" + 
@@ -68,6 +71,9 @@ public class PrepareVoteEmailCommand implements Command {
             "##USER_NAME##\n" +
             "\n";
 
+    private static final String RELEASE_TEMPLATE = 
+            "https://issues.apache.org/jira/browse/SLING/fixforversion/##VERSION_ID##";
+    
     private final Logger logger = LoggerFactory.getLogger(getClass());
     
     @Reference
@@ -81,14 +87,30 @@ public class PrepareVoteEmailCommand implements Command {
         try {
             int repoId = Integer.parseInt(target);
             StagingRepository repo = repoFinder.find(repoId);
-            Release release = Release.fromString(repo.getDescription());
-            Version version = versionFinder.find(release.getName());
+            List<Release> releases = Release.fromString(repo.getDescription());
+            List<Version> versions = releases.stream()
+                    .map( r -> versionFinder.find(r.getName()))
+                    .collect(Collectors.toList());
+            
+            String releaseName = releases.stream()
+                    .map( Release::getFullName )
+                    .collect(Collectors.joining(", "));
+            
+            int fixedIssueCounts = versions.stream().mapToInt( Version::getIssuesFixedCount).sum();
+            String releaseOrReleases = versions.size() > 1 ?
+                    "these releases" : "this release";
+            
+            String releaseJiraLinks = versions.stream()
+                .map( v -> RELEASE_TEMPLATE.replace("##VERSION_ID##", String.valueOf(v.getId())))
+                .collect(Collectors.joining("\n"));
+                
             
             String emailContents = EMAIL_TEMPLATE
-                    .replace("##RELEASE_NAME##", release.getFullName())
+                    .replace("##RELEASE_NAME##", releaseName)
                     .replace("##RELEASE_ID##", String.valueOf(repoId))
-                    .replace("##VERSION_ID##", String.valueOf(version.getId()))
-                    .replace("##FIXED_ISSUES_COUNT##", String.valueOf(version.getIssuesFixedCount()))
+                    .replace("##RELEASE_OR_RELEASES##", releaseOrReleases)
+                    .replace("##RELEASE_JIRA_LINKS##", releaseJiraLinks)
+                    .replace("##FIXED_ISSUES_COUNT##", String.valueOf(fixedIssueCounts))
                     .replace("##USER_NAME##", membersFinder.getCurrentMember().getName());
                     
             logger.info(emailContents);

@@ -16,6 +16,8 @@
  */
 package org.apache.sling.cli.impl.release;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,24 +33,32 @@ public final class Release {
     private static final Pattern RELEASE_PATTERN = Pattern.compile("^\\h*(Apache Sling\\h*)?([()a-zA-Z0-9\\-.\\h]+)\\h([0-9\\-.]+)" +
             "\\h?(RC[0-9.]+)?\\h*$");
     
-    public static Release fromString(String repositoryDescription) {
-        
-        Release rel = new Release();
-        Matcher matcher = RELEASE_PATTERN.matcher(repositoryDescription);
-        if (matcher.matches()) {
-            rel.component = matcher.group(2).trim();
-            rel.version = matcher.group(3);
-            rel.name = rel.component + " " + rel.version;
-            StringBuilder fullName = new StringBuilder();
-            if (matcher.group(1) != null) {
-                fullName.append(matcher.group(1).trim()).append(" ");
+    public static List<Release> fromString(String repositoryDescription) {
+
+        List<Release> releases = new ArrayList<>();
+        for (String item  : repositoryDescription.split(",") ) {
+            
+            Matcher matcher = RELEASE_PATTERN.matcher(item);
+            if (matcher.matches()) {
+                Release rel = new Release();
+                rel.component = matcher.group(2).trim();
+                rel.version = matcher.group(3);
+                rel.name = rel.component + " " + rel.version;
+                StringBuilder fullName = new StringBuilder();
+                if (matcher.group(1) != null) {
+                    fullName.append(matcher.group(1).trim()).append(" ");
+                }
+                fullName.append(rel.name);
+                rel.fullName = fullName.toString();
+                
+                releases.add(rel);
             }
-            fullName.append(rel.name);
-            rel.fullName = fullName.toString();
-
-
         }
-        return rel;
+        
+        if ( releases.isEmpty() )
+            throw new IllegalArgumentException("No releases found in '" + repositoryDescription + "'");
+        
+        return releases;
     }
     
     private String fullName;
