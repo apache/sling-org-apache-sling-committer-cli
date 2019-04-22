@@ -32,7 +32,7 @@ import org.junit.Test;
 
 public class VersionFinderTest {
 
-    private VersionFinder finder = new StubVersionFinder();
+    private VersionClient finder = new StubVersionFinder();
     
     @Test
     public void findMatchingVersion() {
@@ -67,7 +67,7 @@ public class VersionFinderTest {
         assertThat("successor", successor, nullValue());
     }
     
-    private static final class StubVersionFinder extends VersionFinder {
+    private static final class StubVersionFinder extends VersionClient {
         @Override
         protected <T> T doWithJiraVersions(CloseableHttpClient client, Function<InputStreamReader, T> parserCallback)
                 throws IOException {

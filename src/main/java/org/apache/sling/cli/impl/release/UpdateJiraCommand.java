@@ -20,7 +20,7 @@ import java.io.IOException;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.jira.Version;
-import org.apache.sling.cli.impl.jira.VersionFinder;
+import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.osgi.service.component.annotations.Component;
@@ -39,7 +39,7 @@ public class UpdateJiraCommand implements Command {
     private StagingRepositoryFinder repoFinder;
     
     @Reference
-    private VersionFinder versionFinder;
+    private VersionClient versionFinder;
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -54,7 +54,9 @@ public class UpdateJiraCommand implements Command {
                 logger.info("Found successor version {}", successorVersion);
                 if ( successorVersion == null ) {
                     Release next = release.next();
-                    logger.info("Would create version {}", next);
+                    logger.info("Would create version {}", next.getName());
+                    versionFinder.create(next.getName());
+                    logger.info("Created version {}", next.getName());
                 }
                     
             }

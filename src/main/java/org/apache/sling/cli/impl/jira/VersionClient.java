@@ -16,9 +16,11 @@
  */
 package org.apache.sling.cli.impl.jira;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringWriter;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Optional;
@@ -27,6 +29,8 @@ import java.util.function.Predicate;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.sling.cli.impl.release.Release;
@@ -34,12 +38,16 @@ import org.osgi.service.component.annotations.Component;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.google.gson.stream.JsonWriter;
 
 /**
  * Access the ASF <em>Jira</em> instance and looks up project version data.
  */
-@Component(service = VersionFinder.class)
-public class VersionFinder {
+@Component(service = VersionClient.class)
+public class VersionClient {
+    
+    private static final String JIRA_URL_PREFIX = "https://issues.apache.org/jira/rest/api/2/";
+    private static final String CONTENT_TYPE_JSON = "application/json";
 
     /**
      * Finds a Jira version which matches the specified release
@@ -102,6 +110,40 @@ public class VersionFinder {
         
         return version;
     }
+    
+    public void create(String versionName) throws IOException {
+        StringWriter w = new StringWriter();
+        try ( JsonWriter jw = new Gson().newJsonWriter(w) ) {
+            jw.beginObject();
+            jw.name("name").value(versionName);
+            jw.name("project").value("SLING");
+            jw.endObject();
+        }
+        
+        HttpPost post = new HttpPost(JIRA_URL_PREFIX + "version");
+        post.addHeader("Content-Type", CONTENT_TYPE_JSON);
+        post.addHeader("Accept", CONTENT_TYPE_JSON);
+        post.setEntity(new StringEntity(w.toString()));
+
+        try (CloseableHttpClient client = HttpClients.createDefault() ) {
+            try (CloseableHttpResponse response = client.execute(post)) {
+                try (InputStream content = response.getEntity().getContent();
+                        InputStreamReader reader = new InputStreamReader(content)) {
+                    
+                    if (response.getStatusLine().getStatusCode() != 201) {
+                        // TODO - try and parse JSON error message, fall back to status code
+                        try ( BufferedReader bufferedReader = new BufferedReader(reader)) {
+                            String line;
+                            while  ( (line = bufferedReader.readLine()) != null )
+                                System.out.println(line);
+                        }
+                        
+                        throw new IOException("Status line : " + response.getStatusLine());
+                    }
+                }
+            }
+        }
+    }
 
     private Optional<Version> findVersion(Predicate<Version> matcher, CloseableHttpClient client) throws IOException {
         
@@ -112,7 +154,7 @@ public class VersionFinder {
             return versions.stream()
                     .filter( v -> v.getName().length() > 1) // avoid old '3' release
                     .filter(matcher)
-                    .sorted(VersionFinder::compare)
+                    .sorted(VersionClient::compare)
                     .findFirst();
         });
     }
@@ -144,8 +186,8 @@ public class VersionFinder {
     }
     
     private HttpGet newGet(String suffix) {
-        HttpGet get = new HttpGet("https://issues.apache.org/jira/rest/api/2/" + suffix);
-        get.addHeader("Accept", "application/json");
+        HttpGet get = new HttpGet(JIRA_URL_PREFIX + suffix);
+        get.addHeader("Accept", CONTENT_TYPE_JSON);
         return get;
     }
     

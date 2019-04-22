@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.jira.Version;
-import org.apache.sling.cli.impl.jira.VersionFinder;
+import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.apache.sling.cli.impl.people.MembersFinder;
@@ -80,7 +80,7 @@ public class PrepareVoteEmailCommand implements Command {
     private StagingRepositoryFinder repoFinder;
     
     @Reference
-    private VersionFinder versionFinder;
+    private VersionClient versionFinder;
 
     @Override
     public void execute(String target) {
