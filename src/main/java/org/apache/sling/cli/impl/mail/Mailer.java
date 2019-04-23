@@ -66,7 +66,7 @@ public class Mailer {
         try {
             MimeMessage message = new MimeMessage(session);
             Member sender = membersFinder.getCurrentMember();
-            Credentials credentials = credentialsService.getCredentials();
+            Credentials credentials = credentialsService.getAsfCredentials();
             message.setFrom(new InternetAddress(sender.getEmail(), sender.getEmail(), StandardCharsets.UTF_8.name()));
             message.setSubject(subject);
             message.setText(body, StandardCharsets.UTF_8.name());

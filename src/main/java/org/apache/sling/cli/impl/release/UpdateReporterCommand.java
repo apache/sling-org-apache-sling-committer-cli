@@ -26,22 +26,15 @@ import java.util.Date;
 import java.util.List;
 
 import org.apache.http.NameValuePair;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.sling.cli.impl.Command;
-import org.apache.sling.cli.impl.Credentials;
-import org.apache.sling.cli.impl.CredentialsService;
+import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
-import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -62,17 +55,15 @@ public class UpdateReporterCommand implements Command {
     private StagingRepositoryFinder repoFinder;
 
     @Reference
-    private CredentialsService credentialsService;
+    private HttpClientFactory httpClientFactory;
 
-    private CredentialsProvider credentialsProvider;
 
     @Override
     public void execute(String target) {
         try {
             StagingRepository repository = repoFinder.find(Integer.parseInt(target));
             
-            try (CloseableHttpClient client =
-                         HttpClients.custom().setDefaultCredentialsProvider(credentialsProvider).build()) {
+            try (CloseableHttpClient client = httpClientFactory.newClient() ) {
                 for ( Release release : Release.fromString(repository.getDescription()) ) {
                     HttpPost post = new HttpPost("https://reporter.apache.org/addrelease.py");
                     SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
@@ -95,13 +86,5 @@ public class UpdateReporterCommand implements Command {
             LOGGER.error(String.format("Unable to update reporter service; passed command: %s.", target), e);
         }
 
-    }
-
-    @Activate
-    private void activate() {
-        Credentials credentials = credentialsService.getCredentials();
-        credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(new AuthScope("reporter.apache.org", 443),
-                new UsernamePasswordCredentials(credentials.getUsername(), credentials.getPassword()));
     }
 }

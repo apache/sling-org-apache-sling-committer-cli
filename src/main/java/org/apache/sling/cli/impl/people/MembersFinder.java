@@ -113,7 +113,7 @@ public class MembersFinder {
     }
 
     public Member getCurrentMember() {
-         return getMemberById(credentialsService.getCredentials().getUsername());
+         return getMemberById(credentialsService.getAsfCredentials().getUsername());
     }
 
 }

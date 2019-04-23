@@ -24,21 +24,53 @@ import static org.junit.Assert.assertThat;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Field;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
 
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.sling.cli.impl.CredentialsService;
+import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.release.Release;
+import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 
-public class VersionFinderTest {
+public class VersionClientTest {
 
-    private VersionClient finder = new StubVersionFinder();
+    private static final Map<String, String> SYSTEM_PROPS = new HashMap<>();
+    static {
+        SYSTEM_PROPS.put("asf.username", "user");
+        SYSTEM_PROPS.put("asf.password", "password");
+        SYSTEM_PROPS.put("jira.username", "user");
+        SYSTEM_PROPS.put("jira.password", "password");
+    }
+    
+    @Rule
+    public final OsgiContext context = new OsgiContext();
+    
+    @Rule
+    public final SystemPropertiesRule sysProps = new SystemPropertiesRule(SYSTEM_PROPS);
+    
+    private VersionClient versionClient;
+    
+    @Before
+    public void prepareDependencies() throws ReflectiveOperationException {
+        context.registerInjectActivateService(new CredentialsService());
+        context.registerInjectActivateService(new HttpClientFactory());
+        
+        versionClient = new StubVersionClient();
+        Field factoryField = VersionClient.class.getDeclaredField("httpClientFactory");
+        factoryField.setAccessible(true);
+        factoryField.set(versionClient, context.getService(HttpClientFactory.class));
+    }
     
     @Test
     public void findMatchingVersion() {
         
-        finder = new StubVersionFinder();
-        Version version = finder.find(Release.fromString("XSS Protection API 1.0.2").get(0));
+        Version version = versionClient.find(Release.fromString("XSS Protection API 1.0.2").get(0));
         
         assertThat("version", version, notNullValue());
         assertThat("version.name", version.getName(), equalTo("XSS Protection API 1.0.2"));
@@ -49,12 +81,12 @@ public class VersionFinderTest {
     @Test(expected = IllegalArgumentException.class)
     public void missingVersionNotFound() {
         
-        finder.find(Release.fromString("XSS Protection API 1.0.3").get(0));
+        versionClient.find(Release.fromString("XSS Protection API 1.0.3").get(0));
     }
     
     @Test
     public void findSuccessorVersion() {
-        Version successor = finder.findSuccessorVersion(Release.fromString("XSS Protection API 1.0.2").get(0));
+        Version successor = versionClient.findSuccessorVersion(Release.fromString("XSS Protection API 1.0.2").get(0));
         
         assertThat("successor", successor, notNullValue());
         assertThat("successor.name", successor.getName(), equalTo("XSS Protection API 1.0.4"));
@@ -62,12 +94,12 @@ public class VersionFinderTest {
 
     @Test
     public void noSuccessorVersion() {
-        Version successor = finder.findSuccessorVersion(Release.fromString("XSS Protection API 1.0.16").get(0));
+        Version successor = versionClient.findSuccessorVersion(Release.fromString("XSS Protection API 1.0.16").get(0));
         
         assertThat("successor", successor, nullValue());
     }
     
-    private static final class StubVersionFinder extends VersionClient {
+    private static final class StubVersionClient extends VersionClient {
         @Override
         protected <T> T doWithJiraVersions(CloseableHttpClient client, Function<InputStreamReader, T> parserCallback)
                 throws IOException {

@@ -23,17 +23,11 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.sling.cli.impl.Credentials;
-import org.apache.sling.cli.impl.CredentialsService;
+import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.nexus.StagingRepository.Status;
-import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
@@ -45,18 +39,8 @@ public class StagingRepositoryFinder {
     private static final String REPOSITORY_PREFIX = "orgapachesling-";
 
     @Reference
-    private CredentialsService credentialsService;
+    private HttpClientFactory httpClientFactory;
 
-    private BasicCredentialsProvider credentialsProvider;
-    
-    @Activate
-    private void activate() {
-        Credentials credentials = credentialsService.getCredentials();
-        credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(new AuthScope("repository.apache.org", 443), 
-                new UsernamePasswordCredentials(credentials.getUsername(), credentials.getPassword()));
-    }
-    
     public List<StagingRepository> list() throws IOException {
         return this.withStagingRepositories( reader -> {
             Gson gson = new Gson();
@@ -80,9 +64,7 @@ public class StagingRepositoryFinder {
     }
     
     private <T> T withStagingRepositories(Function<InputStreamReader, T> function) throws IOException {
-        try ( CloseableHttpClient client = HttpClients.custom()
-                .setDefaultCredentialsProvider(credentialsProvider)
-                .build() ) {
+        try ( CloseableHttpClient client = httpClientFactory.newClient() ) {
             HttpGet get = new HttpGet("https://repository.apache.org/service/local/staging/profile_repositories");
             get.addHeader("Accept", "application/json");
             try ( CloseableHttpResponse response = client.execute(get)) {

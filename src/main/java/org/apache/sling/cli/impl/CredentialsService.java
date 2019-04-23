@@ -26,30 +26,49 @@ import org.osgi.service.component.annotations.Component;
 @Component(service = CredentialsService.class)
 public class CredentialsService {
 
-    private static final String USER_SYS_PROP = "asf.username";
-    private static final String PASSWORD_SYS_PROP = "asf.password";
-    private static final String USER_ENV_PROP = "ASF_USERNAME";
-    private static final String PASSWORD_ENV_PROP = "ASF_PASSWORD";
+    private static final ValueSource ASF_USER = new ValueSource("asf.username", "ASF_USERNAME", "ASF user information");
+    private static final ValueSource ASF_PWD = new ValueSource("asf.password", "ASF_PASSWORD", "ASF password");
 
-    private volatile Credentials credentials;
+    private static final ValueSource JIRA_USER = new ValueSource("jira.username", "JIRA_USERNAME", "Jira user information");
+    private static final ValueSource JIRA_PWD = new ValueSource("jira.password", "JIRA_PASSWORD", "Jira password");
+    
+    private Credentials asfCredentials;
+    private Credentials jiraCredentials;
 
     @Activate
-    private void activate() {
-        Optional<String> username =
-                Optional.ofNullable(System.getProperty(USER_SYS_PROP)).or(() -> Optional.ofNullable(System.getenv(USER_ENV_PROP)));
-        Optional<String> password =
-                Optional.ofNullable(System.getProperty(PASSWORD_SYS_PROP)).or(() -> Optional.ofNullable(System.getenv(PASSWORD_ENV_PROP)));
-        credentials = new Credentials(
-                username.orElseThrow(() -> new IllegalStateException(
-                        String.format("Cannot detect user information after looking for %s system property and %s environment variable.",
-                                USER_SYS_PROP, USER_ENV_PROP))),
-                password.orElseThrow(() -> new IllegalStateException(
-                        String.format("Cannot detect password after looking for %s system property and %s environment variable.",
-                                PASSWORD_SYS_PROP, PASSWORD_ENV_PROP)))
-        );
+    protected void activate() {
+        asfCredentials = new Credentials(ASF_USER.getValue(), ASF_PWD.getValue());
+        jiraCredentials = new Credentials(JIRA_USER.getValue(), JIRA_PWD.getValue());
+    }
+    
+    public Credentials getAsfCredentials() {
+        return asfCredentials;
+    }
+    
+    public Credentials getJiraCredentials() {
+        return jiraCredentials;
     }
 
-    public Credentials getCredentials() {
-        return credentials;
+    static class ValueSource {
+
+        private final String sysProp;
+        private final String envVar;
+        private final String friendlyName;
+        
+        public ValueSource(String sysProp, String envVar, String friendlyName) {
+
+            this.sysProp = sysProp;
+            this.envVar = envVar;
+            this.friendlyName = friendlyName;
+        }
+        
+        public String getValue() {
+            
+            return Optional.ofNullable(System.getProperty(sysProp))
+                    .or( () -> Optional.ofNullable(System.getenv(envVar)) )
+                    .orElseThrow(() -> new IllegalStateException(String.format("Cannot detect %s after looking for %s system property and %s environment variable.", 
+                            friendlyName, sysProp, envVar)));
+                    
+        }   
     }
 }

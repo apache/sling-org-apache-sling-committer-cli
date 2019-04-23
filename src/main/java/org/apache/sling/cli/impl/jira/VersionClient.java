@@ -32,9 +32,10 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.release.Release;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -48,6 +49,9 @@ public class VersionClient {
     
     private static final String JIRA_URL_PREFIX = "https://issues.apache.org/jira/rest/api/2/";
     private static final String CONTENT_TYPE_JSON = "application/json";
+    
+    @Reference
+    private HttpClientFactory httpClientFactory;
 
     /**
      * Finds a Jira version which matches the specified release
@@ -59,7 +63,7 @@ public class VersionClient {
     public Version find(Release release) {
         Version version;
         
-        try (CloseableHttpClient client = HttpClients.createDefault()) {
+        try (CloseableHttpClient client = httpClientFactory.newClient()) {
             version = findVersion( v -> release.getName().equals(v.getName()), client)
                     .orElseThrow( () -> new IllegalArgumentException("No version found with name " + release.getName()));
             populateRelatedIssuesCount(client, version);
@@ -92,7 +96,7 @@ public class VersionClient {
     public Version findSuccessorVersion(Release release) {
         Version version;
         
-        try ( CloseableHttpClient client = HttpClients.createDefault() ) {
+        try (CloseableHttpClient client = httpClientFactory.newClient()) {
             Optional<Version> opt = findVersion ( 
                     v -> {
                         Release releaseFromVersion = Release.fromString(v.getName()).get(0);
@@ -125,7 +129,7 @@ public class VersionClient {
         post.addHeader("Accept", CONTENT_TYPE_JSON);
         post.setEntity(new StringEntity(w.toString()));
 
-        try (CloseableHttpClient client = HttpClients.createDefault() ) {
+        try (CloseableHttpClient client = httpClientFactory.newClient()) {
             try (CloseableHttpResponse response = client.execute(post)) {
                 try (InputStream content = response.getEntity().getContent();
                         InputStreamReader reader = new InputStreamReader(content)) {
