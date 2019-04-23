@@ -32,8 +32,10 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.sling.cli.impl.ComponentContextHelper;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.release.Release;
+import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
@@ -47,11 +49,17 @@ import com.google.gson.stream.JsonWriter;
 @Component(service = VersionClient.class)
 public class VersionClient {
     
-    private static final String JIRA_URL_PREFIX = "https://issues.apache.org/jira/rest/api/2/";
+    private static final String DEFAULT_JIRA_URL_PREFIX = "https://issues.apache.org/jira/rest/api/2/";
     private static final String CONTENT_TYPE_JSON = "application/json";
     
     @Reference
     private HttpClientFactory httpClientFactory;
+    private String jiraUrlPrefix;
+    
+    protected void activate(ComponentContext ctx) {
+        ComponentContextHelper helper = ComponentContextHelper.wrap(ctx);
+        jiraUrlPrefix = helper.getProperty("jira.url.prefix", DEFAULT_JIRA_URL_PREFIX);
+    }
 
     /**
      * Finds a Jira version which matches the specified release
@@ -98,12 +106,8 @@ public class VersionClient {
         
         try (CloseableHttpClient client = httpClientFactory.newClient()) {
             Optional<Version> opt = findVersion ( 
-                    v -> {
-                        Release releaseFromVersion = Release.fromString(v.getName()).get(0);
-                        return 
-                            releaseFromVersion.getComponent().equals(release.getComponent())
-                                && new org.osgi.framework.Version(releaseFromVersion.getVersion()).compareTo(new org.osgi.framework.Version(release.getVersion())) > 0;
-                    },client);
+                    v -> isFollowingVersion(Release.fromString(v.getName()).get(0), release)
+                    ,client);
             if ( !opt.isPresent() )
                 return null;
             version = opt.get();
@@ -115,6 +119,12 @@ public class VersionClient {
         return version;
     }
     
+    private boolean isFollowingVersion(Release base, Release candidate) {
+        return base.getComponent().equals(candidate.getComponent())
+                && new org.osgi.framework.Version(base.getVersion())
+                    .compareTo(new org.osgi.framework.Version(candidate.getVersion())) > 0;
+    }
+    
     public void create(String versionName) throws IOException {
         StringWriter w = new StringWriter();
         try ( JsonWriter jw = new Gson().newJsonWriter(w) ) {
@@ -124,7 +134,7 @@ public class VersionClient {
             jw.endObject();
         }
         
-        HttpPost post = new HttpPost(JIRA_URL_PREFIX + "version");
+        HttpPost post = new HttpPost(jiraUrlPrefix + "version");
         post.addHeader("Content-Type", CONTENT_TYPE_JSON);
         post.addHeader("Accept", CONTENT_TYPE_JSON);
         post.setEntity(new StringEntity(w.toString()));
@@ -190,7 +200,7 @@ public class VersionClient {
     }
     
     private HttpGet newGet(String suffix) {
-        HttpGet get = new HttpGet(JIRA_URL_PREFIX + suffix);
+        HttpGet get = new HttpGet(jiraUrlPrefix + suffix);
         get.addHeader("Accept", CONTENT_TYPE_JSON);
         return get;
     }

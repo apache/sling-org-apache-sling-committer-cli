@@ -21,16 +21,31 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.sling.cli.impl.ComponentContextHelper;
 import org.apache.sling.cli.impl.Credentials;
 import org.apache.sling.cli.impl.CredentialsService;
+import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
 @Component(service = HttpClientFactory.class)
 public class HttpClientFactory {
     
+    private static final String DEFAULT_JIRA_HOST = "jira.apache.org";
+    private static final int DEFAULT_JIRA_PORT = 443;
+    
     @Reference
     private CredentialsService credentialsService;
+    
+    private String jiraHost;
+    private int jiraPort;
+    
+    protected void activate(ComponentContext ctx) {
+        
+        ComponentContextHelper helper = ComponentContextHelper.wrap(ctx);
+        jiraHost = helper.getProperty("jira.host", DEFAULT_JIRA_HOST);
+        jiraPort = helper.getProperty("jira.port", DEFAULT_JIRA_PORT);
+    }
 
     public CloseableHttpClient newClient() {
         
@@ -42,7 +57,7 @@ public class HttpClientFactory {
                 new UsernamePasswordCredentials(asf.getUsername(), asf.getPassword()));
         credentialsProvider.setCredentials(new AuthScope("reporter.apache.org", 443), 
                 new UsernamePasswordCredentials(asf.getUsername(), asf.getPassword()));
-        credentialsProvider.setCredentials(new AuthScope("jira.apache.org", 443), 
+        credentialsProvider.setCredentials(new AuthScope(jiraHost, jiraPort), 
                 new UsernamePasswordCredentials(jira.getUsername(), jira.getPassword()));
         
         return HttpClients.custom()

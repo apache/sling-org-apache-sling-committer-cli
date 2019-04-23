@@ -21,15 +21,9 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertThat;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 
-import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.sling.cli.impl.CredentialsService;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.release.Release;
@@ -42,10 +36,10 @@ public class VersionClientTest {
 
     private static final Map<String, String> SYSTEM_PROPS = new HashMap<>();
     static {
-        SYSTEM_PROPS.put("asf.username", "user");
-        SYSTEM_PROPS.put("asf.password", "password");
-        SYSTEM_PROPS.put("jira.username", "user");
-        SYSTEM_PROPS.put("jira.password", "password");
+        SYSTEM_PROPS.put("asf.username", "asf-user");
+        SYSTEM_PROPS.put("asf.password", "asf-password");
+        SYSTEM_PROPS.put("jira.username", "jira-user");
+        SYSTEM_PROPS.put("jira.password", "jira-password");
     }
     
     @Rule
@@ -54,17 +48,17 @@ public class VersionClientTest {
     @Rule
     public final SystemPropertiesRule sysProps = new SystemPropertiesRule(SYSTEM_PROPS);
     
+    @Rule
+    public final MockJira mockJira = new MockJira();
+    
     private VersionClient versionClient;
     
     @Before
     public void prepareDependencies() throws ReflectiveOperationException {
-        context.registerInjectActivateService(new CredentialsService());
-        context.registerInjectActivateService(new HttpClientFactory());
         
-        versionClient = new StubVersionClient();
-        Field factoryField = VersionClient.class.getDeclaredField("httpClientFactory");
-        factoryField.setAccessible(true);
-        factoryField.set(versionClient, context.getService(HttpClientFactory.class));
+        context.registerInjectActivateService(new CredentialsService());
+        context.registerInjectActivateService(new HttpClientFactory(), "jira.host", "localhost", "jira.port", mockJira.getBoundPort());
+        versionClient = context.registerInjectActivateService(new VersionClient(), "jira.url.prefix", "http://localhost:" + mockJira.getBoundPort() + "/jira/rest/api/2/");
     }
     
     @Test
@@ -97,29 +91,5 @@ public class VersionClientTest {
         Version successor = versionClient.findSuccessorVersion(Release.fromString("XSS Protection API 1.0.16").get(0));
         
         assertThat("successor", successor, nullValue());
-    }
-    
-    private static final class StubVersionClient extends VersionClient {
-        @Override
-        protected <T> T doWithJiraVersions(CloseableHttpClient client, Function<InputStreamReader, T> parserCallback)
-                throws IOException {
-            
-            try ( InputStreamReader reader = new InputStreamReader(getClass().getResourceAsStream("/jira/versions.json")) ) {
-                return parserCallback.apply(reader);
-            }
-        }
-        
-        @Override
-        protected <T> T doWithRelatedIssueCounts(CloseableHttpClient client, Version version,
-                Function<InputStreamReader, T> parserCallback) throws IOException {
-            
-            InputStream stream = getClass().getResourceAsStream("/jira/relatedIssueCounts/" + version.getId()+".json");
-            if ( stream == null )
-                throw new IllegalArgumentException("No related issues count for version " + version.getId() + " (" + version.getName() + ")");
-            
-            try ( InputStreamReader reader = new InputStreamReader(stream) ) {
-                return parserCallback.apply(reader);
-            }
-        }
     }
 }
