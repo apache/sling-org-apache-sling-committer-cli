@@ -24,7 +24,6 @@ import java.io.StringWriter;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -119,12 +118,6 @@ public class VersionClient {
         return version;
     }
     
-    private boolean isFollowingVersion(Release base, Release candidate) {
-        return base.getComponent().equals(candidate.getComponent())
-                && new org.osgi.framework.Version(base.getVersion())
-                    .compareTo(new org.osgi.framework.Version(candidate.getVersion())) > 0;
-    }
-    
     public void create(String versionName) throws IOException {
         StringWriter w = new StringWriter();
         try ( JsonWriter jw = new Gson().newJsonWriter(w) ) {
@@ -161,19 +154,6 @@ public class VersionClient {
 
     private Optional<Version> findVersion(Predicate<Version> matcher, CloseableHttpClient client) throws IOException {
         
-        return doWithJiraVersions(client, reader -> {
-            Gson gson = new Gson();
-            Type collectionType = TypeToken.getParameterized(List.class, Version.class).getType();
-            List<Version> versions = gson.fromJson(reader, collectionType);
-            return versions.stream()
-                    .filter( v -> v.getName().length() > 1) // avoid old '3' release
-                    .filter(matcher)
-                    .sorted(VersionClient::compare)
-                    .findFirst();
-        });
-    }
-    
-    protected <T> T doWithJiraVersions(CloseableHttpClient client, Function<InputStreamReader, T> parserCallback) throws IOException {
         HttpGet get = newGet("project/SLING/versions");
         try (CloseableHttpResponse response = client.execute(get)) {
             try (InputStream content = response.getEntity().getContent();
@@ -181,24 +161,18 @@ public class VersionClient {
                 if (response.getStatusLine().getStatusCode() != 200)
                     throw new IOException("Status line : " + response.getStatusLine());
                 
-                return parserCallback.apply(reader);
+                Gson gson = new Gson();
+                Type collectionType = TypeToken.getParameterized(List.class, Version.class).getType();
+                List<Version> versions = gson.fromJson(reader, collectionType);
+                return versions.stream()
+                        .filter( v -> v.getName().length() > 1) // avoid old '3' release
+                        .filter(matcher)
+                        .sorted(VersionClient::compare)
+                        .findFirst();
             }
         }
     }
-    
-    protected <T> T doWithRelatedIssueCounts(CloseableHttpClient client, Version version, Function<InputStreamReader, T> parserCallback) throws IOException {
         
-        HttpGet get = newGet("version/" + version.getId() +"/relatedIssueCounts");
-        try (CloseableHttpResponse response = client.execute(get)) {
-            try (InputStream content = response.getEntity().getContent();
-                    InputStreamReader reader = new InputStreamReader(content)) {
-                if (response.getStatusLine().getStatusCode() != 200)
-                    throw new IOException("Status line : " + response.getStatusLine());
-                return parserCallback.apply(reader);
-            }
-        }
-    }
-    
     private HttpGet newGet(String suffix) {
         HttpGet get = new HttpGet(jiraUrlPrefix + suffix);
         get.addHeader("Accept", CONTENT_TYPE_JSON);
@@ -207,14 +181,24 @@ public class VersionClient {
     
     private void populateRelatedIssuesCount(CloseableHttpClient client, Version version) throws IOException {
         
-        doWithRelatedIssueCounts(client, version, reader ->  {
-            Gson gson = new Gson();
-            VersionRelatedIssuesCount issuesCount = gson.fromJson(reader, VersionRelatedIssuesCount.class);
-            
-            version.setRelatedIssuesCount(issuesCount.getIssuesFixedCount());
+        HttpGet get = newGet("version/" + version.getId() +"/relatedIssueCounts");
+        try (CloseableHttpResponse response = client.execute(get)) {
+            try (InputStream content = response.getEntity().getContent();
+                    InputStreamReader reader = new InputStreamReader(content)) {
+                if (response.getStatusLine().getStatusCode() != 200)
+                    throw new IOException("Status line : " + response.getStatusLine());
+                Gson gson = new Gson();
+                VersionRelatedIssuesCount issuesCount = gson.fromJson(reader, VersionRelatedIssuesCount.class);
+                
+                version.setRelatedIssuesCount(issuesCount.getIssuesFixedCount());
+            }
+        }
+    }
 
-            return null;
-        });
+    private boolean isFollowingVersion(Release base, Release candidate) {
+        return base.getComponent().equals(candidate.getComponent())
+                && new org.osgi.framework.Version(base.getVersion())
+                    .compareTo(new org.osgi.framework.Version(candidate.getVersion())) > 0;
     }
     
     private static int compare(Version v1, Version v2) {
