@@ -21,6 +21,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertThat;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -38,8 +39,8 @@ public class VersionClientTest {
     static {
         SYSTEM_PROPS.put("asf.username", "asf-user");
         SYSTEM_PROPS.put("asf.password", "asf-password");
-        SYSTEM_PROPS.put("jira.username", "jira-user");
-        SYSTEM_PROPS.put("jira.password", "jira-password");
+        SYSTEM_PROPS.put("jira.username", MockJira.AUTH_USER);
+        SYSTEM_PROPS.put("jira.password", MockJira.AUTH_PWD);
     }
     
     @Rule
@@ -91,5 +92,15 @@ public class VersionClientTest {
         Version successor = versionClient.findSuccessorVersion(Release.fromString("XSS Protection API 1.0.16").get(0));
         
         assertThat("successor", successor, nullValue());
+    }
+    
+    @Test
+    public void createVersion() throws IOException {
+        versionClient.create("XSS Protection API 2.0.10");
+    }
+    
+    @Test(expected = IOException.class)
+    public void illegalVersionFails() throws IOException {
+        versionClient.create("");
     }
 }

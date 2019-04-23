@@ -16,7 +16,6 @@
  */
 package org.apache.sling.cli.impl.jira;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -39,6 +38,8 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonIOException;
+import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonWriter;
 
@@ -138,18 +139,36 @@ public class VersionClient {
                         InputStreamReader reader = new InputStreamReader(content)) {
                     
                     if (response.getStatusLine().getStatusCode() != 201) {
-                        // TODO - try and parse JSON error message, fall back to status code
-                        try ( BufferedReader bufferedReader = new BufferedReader(reader)) {
-                            String line;
-                            while  ( (line = bufferedReader.readLine()) != null )
-                                System.out.println(line);
-                        }
-                        
-                        throw new IOException("Status line : " + response.getStatusLine());
+                        throw newException(response, reader);
                     }
                 }
             }
         }
+    }
+
+    private IOException newException(CloseableHttpResponse response, InputStreamReader reader) throws IOException {
+        
+        StringBuilder message = new StringBuilder();
+        message.append("Status line : " + response.getStatusLine());
+        
+        try {
+            Gson gson = new Gson();
+            ErrorResponse errors = gson.fromJson(reader, ErrorResponse.class);
+            if ( !errors.getErrorMessages().isEmpty() )
+                message.append(". Error messages: ")
+                    .append(errors.getErrorMessages());
+            
+            if ( !errors.getErrors().isEmpty() )
+                errors.getErrors().entrySet().stream()
+                    .forEach( e -> message.append(". Error for "  + e.getKey() + " : " + e.getValue()));
+            
+        } catch ( JsonIOException | JsonSyntaxException e) {
+            message.append(". Failed parsing response as JSON ( ")
+                .append(e.getMessage())
+                .append(" )");
+        }
+        
+        return new IOException(message.toString());
     }
 
     private Optional<Version> findVersion(Predicate<Version> matcher, CloseableHttpClient client) throws IOException {
@@ -159,7 +178,7 @@ public class VersionClient {
             try (InputStream content = response.getEntity().getContent();
                     InputStreamReader reader = new InputStreamReader(content)) {
                 if (response.getStatusLine().getStatusCode() != 200)
-                    throw new IOException("Status line : " + response.getStatusLine());
+                    throw newException(response, reader);
                 
                 Gson gson = new Gson();
                 Type collectionType = TypeToken.getParameterized(List.class, Version.class).getType();
@@ -186,7 +205,8 @@ public class VersionClient {
             try (InputStream content = response.getEntity().getContent();
                     InputStreamReader reader = new InputStreamReader(content)) {
                 if (response.getStatusLine().getStatusCode() != 200)
-                    throw new IOException("Status line : " + response.getStatusLine());
+                    throw newException(response, reader);
+
                 Gson gson = new Gson();
                 VersionRelatedIssuesCount issuesCount = gson.fromJson(reader, VersionRelatedIssuesCount.class);
                 
