@@ -49,6 +49,7 @@ import com.google.gson.stream.JsonWriter;
 @Component(service = VersionClient.class)
 public class VersionClient {
     
+    private static final String PROJECT_KEY = "SLING";
     private static final String DEFAULT_JIRA_URL_PREFIX = "https://issues.apache.org/jira/rest/api/2/";
     private static final String CONTENT_TYPE_JSON = "application/json";
     
@@ -119,12 +120,20 @@ public class VersionClient {
         return version;
     }
     
+    /**
+     * Creates a version with the specified name
+     * 
+     * <p>The version will be created for the {@value #PROJECT_KEY} project.</p>
+     * 
+     * @param versionName the name of the version
+     * @throws IOException In case of any errors creating the version in Jira
+     */
     public void create(String versionName) throws IOException {
         StringWriter w = new StringWriter();
         try ( JsonWriter jw = new Gson().newJsonWriter(w) ) {
             jw.beginObject();
             jw.name("name").value(versionName);
-            jw.name("project").value("SLING");
+            jw.name("project").value(PROJECT_KEY);
             jw.endObject();
         }
         
@@ -173,7 +182,7 @@ public class VersionClient {
 
     private Optional<Version> findVersion(Predicate<Version> matcher, CloseableHttpClient client) throws IOException {
         
-        HttpGet get = newGet("project/SLING/versions");
+        HttpGet get = newGet("project/" + PROJECT_KEY + "/versions");
         try (CloseableHttpResponse response = client.execute(get)) {
             try (InputStream content = response.getEntity().getContent();
                     InputStreamReader reader = new InputStreamReader(content)) {
