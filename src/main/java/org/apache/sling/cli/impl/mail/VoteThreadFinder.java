@@ -21,6 +21,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -29,12 +31,14 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.osgi.service.component.annotations.Component;
 
-import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 
 @Component(service = VoteThreadFinder.class)
 public class VoteThreadFinder {
     
-    public EmailThread findVoteThread(String releaseName) throws IOException {
+    public List<Email> findVoteThread(String releaseName) throws IOException {
         try ( CloseableHttpClient client = HttpClients.createDefault() ) {
             
             URI uri = new URIBuilder("https://lists.apache.org/api/stats.lua")
@@ -50,8 +54,13 @@ public class VoteThreadFinder {
                         InputStreamReader reader = new InputStreamReader(content)) {
                     if ( response.getStatusLine().getStatusCode() != 200 )
                         throw new IOException("Status line : " + response.getStatusLine());
-                    Gson gson = new Gson();
-                    return gson.fromJson(reader, EmailThread.class);
+                    JsonParser parser = new JsonParser();
+                    JsonArray emailsArray = parser.parse(reader).getAsJsonObject().get("emails").getAsJsonArray();
+                    List<Email> emails = new ArrayList<>();
+                    for (JsonElement email : emailsArray) {
+                        emails.add(new Email(email.getAsJsonObject().get("id").getAsString()));
+                    }
+                    return emails;
                 }
             }
         } catch (URISyntaxException e) {
