@@ -30,16 +30,16 @@ import org.slf4j.LoggerFactory;
 
 @Component(service = Command.class, property = {
         Command.PROPERTY_NAME_COMMAND+"=release",
-        Command.PROPERTY_NAME_SUBCOMMAND+"=update-jira",
-        Command.PROPERTY_NAME_SUMMARY+"=Releases the current version, closes versions fixed in the current version and creates a new version if needed"
+        Command.PROPERTY_NAME_SUBCOMMAND+"=create-jira-new-version",
+        Command.PROPERTY_NAME_SUMMARY+"=Creates a new Jira version, if needed, and transitions any unresolved issues from the version being released to the next one."
     })
-public class UpdateJiraCommand implements Command {
+public class CreateJiraVersionCommand implements Command {
 
     @Reference
     private StagingRepositoryFinder repoFinder;
     
     @Reference
-    private VersionClient versionFinder;
+    private VersionClient versionClient;
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -48,14 +48,14 @@ public class UpdateJiraCommand implements Command {
         try {
             StagingRepository repo = repoFinder.find(Integer.parseInt(target));
             for (Release release : Release.fromString(repo.getDescription()) ) {
-                Version version = versionFinder.find(release);
+                Version version = versionClient.find(release);
                 logger.info("Found version {}", version);
-                Version successorVersion = versionFinder.findSuccessorVersion(release);
+                Version successorVersion = versionClient.findSuccessorVersion(release);
                 logger.info("Found successor version {}", successorVersion);
                 if ( successorVersion == null ) {
                     Release next = release.next();
                     logger.info("Would create version {}", next.getName());
-                    versionFinder.create(next.getName());
+                    versionClient.create(next.getName());
                     logger.info("Created version {}", next.getName());
                 }
                     
