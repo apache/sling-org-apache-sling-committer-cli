@@ -111,5 +111,7 @@ public class VersionClientTest {
         List<Issue> issues = versionClient.findUnresolvedIssues(Release.fromString("Committer CLI 1.0.0").get(0));
         
         assertThat(issues, hasSize(2));
+        assertThat(issues.get(0).getKey(), equalTo("SLING-8338"));
+        assertThat(issues.get(1).getKey(), equalTo("SLING-8337"));
     }
 }
