@@ -17,9 +17,12 @@
 package org.apache.sling.cli.impl.jira;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.util.function.Consumer;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.sling.cli.impl.jira.ErrorResponse;
 
 import com.google.gson.Gson;
@@ -33,6 +36,19 @@ public interface JiraAction {
             ErrorResponse er = new ErrorResponse();
             c.accept(er);
             gson.toJson(er, out);
+        }
+    }
+    
+    default void serveFileFromClasspath(HttpExchange ex, String classpathLocation) throws IOException {
+        InputStream in = getClass().getResourceAsStream(classpathLocation);
+        if ( in == null  ) {
+            ex.sendResponseHeaders(404, -1);
+            return;
+        }
+     
+        ex.sendResponseHeaders(200, 0);
+        try ( OutputStream out = ex.getResponseBody() ) {
+            IOUtils.copy(in, out);
         }
     }
     

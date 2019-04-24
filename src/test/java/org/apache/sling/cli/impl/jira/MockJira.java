@@ -57,8 +57,9 @@ public class MockJira extends ExternalResource {
             
             @Override
             public Result authenticate(HttpExchange t) {
+                // get requests are never authenticated
                 if ( t.getRequestMethod().contentEquals("GET") )
-                        return new Authenticator.Success(new HttpPrincipal("anonymous", getClass().getSimpleName()));
+                    return new Authenticator.Success(new HttpPrincipal("anonymous", getClass().getSimpleName()));
                 return super.authenticate(t);
             }
         });
@@ -67,6 +68,7 @@ public class MockJira extends ExternalResource {
         actions.add(new ListVersionsJiraAction());
         actions.add(new GetRelatedIssueCountsForVersionsJiraAction());
         actions.add(new CreateVersionJiraAction());
+        actions.add(new IssuesSearchJiraAction());
         
         // fallback, always executed
         actions.add(new JiraAction() {

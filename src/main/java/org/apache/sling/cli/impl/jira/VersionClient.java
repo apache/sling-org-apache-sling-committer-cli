@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.lang.reflect.Type;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -28,6 +29,7 @@ import java.util.function.Predicate;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.sling.cli.impl.ComponentContextHelper;
@@ -154,8 +156,36 @@ public class VersionClient {
             }
         }
     }
+    
+    public List<Issue> findUnresolvedIssues(Release release) throws IOException {
+        
+        try {
+            HttpGet get = newGet("search");
+            URIBuilder builder = new URIBuilder(get.getURI());
+            builder.addParameter("jql", "project = "+ PROJECT_KEY+" AND resolution = Unresolved AND fixVersion = \"" + release.getName() + "\"");
+            builder.addParameter("fields", "summary");
+            get.setURI(builder.build());
+            
+            try ( CloseableHttpClient client = httpClientFactory.newClient() ) {
+                try (CloseableHttpResponse response = client.execute(get)) {
+                    try (InputStream content = response.getEntity().getContent();
+                            InputStreamReader reader = new InputStreamReader(content)) {
+                        
+                        if (response.getStatusLine().getStatusCode() != 200) {
+                            throw newException(response, reader);
+                        }
+                        
+                        Gson gson = new Gson();
+                        return gson.fromJson(reader, IssueResponse.class).getIssues();
+                    }
+                }
+            }
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
 
-    private IOException newException(CloseableHttpResponse response, InputStreamReader reader) throws IOException {
+    private IOException newException(CloseableHttpResponse response, InputStreamReader reader) {
         
         StringBuilder message = new StringBuilder();
         message.append("Status line : " + response.getStatusLine());
@@ -163,14 +193,15 @@ public class VersionClient {
         try {
             Gson gson = new Gson();
             ErrorResponse errors = gson.fromJson(reader, ErrorResponse.class);
-            if ( !errors.getErrorMessages().isEmpty() )
-                message.append(". Error messages: ")
-                    .append(errors.getErrorMessages());
-            
-            if ( !errors.getErrors().isEmpty() )
-                errors.getErrors().entrySet().stream()
-                    .forEach( e -> message.append(". Error for "  + e.getKey() + " : " + e.getValue()));
-            
+            if ( errors != null ) {
+                if ( !errors.getErrorMessages().isEmpty() )
+                    message.append(". Error messages: ")
+                        .append(errors.getErrorMessages());
+                
+                if ( !errors.getErrors().isEmpty() )
+                    errors.getErrors().entrySet().stream()
+                        .forEach( e -> message.append(". Error for "  + e.getKey() + " : " + e.getValue()));
+            }
         } catch ( JsonIOException | JsonSyntaxException e) {
             message.append(". Failed parsing response as JSON ( ")
                 .append(e.getMessage())

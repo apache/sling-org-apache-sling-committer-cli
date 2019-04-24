@@ -17,12 +17,8 @@
 package org.apache.sling.cli.impl.jira;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.apache.commons.io.IOUtils;
 
 import com.sun.net.httpserver.HttpExchange;
 
@@ -40,17 +36,10 @@ public class GetRelatedIssueCountsForVersionsJiraAction implements JiraAction {
             return false;
         
         int version = Integer.parseInt(matcher.group(1));
-        InputStream in = getClass().getResourceAsStream("/jira/relatedIssueCounts/" + version + ".json");
-        if ( in == null  ) {
-            ex.sendResponseHeaders(404, -1);
-        } else {
-            ex.sendResponseHeaders(200, 0);
-            try ( OutputStream out = ex.getResponseBody() ) {
-                IOUtils.copy(in, out);
-            }
-        }
+        
+        serveFileFromClasspath(ex, "/jira/relatedIssueCounts/" + version + ".json");
 
-        return false;
+        return true;
     }
 
 }

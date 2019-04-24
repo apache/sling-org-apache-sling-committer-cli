@@ -17,12 +17,14 @@
 package org.apache.sling.cli.impl.jira;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertThat;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.sling.cli.impl.CredentialsService;
@@ -102,5 +104,12 @@ public class VersionClientTest {
     @Test(expected = IOException.class)
     public void illegalVersionFails() throws IOException {
         versionClient.create("");
+    }
+    
+    @Test
+    public void findUnresolvedIssuesForVersion() throws IOException {
+        List<Issue> issues = versionClient.findUnresolvedIssues(Release.fromString("Committer CLI 1.0.0").get(0));
+        
+        assertThat(issues, hasSize(2));
     }
 }
