@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.text.Collator;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -77,47 +78,46 @@ public class TallyVotesCommand implements Command {
         try {
             
             StagingRepository repository = repoFinder.find(Integer.parseInt(target));
-            String releaseName = Release.fromString(repository.getDescription())
-                    .stream()
-                    .map(Release::getName)
-                    .collect(Collectors.joining(", "));
-            String releaseFullName = Release.fromString(repository.getDescription())
-                    .stream()
-                    .map(Release::getFullName)
-                    .collect(Collectors.joining(", "));
-
+            List<Release> releases = Release.fromString(repository.getDescription());
+            String releaseName = releases.stream().map(Release::getName).collect(Collectors.joining(", "));
+            String releaseFullName = releases.stream().map(Release::getFullName).collect(Collectors.joining(", "));
             Set<String> bindingVoters = new LinkedHashSet<>();
             Set<String> nonBindingVoters = new LinkedHashSet<>();
             Collator collator = Collator.getInstance(Locale.US);
             collator.setDecomposition(Collator.NO_DECOMPOSITION);
-            voteThreadFinder.findVoteThread(releaseName).stream().skip(1).filter(this::isPositiveVote).forEachOrdered(
-                    email -> {
-                        String from = email.getFrom().getAddress();
-                        String name = email.getFrom().getPersonal();
-                        Member m = membersFinder.findByNameOrEmail(name, from);
-                        if (m != null) {
-                            if (m.isPMCMember()) {
-                                bindingVoters.add(m.getName());
-                            } else {
-                                nonBindingVoters.add(m.getName());
-                            }
-                        } else {
-                            nonBindingVoters.add(name);
-                        }
-                    }
-            );
-
-            String email = EMAIL_TEMPLATE
-                .replace("##RELEASE_NAME##", releaseFullName)
-                .replace("##BINDING_VOTERS##", String.join(", ", bindingVoters))
-                .replace("##USER_NAME##", membersFinder.getCurrentMember().getName());
-            if (nonBindingVoters.isEmpty()) {
-                email = email.replace("##NON_BINDING_VOTERS##", "none");
+            List<Email> emailThread = voteThreadFinder.findVoteThread(releaseName);
+            if (emailThread.isEmpty()) {
+                logger.error("Could not find a corresponding email voting thread for release \"{}\".", releaseName);
             } else {
-                email = email.replace("##NON_BINDING_VOTERS##", String.join(", ", nonBindingVoters));
-            }
+                emailThread.stream().skip(1).filter(this::isPositiveVote).forEachOrdered(
+                        email -> {
+                            String from = email.getFrom().getAddress();
+                            String name = email.getFrom().getPersonal();
+                            Member m = membersFinder.findByNameOrEmail(name, from);
+                            if (m != null) {
+                                if (m.isPMCMember()) {
+                                    bindingVoters.add(m.getName());
+                                } else {
+                                    nonBindingVoters.add(m.getName());
+                                }
+                            } else {
+                                nonBindingVoters.add(name);
+                            }
+                        }
+                );
 
-            logger.info(email);
+                String email = EMAIL_TEMPLATE
+                        .replace("##RELEASE_NAME##", releaseFullName)
+                        .replace("##BINDING_VOTERS##", String.join(", ", bindingVoters))
+                        .replace("##USER_NAME##", membersFinder.getCurrentMember().getName());
+                if (nonBindingVoters.isEmpty()) {
+                    email = email.replace("##NON_BINDING_VOTERS##", "none");
+                } else {
+                    email = email.replace("##NON_BINDING_VOTERS##", String.join(", ", nonBindingVoters));
+                }
+
+                logger.info(email);
+            }
             
         } catch (IOException e) {
             logger.warn("Command execution failed", e);

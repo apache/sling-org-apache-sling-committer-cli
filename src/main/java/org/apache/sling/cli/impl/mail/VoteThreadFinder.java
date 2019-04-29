@@ -37,28 +37,36 @@ import com.google.gson.JsonParser;
 
 @Component(service = VoteThreadFinder.class)
 public class VoteThreadFinder {
-    
+
     public List<Email> findVoteThread(String releaseName) throws IOException {
-        try ( CloseableHttpClient client = HttpClients.createDefault() ) {
-            
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            String threadSubject = "[VOTE] Release " + releaseName;
             URI uri = new URIBuilder("https://lists.apache.org/api/stats.lua")
-                .addParameter("domain", "sling.apache.org")
-                .addParameter("list", "dev")
-                .addParameter("d", "lte=1M")
-                .addParameter("q", "[VOTE] Release " + releaseName)
-                .build();
-            
+                    .addParameter("domain", "sling.apache.org")
+                    .addParameter("list", "dev")
+                    .addParameter("d", "lte=1M")
+                    .addParameter("q", threadSubject)
+                    .build();
+
             HttpGet get = new HttpGet(uri);
-            try ( CloseableHttpResponse response = client.execute(get)) {
-                try ( InputStream content = response.getEntity().getContent();
-                        InputStreamReader reader = new InputStreamReader(content)) {
-                    if ( response.getStatusLine().getStatusCode() != 200 )
+            try (CloseableHttpResponse response = client.execute(get)) {
+                try (InputStream content = response.getEntity().getContent();
+                     InputStreamReader reader = new InputStreamReader(content)) {
+                    if (response.getStatusLine().getStatusCode() != 200) {
                         throw new IOException("Status line : " + response.getStatusLine());
+                    }
                     JsonParser parser = new JsonParser();
-                    JsonArray emailsArray = parser.parse(reader).getAsJsonObject().get("emails").getAsJsonArray();
                     List<Email> emails = new ArrayList<>();
-                    for (JsonElement email : emailsArray) {
-                        emails.add(new Email(email.getAsJsonObject().get("id").getAsString()));
+                    JsonElement emailsJson = parser.parse(reader).getAsJsonObject().get("emails");
+                    if (emailsJson == null) {
+                        throw new IllegalStateException(String.format("Unable to correctly parse JSON from %s. Missing \"emails\" " +
+                                "property in the JSON response.", uri.toString()));
+                    }
+                    if (emailsJson.isJsonArray()) {
+                        JsonArray emailsArray = emailsJson.getAsJsonArray();
+                        for (JsonElement email : emailsArray) {
+                            emails.add(new Email(email.getAsJsonObject().get("id").getAsString()));
+                        }
                     }
                     return emails;
                 }
