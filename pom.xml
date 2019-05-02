@@ -24,7 +24,9 @@
     <artifactId>sling-cli</artifactId>
     <version>1.0-SNAPSHOT</version>
 
-    <description>Apache Sling Committer CLI</description>
+    <name>Apache Sling Committer CLI</name>
+    <description>Apache Sling Committer CLI provides a Docker image with which useful pre- and post-release steps for Apache
+        Sling can be executed.</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -33,6 +35,26 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>enforce-java-version</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>11</version>
+                                    <message>${project.name} must be compiled with Java 11 or higher.</message>
+                                </requireJavaVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <artifactId>maven-clean-plugin</artifactId>
                 <configuration>
