@@ -25,6 +25,8 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import javax.mail.internet.InternetAddress;
+
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.mail.Email;
 import org.apache.sling.cli.impl.mail.VoteThreadFinder;
@@ -44,11 +46,20 @@ import org.slf4j.LoggerFactory;
 })
 public class TallyVotesCommand implements Command {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(TallyVotesCommand.class);
+
     @Reference
     private MembersFinder membersFinder;
 
+    @Reference
+    private StagingRepositoryFinder repoFinder;
+
+    @Reference
+    private VoteThreadFinder voteThreadFinder;
+
     // TODO - move to file
     private static final String EMAIL_TEMPLATE =
+            "From: ##FROM## \n" +
             "To: \"Sling Developers List\" <dev@sling.apache.org>\n" + 
             "Subject: [RESULT] [VOTE] Release ##RELEASE_NAME##\n" + 
             "\n" + 
@@ -65,14 +76,7 @@ public class TallyVotesCommand implements Command {
             "Regards,\n" +
             "##USER_NAME##\n" +
             "\n";
-    private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    @Reference
-    private StagingRepositoryFinder repoFinder;
-    
-    @Reference
-    private VoteThreadFinder voteThreadFinder;
-    
     @Override
     public void execute(String target) {
         try {
@@ -87,7 +91,7 @@ public class TallyVotesCommand implements Command {
             collator.setDecomposition(Collator.NO_DECOMPOSITION);
             List<Email> emailThread = voteThreadFinder.findVoteThread(releaseName);
             if (emailThread.isEmpty()) {
-                logger.error("Could not find a corresponding email voting thread for release \"{}\".", releaseName);
+                LOGGER.error("Could not find a corresponding email voting thread for release \"{}\".", releaseName);
             } else {
                 emailThread.stream().skip(1).filter(this::isPositiveVote).forEachOrdered(
                         email -> {
@@ -105,8 +109,9 @@ public class TallyVotesCommand implements Command {
                             }
                         }
                 );
-
+                Member currentMember = membersFinder.getCurrentMember();
                 String email = EMAIL_TEMPLATE
+                        .replace("##FROM##", new InternetAddress(currentMember.getEmail(), currentMember.getName()).toUnicodeString())
                         .replace("##RELEASE_NAME##", releaseFullName)
                         .replace("##BINDING_VOTERS##", String.join(", ", bindingVoters))
                         .replace("##USER_NAME##", membersFinder.getCurrentMember().getName());
@@ -116,11 +121,11 @@ public class TallyVotesCommand implements Command {
                     email = email.replace("##NON_BINDING_VOTERS##", String.join(", ", nonBindingVoters));
                 }
 
-                logger.info(email);
+                LOGGER.info(email);
             }
             
         } catch (IOException e) {
-            logger.warn("Command execution failed", e);
+            LOGGER.warn("Command execution failed", e);
         }
     }
 
