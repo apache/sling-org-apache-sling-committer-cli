@@ -20,7 +20,7 @@ package org.apache.sling.cli.impl.release;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.jira.Version;
-import org.apache.sling.cli.impl.jira.VersionFinder;
+import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.apache.sling.cli.impl.people.Member;
@@ -67,16 +67,16 @@ public class PrepareVoteEmailCommandTest {
         StagingRepositoryFinder stagingRepositoryFinder = mock(StagingRepositoryFinder.class);
         when(stagingRepositoryFinder.find(123)).thenReturn(stagingRepository);
 
-        VersionFinder versionFinder = mock(VersionFinder.class);
+        VersionClient versionFinder = mock(VersionClient.class);
         Version version = mock(Version.class);
         when(version.getName()).thenReturn("CLI Test 1.0.0");
         when(version.getId()).thenReturn(1);
         when(version.getIssuesFixedCount()).thenReturn(42);
-        when(versionFinder.find("CLI Test 1.0.0")).thenReturn(version);
+        when(versionFinder.find(Release.fromString("CLI Test 1.0.0").get(0))).thenReturn(version);
 
         osgiContext.registerService(MembersFinder.class, membersFinder);
         osgiContext.registerService(StagingRepositoryFinder.class, stagingRepositoryFinder);
-        osgiContext.registerService(VersionFinder.class, versionFinder);
+        osgiContext.registerService(VersionClient.class, versionFinder);
 
         osgiContext.registerInjectActivateService(new PrepareVoteEmailCommand());
 

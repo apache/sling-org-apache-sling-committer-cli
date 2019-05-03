@@ -16,38 +16,30 @@
  */
 package org.apache.sling.cli.impl.jira;
 
-public class Version {
-    private int id;
-    private String name;
-    private int issuesFixedCount;
+import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-    public int getId() {
-        return id;
-    }
+import com.sun.net.httpserver.HttpExchange;
 
-    public void setId(int id) {
-        this.id = id;
-    }
+public class GetRelatedIssueCountsForVersionsJiraAction implements JiraAction {
 
-    public String getName() {
-        return name;
-    }
+    private static final Pattern VERSION_RELATED_ISSUES = Pattern.compile("^/jira/rest/api/2/version/(\\d+)/relatedIssueCounts$");
 
-    public void setName(String name) {
-        this.name = name;
-    }
-    
-    public int getIssuesFixedCount() {
-        return issuesFixedCount;
-    }
-    
-    public void setRelatedIssuesCount(int relatedIssuesCount) {
-        this.issuesFixedCount = relatedIssuesCount;
-    }
-    
     @Override
-    public String toString() {
+    public boolean tryHandle(HttpExchange ex) throws IOException {
+        if ( !ex.getRequestMethod().equals("GET") )
+            return false;
+
+        Matcher matcher = VERSION_RELATED_ISSUES.matcher(ex.getRequestURI().getPath());
+        if ( !matcher.matches() )
+            return false;
         
-        return "Version: " + name + " (id=" + id+", fixed issues="+issuesFixedCount+")";
+        int version = Integer.parseInt(matcher.group(1));
+        
+        serveFileFromClasspath(ex, "/jira/relatedIssueCounts/" + version + ".json");
+
+        return true;
     }
+
 }

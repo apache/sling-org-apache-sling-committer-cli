@@ -16,38 +16,28 @@
  */
 package org.apache.sling.cli.impl.jira;
 
-public class Version {
-    private int id;
-    private String name;
-    private int issuesFixedCount;
+import static org.hamcrest.Matchers.equalTo;
+import static org.junit.Assert.assertThat;
 
-    public int getId() {
-        return id;
-    }
+import org.junit.Test;
 
-    public void setId(int id) {
-        this.id = id;
-    }
+import com.google.gson.Gson;
 
-    public String getName() {
-        return name;
-    }
+/**
+ * Validates that the JSON output is the same as the one expected by Jira
+ * 
+ * 
+ */
+public class IssueUpdateTest {
 
-    public void setName(String name) {
-        this.name = name;
-    }
-    
-    public int getIssuesFixedCount() {
-        return issuesFixedCount;
-    }
-    
-    public void setRelatedIssuesCount(int relatedIssuesCount) {
-        this.issuesFixedCount = relatedIssuesCount;
-    }
-    
-    @Override
-    public String toString() {
+    @Test
+    public void serialisation() {
+        IssueUpdate up = new IssueUpdate();
+        up.recordAdd("fixVersions", "XSS API 1.0.2");
+        up.recordRemove("fixVersions", "XSS API 1.0.0");
         
-        return "Version: " + name + " (id=" + id+", fixed issues="+issuesFixedCount+")";
+        String out = new Gson().toJson(up);
+        
+        assertThat(out, equalTo("{\"update\":{\"fixVersions\":[{\"add\":{\"name\":\"XSS API 1.0.2\"}},{\"remove\":{\"name\":\"XSS API 1.0.0\"}}]}}"));
     }
 }

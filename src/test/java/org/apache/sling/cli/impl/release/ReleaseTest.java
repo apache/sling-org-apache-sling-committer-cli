@@ -27,7 +27,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class ReleaseTest {
@@ -91,5 +90,20 @@ public class ReleaseTest {
         reader.close();
     }
 
+    @Test
+    public void nextVersion() {
+        Release release = Release.fromString("Apache Sling Foo 1.0.2").get(0);
+        Release next = release.next();
+        
+        assertEquals("Apache Sling Foo 1.0.4", next.getFullName());
+    }
+    
+    @Test
+    public void nextVersionWithSingleNumber() {
+        Release release = Release.fromString("Apache Sling Bar 2").get(0);
+        Release next = release.next();
+        
+        assertEquals("Apache Sling Bar 3", next.getFullName());
+    }
 
 }

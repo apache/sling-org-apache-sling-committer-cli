@@ -16,38 +16,30 @@
  */
 package org.apache.sling.cli.impl.jira;
 
-public class Version {
-    private int id;
-    private String name;
-    private int issuesFixedCount;
+public class Issue {
 
+    private int id;
+    private String key;
+    private Fields fields;
+    
     public int getId() {
         return id;
     }
-
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
+    
+    public String getKey() {
+        return key;
     }
     
-    public int getIssuesFixedCount() {
-        return issuesFixedCount;
+    public String getSummary() {
+        return fields.summary;
     }
     
-    public void setRelatedIssuesCount(int relatedIssuesCount) {
-        this.issuesFixedCount = relatedIssuesCount;
+    static class Fields {
+        private String summary;    
     }
     
     @Override
     public String toString() {
-        
-        return "Version: " + name + " (id=" + id+", fixed issues="+issuesFixedCount+")";
+        return getClass().getSimpleName() + "[" +  key + " : " + getSummary() + " ]"; 
     }
 }

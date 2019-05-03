@@ -16,38 +16,21 @@
  */
 package org.apache.sling.cli.impl.jira;
 
-public class Version {
-    private int id;
-    private String name;
-    private int issuesFixedCount;
+import java.io.IOException;
 
-    public int getId() {
-        return id;
-    }
+import com.sun.net.httpserver.HttpExchange;
 
-    public void setId(int id) {
-        this.id = id;
-    }
+public class ListVersionsJiraAction implements JiraAction {
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-    
-    public int getIssuesFixedCount() {
-        return issuesFixedCount;
-    }
-    
-    public void setRelatedIssuesCount(int relatedIssuesCount) {
-        this.issuesFixedCount = relatedIssuesCount;
-    }
-    
     @Override
-    public String toString() {
+    public boolean tryHandle(HttpExchange ex) throws IOException {
         
-        return "Version: " + name + " (id=" + id+", fixed issues="+issuesFixedCount+")";
+        if ( !ex.getRequestMethod().equals("GET") ||
+                !ex.getRequestURI().getPath().equals("/jira/rest/api/2/project/SLING/versions")) {
+            return false;
+        }
+        
+        serveFileFromClasspath(ex, "/jira/versions.json");
+        return true;
     }
 }

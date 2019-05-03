@@ -16,38 +16,21 @@
  */
 package org.apache.sling.cli.impl.jira;
 
-public class Version {
-    private int id;
-    private String name;
-    private int issuesFixedCount;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-    public int getId() {
-        return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
+class ErrorResponse {
+    
+    private List<String> errorMessages = new ArrayList<>();
+    private Map<String, String> errors = new HashMap<>();
+    
+    public List<String> getErrorMessages() {
+        return errorMessages;
     }
     
-    public int getIssuesFixedCount() {
-        return issuesFixedCount;
-    }
-    
-    public void setRelatedIssuesCount(int relatedIssuesCount) {
-        this.issuesFixedCount = relatedIssuesCount;
-    }
-    
-    @Override
-    public String toString() {
-        
-        return "Version: " + name + " (id=" + id+", fixed issues="+issuesFixedCount+")";
+    public Map<String, String> getErrors() {
+        return errors;
     }
 }

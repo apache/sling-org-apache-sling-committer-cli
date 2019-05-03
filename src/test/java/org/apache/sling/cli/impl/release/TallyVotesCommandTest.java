@@ -71,7 +71,7 @@ public class TallyVotesCommandTest {
         when(LoggerFactory.getLogger(TallyVotesCommand.class)).thenReturn(logger);
 
         CredentialsService credentialsService = mock(CredentialsService.class);
-        when(credentialsService.getCredentials()).thenReturn(new Credentials("johndoe", "secret"));
+        when(credentialsService.getAsfCredentials()).thenReturn(new Credentials("johndoe", "secret"));
 
         MembersFinder membersFinder = spy(new MembersFinder());
         Set<Member> members = new HashSet<>(){{

@@ -12,3 +12,6 @@
 # ----------------------------------------------------------------------------------------
 ASF_USERNAME=changeme
 ASF_PASSWORD=changeme
+
+JIRA_USERNAME=changeme
+JIRA_PASSWORD=changeme

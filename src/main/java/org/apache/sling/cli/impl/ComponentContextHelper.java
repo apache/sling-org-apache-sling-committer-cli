@@ -14,40 +14,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.sling.cli.impl.jira;
+package org.apache.sling.cli.impl;
 
-public class Version {
-    private int id;
-    private String name;
-    private int issuesFixedCount;
+import org.osgi.service.component.ComponentContext;
 
-    public int getId() {
-        return id;
+public class ComponentContextHelper {
+
+    public static ComponentContextHelper wrap(ComponentContext wrapped) {
+   
+        return new ComponentContextHelper(wrapped);
     }
 
-    public void setId(int id) {
-        this.id = id;
-    }
+    private final ComponentContext wrapped;
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
+    public ComponentContextHelper(ComponentContext wrapped) {
+        this.wrapped = wrapped;
     }
     
-    public int getIssuesFixedCount() {
-        return issuesFixedCount;
-    }
-    
-    public void setRelatedIssuesCount(int relatedIssuesCount) {
-        this.issuesFixedCount = relatedIssuesCount;
-    }
-    
-    @Override
-    public String toString() {
+    public String getProperty(String name, String fallback) {
+        Object prop = wrapped.getProperties().get(name);
+        if ( prop != null) {
+            return prop.toString();
+        }
         
-        return "Version: " + name + " (id=" + id+", fixed issues="+issuesFixedCount+")";
+        return fallback;
+    }
+    
+    public int getProperty(String name, int fallback) {
+        
+        return Integer.parseInt(getProperty(name, String.valueOf(fallback)));
     }
 }

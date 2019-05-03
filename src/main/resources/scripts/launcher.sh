@@ -31,4 +31,6 @@ exec /opt/jre/bin/java \
     -c /usr/share/sling-cli/artifacts \
     -D "$ARGS_PROP" \
     -V "asf.username=${ASF_USERNAME}" \
-    -V "asf.password=${ASF_PASSWORD}"
+    -V "asf.password=${ASF_PASSWORD}" \
+    -V "jira.username=${JIRA_USERNAME}" \
+    -V "jira.password=${JIRA_PASSWORD}"

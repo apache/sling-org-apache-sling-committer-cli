@@ -24,7 +24,7 @@ import javax.mail.internet.InternetAddress;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.jira.Version;
-import org.apache.sling.cli.impl.jira.VersionFinder;
+import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.apache.sling.cli.impl.people.Member;
@@ -41,15 +41,6 @@ import org.slf4j.LoggerFactory;
 public class PrepareVoteEmailCommand implements Command {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PrepareVoteEmailCommand.class);
-
-    @Reference
-    private MembersFinder membersFinder;
-
-    @Reference
-    private StagingRepositoryFinder repoFinder;
-
-    @Reference
-    private VersionFinder versionFinder;
 
     // TODO - replace with file template
     private static final String EMAIL_TEMPLATE =
@@ -87,6 +78,15 @@ public class PrepareVoteEmailCommand implements Command {
     private static final String RELEASE_TEMPLATE = 
             "https://issues.apache.org/jira/browse/SLING/fixforversion/##VERSION_ID##";
 
+    @Reference
+    private MembersFinder membersFinder;
+
+    @Reference
+    private StagingRepositoryFinder repoFinder;
+    
+    @Reference
+    private VersionClient versionFinder;
+
     @Override
     public void execute(String target) {
         try {
@@ -94,7 +94,7 @@ public class PrepareVoteEmailCommand implements Command {
             StagingRepository repo = repoFinder.find(repoId);
             List<Release> releases = Release.fromString(repo.getDescription());
             List<Version> versions = releases.stream()
-                    .map( r -> versionFinder.find(r.getName()))
+                    .map( r -> versionFinder.find(r))
                     .collect(Collectors.toList());
             
             String releaseName = releases.stream()

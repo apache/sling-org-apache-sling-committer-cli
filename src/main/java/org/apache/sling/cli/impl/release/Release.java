@@ -22,6 +22,9 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Provides structured access to the components of a release name.
+ */
 public final class Release {
 
     /*
@@ -70,22 +73,69 @@ public final class Release {
         
     }
     
+    /**
+     * Returns the full name, e.g. <em>Apache Sling Foo 1.0.2</em>
+     * 
+     * @return the full name
+     */
     public String getFullName() {
         return fullName;
     }
     
+    /**
+     * Returns the name, e.g. <em>Foo 1.0.2</em>
+     * 
+     * @return the name
+     */
     public String getName() {
         return name;
     }
     
+    /**
+     * Returns the version, e.g. <em>1.0.2</em>
+     * 
+     * @return the version 
+     */
     public String getVersion() {
         return version;
     }
 
+    /**
+     * Returns the component, e.g. <tt>Foo</tt>
+     * 
+     * @return the component
+     */
     public String getComponent() {
         return component;
     }
 
+    /**
+     * Creates a new Release object that corresponds to the next release name
+     * 
+     * <p>The next object is identical to <tt>this</tt> object, except the fact that the
+     * micro component of the version is increased by two.</P>
+     * 
+     * <p>For instance, the next version of <tt>Apache Sling Foo 1.0.2</tt> is <tt>Apache Sling Foo 1.0.4</tt>.</p>
+     * 
+     * @return the next release
+     */
+    public Release next() {
+        
+        // assumption is that the release object is well-formed
+        int lastSeparator = fullName.lastIndexOf('.'); // Apache Sling Foo 1.0.2 -> 1.0.4
+        int increment = 2;
+        if ( lastSeparator == -1 ) {
+            lastSeparator = fullName.lastIndexOf(' '); // Apache Sling Bar 2 -> 3
+            increment = 1;
+        }
+        
+        int componentToIncrement = Integer.parseInt(fullName.substring(lastSeparator + 1));
+        
+        String unchangedPart = fullName.substring(0, lastSeparator + 1);
+        
+        return Release.fromString(unchangedPart + ( componentToIncrement + increment )).get(0);
+    }
+    
     @Override
     public int hashCode() {
         return fullName.hashCode();
