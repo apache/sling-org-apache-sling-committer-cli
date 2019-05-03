@@ -22,6 +22,7 @@ import java.io.InputStreamReader;
 import java.io.StringWriter;
 import java.lang.reflect.Type;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -139,9 +140,7 @@ public class VersionClient {
             jw.endObject();
         }
         
-        HttpPost post = new HttpPost(jiraUrlPrefix + "version");
-        post.addHeader("Content-Type", CONTENT_TYPE_JSON);
-        post.addHeader("Accept", CONTENT_TYPE_JSON);
+        HttpPost post = newPost("version");
         post.setEntity(new StringEntity(w.toString()));
 
         try (CloseableHttpClient client = httpClientFactory.newClient()) {
@@ -155,6 +154,13 @@ public class VersionClient {
                 }
             }
         }
+    }
+
+    private HttpPost newPost(String suffix) {
+        HttpPost post = new HttpPost(jiraUrlPrefix + suffix);
+        post.addHeader("Content-Type", CONTENT_TYPE_JSON);
+        post.addHeader("Accept", CONTENT_TYPE_JSON);
+        return post;
     }
     
     public List<Issue> findUnresolvedIssues(Release release) throws IOException {
@@ -283,5 +289,39 @@ public class VersionClient {
         public void setIssuesFixedCount(int issuesFixedCount) {
             this.issuesFixedCount = issuesFixedCount;
         }
+    }
+
+    public void moveIssuesToNewVersion(Version oldVersion, Version newVersion, List<Issue> issues) {
+        issues.stream()
+            .forEach( i -> moveIssueToNewVersion(oldVersion, newVersion, i));
+        
+    }
+    
+    private void moveIssueToNewVersion(Version oldVersion, Version newVersion, Issue issue) {
+        try {
+            StringWriter w = new StringWriter();
+            
+            IssueUpdate update = new IssueUpdate();
+            update.recordAdd("fixVersions", newVersion.getName());
+            update.recordRemove("fixVersions", oldVersion.getName());
+            
+            HttpPost post = newPost("issue/" + issue.getKey());
+            post.setEntity(new StringEntity(w.toString(), StandardCharsets.UTF_8));
+
+            try (CloseableHttpClient client = httpClientFactory.newClient()) {
+                try (CloseableHttpResponse response = client.execute(post)) {
+                    try (InputStream content = response.getEntity().getContent();
+                            InputStreamReader reader = new InputStreamReader(content)) {
+                        
+                        if (response.getStatusLine().getStatusCode() != 204) {
+                            throw newException(response, reader);
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        // '{"update":{"fixVersions":[{"add":{"name":"6.5 L19"}},{"remove":{"name":"6.5 L17"}}]}}'
     }
 }

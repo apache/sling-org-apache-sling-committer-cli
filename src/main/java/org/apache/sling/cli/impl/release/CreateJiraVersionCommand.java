@@ -17,8 +17,10 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
@@ -57,8 +59,17 @@ public class CreateJiraVersionCommand implements Command {
                     logger.info("Would create version {}", next.getName());
                     versionClient.create(next.getName());
                     logger.info("Created version {}", next.getName());
+                    successorVersion = versionClient.findSuccessorVersion(release);
                 }
-                    
+                
+                List<Issue> unresolvedIssues = versionClient.findUnresolvedIssues(release);
+                if ( !unresolvedIssues.isEmpty() ) {
+                    logger.info("Will move {} unresolved issues from version {} to version {} :", 
+                            unresolvedIssues.isEmpty(), version.getName(), successorVersion.getName());
+                    unresolvedIssues.stream()
+                        .forEach( i -> logger.info("- {} : {}", i.getKey(), i.getSummary()));
+                    versionClient.moveIssuesToNewVersion(version, successorVersion, unresolvedIssues);
+                }
             }
         } catch (IOException e) {
             logger.warn("Failed executing command", e);
