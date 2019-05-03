@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import javax.mail.internet.InternetAddress;
 
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.mail.Email;
 import org.apache.sling.cli.impl.mail.VoteThreadFinder;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
@@ -78,10 +79,10 @@ public class TallyVotesCommand implements Command {
             "\n";
 
     @Override
-    public void execute(String target) {
+    public void execute(ExecutionContext context) {
         try {
             
-            StagingRepository repository = repoFinder.find(Integer.parseInt(target));
+            StagingRepository repository = repoFinder.find(Integer.parseInt(context.getTarget()));
             List<Release> releases = Release.fromString(repository.getDescription());
             String releaseName = releases.stream().map(Release::getName).collect(Collectors.joining(", "));
             String releaseFullName = releases.stream().map(Release::getFullName).collect(Collectors.joining(", "));

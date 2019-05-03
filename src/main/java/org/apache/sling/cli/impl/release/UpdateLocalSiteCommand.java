@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.jbake.JBakeContentUpdater;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
@@ -51,14 +52,12 @@ public class UpdateLocalSiteCommand implements Command {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     
     @Override
-    public void execute(String target) {
-        
-        
+    public void execute(ExecutionContext context) {
         try {
             ensureRepo();
             try ( Git git = Git.open(new File(GIT_CHECKOUT)) ) {
                 
-                StagingRepository repository = repoFinder.find(Integer.parseInt(target));
+                StagingRepository repository = repoFinder.find(Integer.parseInt(context.getTarget()));
                 List<Release> releases = Release.fromString(repository.getDescription());
                 
                 JBakeContentUpdater updater = new JBakeContentUpdater();

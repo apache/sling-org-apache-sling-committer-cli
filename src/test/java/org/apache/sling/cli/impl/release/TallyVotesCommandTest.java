@@ -28,6 +28,7 @@ import javax.mail.internet.InternetAddress;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.Credentials;
 import org.apache.sling.cli.impl.CredentialsService;
+import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.mail.Email;
 import org.apache.sling.cli.impl.mail.VoteThreadFinder;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
@@ -110,7 +111,7 @@ public class TallyVotesCommandTest {
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        command.execute("123");
+        command.execute(new ExecutionContext("123", null));
         verify(logger).info(
                 "From: John Doe <johndoe@apache.org> \n" +
                 "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +

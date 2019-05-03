@@ -23,8 +23,12 @@ import java.util.stream.Collectors;
 import javax.mail.internet.InternetAddress;
 
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.ExecutionContext;
+import org.apache.sling.cli.impl.InputOption;
+import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
+import org.apache.sling.cli.impl.mail.Mailer;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.apache.sling.cli.impl.people.Member;
@@ -42,6 +46,18 @@ public class PrepareVoteEmailCommand implements Command {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PrepareVoteEmailCommand.class);
 
+    @Reference
+    private MembersFinder membersFinder;
+
+    @Reference
+    private StagingRepositoryFinder repoFinder;
+
+    @Reference
+    private VersionClient versionClient;
+
+    @Reference
+    private Mailer mailer;
+
     // TODO - replace with file template
     private static final String EMAIL_TEMPLATE =
             "From: ##FROM##\n" +
@@ -51,64 +67,54 @@ public class PrepareVoteEmailCommand implements Command {
             "Hi,\n" + 
             "\n" + 
             "We solved ##FIXED_ISSUES_COUNT## issue(s) in ##RELEASE_OR_RELEASES##:\n" +
-            "\n" + 
             "##RELEASE_JIRA_LINKS##\n" +
-            "\n" + 
-            "Staging repository:\n" + 
-            "https://repository.apache.org/content/repositories/orgapachesling-##RELEASE_ID##/\n" + 
-            "\n" + 
-            "You can use this UNIX script to download the release and verify the signatures:\n" + 
-            "https://gitbox.apache.org/repos/asf?p=sling-tooling-release.git;a=blob;f=check_staged_release.sh;hb=HEAD\n" + 
-            "\n" + 
-            "Usage:\n" + 
-            "sh check_staged_release.sh ##RELEASE_ID## /tmp/sling-staging\n" + 
-            "\n" + 
-            "Please vote to approve this release:\n" + 
-            "\n" + 
-            "  [ ] +1 Approve the release\n" + 
-            "  [ ]  0 Don't care\n" + 
-            "  [ ] -1 Don't release, because ...\n" + 
-            "\n" + 
+            "\n" +
+            "Staging repository:\n" +
+            "https://repository.apache.org/content/repositories/orgapachesling-##RELEASE_ID##/\n" +
+            "\n" +
+            "You can use this UNIX script to download the release and verify the signatures:\n" +
+            "https://gitbox.apache.org/repos/asf?p=sling-tooling-release.git;a=blob;f=check_staged_release.sh;hb=HEAD\n" +
+            "\n" +
+            "Usage:\n" +
+            "sh check_staged_release.sh ##RELEASE_ID## /tmp/sling-staging\n" +
+            "\n" +
+            "Please vote to approve this release:\n" +
+            "\n" +
+            "  [ ] +1 Approve the release\n" +
+            "  [ ]  0 Don't care\n" +
+            "  [ ] -1 Don't release, because ...\n" +
+            "\n" +
             "This majority vote is open for at least 72 hours.\n" +
             "\n" +
             "Regards,\n" +
             "##USER_NAME##\n" +
             "\n";
 
-    private static final String RELEASE_TEMPLATE = 
+    private static final String RELEASE_TEMPLATE =
             "https://issues.apache.org/jira/browse/SLING/fixforversion/##VERSION_ID##";
 
-    @Reference
-    private MembersFinder membersFinder;
-
-    @Reference
-    private StagingRepositoryFinder repoFinder;
-    
-    @Reference
-    private VersionClient versionFinder;
-
     @Override
-    public void execute(String target) {
+    public void execute(ExecutionContext context) {
         try {
-            int repoId = Integer.parseInt(target);
+            int repoId = Integer.parseInt(context.getTarget());
             StagingRepository repo = repoFinder.find(repoId);
             List<Release> releases = Release.fromString(repo.getDescription());
             List<Version> versions = releases.stream()
-                    .map( r -> versionFinder.find(r))
+                    .map( r -> versionClient.find(r))
                     .collect(Collectors.toList());
-            
+
             String releaseName = releases.stream()
                     .map( Release::getFullName )
                     .collect(Collectors.joining(", "));
-            
+
             int fixedIssueCounts = versions.stream().mapToInt( Version::getIssuesFixedCount).sum();
             String releaseOrReleases = versions.size() > 1 ?
                     "these releases" : "this release";
-            
+
             String releaseJiraLinks = versions.stream()
                 .map( v -> RELEASE_TEMPLATE.replace("##VERSION_ID##", String.valueOf(v.getId())))
                 .collect(Collectors.joining("\n"));
-                
+
             Member currentMember = membersFinder.getCurrentMember();
             String emailContents = EMAIL_TEMPLATE
                     .replace("##FROM##", new InternetAddress(currentMember.getEmail(), currentMember.getName()).toString())
@@ -118,9 +124,30 @@ public class PrepareVoteEmailCommand implements Command {
                     .replace("##RELEASE_JIRA_LINKS##", releaseJiraLinks)
                     .replace("##FIXED_ISSUES_COUNT##", String.valueOf(fixedIssueCounts))
                     .replace("##USER_NAME##", currentMember.getName());
-                    
-            LOGGER.info(emailContents);
-
+            switch (context.getMode()) {
+                case DRY_RUN:
+                    LOGGER.info("The following email would be sent from your @apache.org address (see the \"From:\" header):\n");
+                    LOGGER.info(emailContents);
+                    break;
+                case INTERACTIVE:
+                    String question ="Should the following email be sent from your @apache.org address (see the" +
+                            " \"From:\" header)?\n\n" + emailContents;
+                    InputOption answer = UserInput.yesNo(question, InputOption.YES);
+                    if (InputOption.YES.equals(answer)) {
+                        LOGGER.info("Sending email...");
+                        mailer.send(emailContents);
+                        LOGGER.info("Done!");
+                    } else if (InputOption.NO.equals(answer)) {
+                        LOGGER.info("Aborted.");
+                    }
+                    break;
+                case AUTO:
+                    LOGGER.info(emailContents);
+                    LOGGER.info("Sending email...");
+                    mailer.send(emailContents);
+                    LOGGER.info("Done!");
+                    break;
+            }
         } catch (IOException e) {
             LOGGER.warn("Failed executing command", e);
         }

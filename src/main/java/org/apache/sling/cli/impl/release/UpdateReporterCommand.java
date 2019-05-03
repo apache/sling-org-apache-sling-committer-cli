@@ -32,6 +32,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
@@ -57,11 +58,10 @@ public class UpdateReporterCommand implements Command {
     @Reference
     private HttpClientFactory httpClientFactory;
 
-
     @Override
-    public void execute(String target) {
+    public void execute(ExecutionContext context) {
         try {
-            StagingRepository repository = repoFinder.find(Integer.parseInt(target));
+            StagingRepository repository = repoFinder.find(Integer.parseInt(context.getTarget()));
             
             try (CloseableHttpClient client = httpClientFactory.newClient() ) {
                 for ( Release release : Release.fromString(repository.getDescription()) ) {
@@ -83,7 +83,7 @@ public class UpdateReporterCommand implements Command {
                 }
             }
         } catch (IOException e) {
-            LOGGER.error(String.format("Unable to update reporter service; passed command: %s.", target), e);
+            LOGGER.error(String.format("Unable to update reporter service; passed command: %s.", context.getTarget()), e);
         }
 
     }

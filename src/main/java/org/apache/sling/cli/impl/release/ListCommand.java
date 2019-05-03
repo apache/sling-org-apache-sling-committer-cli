@@ -19,6 +19,7 @@ package org.apache.sling.cli.impl.release;
 import java.io.IOException;
 
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -37,7 +38,7 @@ public class ListCommand implements Command {
     private StagingRepositoryFinder repoFinder;
 
     @Override
-    public void execute(String target) {
+    public void execute(ExecutionContext context) {
         try {
             repoFinder.list().stream()
                 .forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), r.getDescription()));

@@ -18,22 +18,17 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package org.apache.sling.cli.impl.mail;
 
-import java.io.UnsupportedEncodingException;
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 
-import javax.mail.Address;
-import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.Session;
 import javax.mail.Transport;
-import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 
 import org.apache.sling.cli.impl.Credentials;
 import org.apache.sling.cli.impl.CredentialsService;
-import org.apache.sling.cli.impl.people.Member;
-import org.apache.sling.cli.impl.people.MembersFinder;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -57,23 +52,15 @@ public class Mailer {
     @Reference
     private CredentialsService credentialsService;
 
-    @Reference
-    private MembersFinder membersFinder;
-
-    public void send(String to, String subject, String body) {
+    public void send(String source) {
         Properties properties = new Properties(SMTP_PROPERTIES);
         Session session = Session.getInstance(properties);
         try {
-            MimeMessage message = new MimeMessage(session);
-            Member sender = membersFinder.getCurrentMember();
+            MimeMessage message = new MimeMessage(session, new ByteArrayInputStream(source.getBytes(StandardCharsets.UTF_8)));
             Credentials credentials = credentialsService.getAsfCredentials();
-            message.setFrom(new InternetAddress(sender.getEmail(), sender.getEmail(), StandardCharsets.UTF_8.name()));
-            message.setSubject(subject);
-            message.setText(body, StandardCharsets.UTF_8.name());
-            message.addRecipient(Message.RecipientType.TO, new InternetAddress(to));
-            Transport.send(message, new Address[] {new InternetAddress(to)}, credentials.getUsername(), credentials.getPassword());
-        } catch (MessagingException | UnsupportedEncodingException e) {
-            LOGGER.error(String.format("Unable to send email with Subject '%s' to '%s'.", subject, to), e);
+            Transport.send(message, credentials.getUsername(), credentials.getPassword());
+        } catch (MessagingException e) {
+            LOGGER.error(String.format("Unable to send the following email:\n%s", source), e);
         }
 
     }

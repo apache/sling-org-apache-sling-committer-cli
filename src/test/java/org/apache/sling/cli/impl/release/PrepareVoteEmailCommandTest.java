@@ -18,9 +18,13 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package org.apache.sling.cli.impl.release;
 
+import java.io.IOException;
+
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
+import org.apache.sling.cli.impl.mail.Mailer;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.apache.sling.cli.impl.people.Member;
@@ -33,16 +37,13 @@ import org.osgi.framework.ServiceReference;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.powermock.api.mockito.PowerMockito.mockStatic;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({PrepareVoteEmailCommand.class, LoggerFactory.class})
+@PrepareForTest({PrepareVoteEmailCommand.class})
 @PowerMockIgnore({
                          // https://github.com/powermock/powermock/issues/864
                          "com.sun.org.apache.xerces.*",
@@ -56,9 +57,6 @@ public class PrepareVoteEmailCommandTest {
 
     @Test
     public void testPrepareEmailGeneration() throws Exception {
-        mockStatic(LoggerFactory.class);
-        Logger logger = mock(Logger.class);
-        when(LoggerFactory.getLogger(PrepareVoteEmailCommand.class)).thenReturn(logger);
         MembersFinder membersFinder = mock(MembersFinder.class);
         when(membersFinder.getCurrentMember()).thenReturn(new Member("johndoe", "John Doe", true));
 
@@ -78,13 +76,16 @@ public class PrepareVoteEmailCommandTest {
         osgiContext.registerService(StagingRepositoryFinder.class, stagingRepositoryFinder);
         osgiContext.registerService(VersionClient.class, versionFinder);
 
+        Mailer mailer = mock(Mailer.class);
+        prepareExecution(mailer);
+        ExecutionContext context = new ExecutionContext("123", "--auto");
         osgiContext.registerInjectActivateService(new PrepareVoteEmailCommand());
 
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        command.execute("123");
-        verify(logger).info(
+        command.execute(context);
+        verify(mailer).send(
                 "From: John Doe <johndoe@apache.org>\n" +
                         "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
                         "Subject: [VOTE] Release Apache Sling CLI Test 1.0.0\n" +
@@ -92,7 +93,6 @@ public class PrepareVoteEmailCommandTest {
                         "Hi,\n" +
                         "\n" +
                         "We solved 42 issue(s) in this release:\n" +
-                        "\n" +
                         "https://issues.apache.org/jira/browse/SLING/fixforversion/1\n" +
                         "\n" +
                         "Staging repository:\n" +
@@ -115,5 +115,27 @@ public class PrepareVoteEmailCommandTest {
                         "Regards,\n" +
                         "John Doe\n" +
                         "\n");
+    }
+
+    private void prepareExecution(Mailer mailer) throws IOException {
+        MembersFinder membersFinder = mock(MembersFinder.class);
+        when(membersFinder.getCurrentMember()).thenReturn(new Member("johndoe", "John Doe", true));
+
+        StagingRepository stagingRepository = mock(StagingRepository.class);
+        when(stagingRepository.getDescription()).thenReturn("Apache Sling CLI Test 1.0.0");
+        StagingRepositoryFinder stagingRepositoryFinder = mock(StagingRepositoryFinder.class);
+        when(stagingRepositoryFinder.find(123)).thenReturn(stagingRepository);
+
+        VersionClient versionClient = mock(VersionClient.class);
+        Version version = mock(Version.class);
+        when(version.getName()).thenReturn("CLI Test 1.0.0");
+        when(version.getId()).thenReturn(1);
+        when(version.getIssuesFixedCount()).thenReturn(42);
+        when(versionClient.find(Release.fromString("CLI Test 1.0.0").get(0))).thenReturn(version);
+
+        osgiContext.registerService(MembersFinder.class, membersFinder);
+        osgiContext.registerService(StagingRepositoryFinder.class, stagingRepositoryFinder);
+        osgiContext.registerService(VersionClient.class, versionClient);
+        osgiContext.registerService(Mailer.class, mailer);
     }
 }

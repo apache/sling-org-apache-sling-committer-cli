@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
@@ -46,9 +47,9 @@ public class CreateJiraVersionCommand implements Command {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Override
-    public void execute(String target) {
+    public void execute(ExecutionContext context) {
         try {
-            StagingRepository repo = repoFinder.find(Integer.parseInt(target));
+            StagingRepository repo = repoFinder.find(Integer.parseInt(context.getTarget()));
             for (Release release : Release.fromString(repo.getDescription()) ) {
                 Version version = versionClient.find(release);
                 logger.info("Found version {}", version);

@@ -16,9 +16,6 @@
  */
 package org.apache.sling.cli.impl;
 
-import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIPLE;
-import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
-
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,20 +24,26 @@ import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
 import org.osgi.framework.launch.Framework;
+import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIPLE;
+import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
+
 @Component(service = CommandProcessor.class)
 public class CommandProcessor {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
+    private static final String EXEC_ARGS = "exec.args";
     private BundleContext ctx;
 
     private Map<CommandKey, CommandWithProps> commands = new ConcurrentHashMap<>();
 
-    protected void activate(BundleContext ctx) {
+    @Activate
+    private void activate(BundleContext ctx) {
         this.ctx = ctx;
     }
 
@@ -53,17 +56,17 @@ public class CommandProcessor {
         commands.remove(CommandKey.of(props));
     }
 
-    public void runCommand() {
-        // TODO - remove duplication from CLI parsing code
-        CommandKey key = CommandKey.of(ctx.getProperty("exec.args"));
-        String target = parseTarget(ctx.getProperty("exec.args"));
+    void runCommand() {
+        String[] arguments = arguments(ctx.getProperty(EXEC_ARGS));
+        CommandKey key = CommandKey.of(arguments);
+        ExecutionContext context = defineContext(arguments);
         try {
             commands.getOrDefault(key, new CommandWithProps(ignored -> {
                 logger.info("Usage: sling command sub-command [target]");
                 logger.info("");
                 logger.info("Available commands:");
                 commands.forEach((k, c) -> logger.info("{} {}: {}", k.command, k.subCommand, c.summary));
-            }, "")).cmd.execute(target);
+            }, "")).cmd.execute(context);
         } catch (Exception e) {
             logger.warn("Failed running command", e);
         } finally {
@@ -76,15 +79,22 @@ public class CommandProcessor {
         }
     }
 
-    private String parseTarget(String cliSpec) {
-        if (cliSpec == null || cliSpec.isEmpty())
-            return null;
+    private String[] arguments(String cliSpec) {
+        if (cliSpec == null) {
+            return new String[0];
+        }
+        return cliSpec.split(" ");
+    }
 
-        String[] args = cliSpec.split(" ");
-        if (args.length < 3)
+    private ExecutionContext defineContext(String[] arguments) {
+        if (arguments.length < 3)
             return null;
-        
-        return args[2];
+        String target = arguments[2];
+        if (arguments.length > 3) {
+            return new ExecutionContext(target, arguments[3]);
+        } else {
+            return new ExecutionContext(target, null);
+        }
     }
     
 
@@ -95,15 +105,11 @@ public class CommandProcessor {
         private final String command;
         private final String subCommand;
 
-        static CommandKey of(String cliSpec) {
-            if (cliSpec == null || cliSpec.isEmpty())
+        static CommandKey of(String[] arguments) {
+            if (arguments.length < 2)
                 return EMPTY;
 
-            String[] args = cliSpec.split(" ");
-            if (args.length < 2)
-                return EMPTY;
-
-            return new CommandKey(args[0], args[1]);
+            return new CommandKey(arguments[0], arguments[1]);
         }
 
         static CommandKey of(Map<String, ?> serviceProps) {
