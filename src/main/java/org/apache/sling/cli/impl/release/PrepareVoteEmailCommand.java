@@ -20,11 +20,14 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import javax.mail.internet.InternetAddress;
+
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
+import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -37,11 +40,12 @@ import org.slf4j.LoggerFactory;
     Command.PROPERTY_NAME_SUMMARY + "=Prepares an email vote for the specified release." })
 public class PrepareVoteEmailCommand implements Command {
 
-    @Reference
-    private MembersFinder membersFinder;
+    private static final Logger LOGGER = LoggerFactory.getLogger(PrepareVoteEmailCommand.class);
 
     // TODO - replace with file template
-    private static final String EMAIL_TEMPLATE ="To: \"Sling Developers List\" <dev@sling.apache.org>\n" + 
+    private static final String EMAIL_TEMPLATE =
+            "From: ##FROM##\n" +
+            "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
             "Subject: [VOTE] Release ##RELEASE_NAME##\n" + 
             "\n" + 
             "Hi,\n" + 
@@ -73,9 +77,10 @@ public class PrepareVoteEmailCommand implements Command {
 
     private static final String RELEASE_TEMPLATE = 
             "https://issues.apache.org/jira/browse/SLING/fixforversion/##VERSION_ID##";
-    
-    private final Logger logger = LoggerFactory.getLogger(getClass());
-    
+
+    @Reference
+    private MembersFinder membersFinder;
+
     @Reference
     private StagingRepositoryFinder repoFinder;
     
@@ -104,19 +109,20 @@ public class PrepareVoteEmailCommand implements Command {
                 .map( v -> RELEASE_TEMPLATE.replace("##VERSION_ID##", String.valueOf(v.getId())))
                 .collect(Collectors.joining("\n"));
                 
-            
+            Member currentMember = membersFinder.getCurrentMember();
             String emailContents = EMAIL_TEMPLATE
+                    .replace("##FROM##", new InternetAddress(currentMember.getEmail(), currentMember.getName()).toString())
                     .replace("##RELEASE_NAME##", releaseName)
                     .replace("##RELEASE_ID##", String.valueOf(repoId))
                     .replace("##RELEASE_OR_RELEASES##", releaseOrReleases)
                     .replace("##RELEASE_JIRA_LINKS##", releaseJiraLinks)
                     .replace("##FIXED_ISSUES_COUNT##", String.valueOf(fixedIssueCounts))
-                    .replace("##USER_NAME##", membersFinder.getCurrentMember().getName());
+                    .replace("##USER_NAME##", currentMember.getName());
                     
-            logger.info(emailContents);
+            LOGGER.info(emailContents);
 
         } catch (IOException e) {
-            logger.warn("Failed executing command", e);
+            LOGGER.warn("Failed executing command", e);
         }
     }
 }

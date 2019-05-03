@@ -25,7 +25,7 @@ public class Member {
     private final boolean isPMCMember;
     private final String email;
 
-    Member(String id, String name, boolean isPMCMember) {
+    public Member(String id, String name, boolean isPMCMember) {
         this.id = id;
         this.name = name;
         this.isPMCMember = isPMCMember;
