@@ -29,7 +29,10 @@ import javax.mail.internet.InternetAddress;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.ExecutionContext;
+import org.apache.sling.cli.impl.InputOption;
+import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.mail.Email;
+import org.apache.sling.cli.impl.mail.Mailer;
 import org.apache.sling.cli.impl.mail.VoteThreadFinder;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
@@ -57,6 +60,9 @@ public class TallyVotesCommand implements Command {
 
     @Reference
     private VoteThreadFinder voteThreadFinder;
+
+    @Reference
+    private Mailer mailer;
 
     // TODO - move to file
     private static final String EMAIL_TEMPLATE =
@@ -122,7 +128,35 @@ public class TallyVotesCommand implements Command {
                     email = email.replace("##NON_BINDING_VOTERS##", String.join(", ", nonBindingVoters));
                 }
 
-                LOGGER.info(email);
+                if (bindingVoters.size() >= 3) {
+                    switch (context.getMode()) {
+                        case DRY_RUN:
+                            LOGGER.info("The following email would be sent from your @apache.org address (see the \"From:\" header):\n");
+                            LOGGER.info(email);
+                            break;
+                        case INTERACTIVE:
+                            String question ="Should the following email be sent from your @apache.org address (see the" +
+                                    " \"From:\" header)?\n\n" + email;
+                            InputOption answer = UserInput.yesNo(question, InputOption.YES);
+                            if (InputOption.YES.equals(answer)) {
+                                LOGGER.info("Sending email...");
+                                mailer.send(email);
+                                LOGGER.info("Done!");
+                            } else if (InputOption.NO.equals(answer)) {
+                                LOGGER.info("Aborted.");
+                            }
+                            break;
+                        case AUTO:
+                            LOGGER.info(email);
+                            LOGGER.info("Sending email...");
+                            mailer.send(email);
+                            LOGGER.info("Done!");
+                            break;
+                    }
+                } else {
+                    LOGGER.info("Release {} does not have at least 3 binding votes.", releaseFullName);
+                    LOGGER.info("Binding votes: {}.", String.join(", ", bindingVoters));
+                }
             }
             
         } catch (IOException e) {
