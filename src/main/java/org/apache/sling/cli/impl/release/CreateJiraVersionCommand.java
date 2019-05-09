@@ -21,6 +21,8 @@ import java.util.List;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.ExecutionContext;
+import org.apache.sling.cli.impl.InputOption;
+import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
@@ -52,24 +54,52 @@ public class CreateJiraVersionCommand implements Command {
             StagingRepository repo = repoFinder.find(Integer.parseInt(context.getTarget()));
             for (Release release : Release.fromString(repo.getDescription()) ) {
                 Version version = versionClient.find(release);
-                logger.info("Found version {}", version);
+                logger.info("Found {}.", version);
                 Version successorVersion = versionClient.findSuccessorVersion(release);
-                logger.info("Found successor version {}", successorVersion);
+                boolean createNextRelease = false;
                 if ( successorVersion == null ) {
                     Release next = release.next();
-                    logger.info("Would create version {}", next.getName());
-                    versionClient.create(next.getName());
-                    logger.info("Created version {}", next.getName());
-                    successorVersion = versionClient.findSuccessorVersion(release);
+                    if (context.getMode() == ExecutionContext.Mode.DRY_RUN) {
+                        logger.info("Version {} would be created.", next.getName());
+                    } else if (context.getMode() == ExecutionContext.Mode.INTERACTIVE) {
+                        InputOption answer = UserInput.yesNo(String.format("Should version %s be created?", next.getName()),
+                                InputOption.YES);
+                        createNextRelease = (answer == InputOption.YES);
+                    } else if (context.getMode() == ExecutionContext.Mode.AUTO) {
+                        createNextRelease = true;
+                    }
+                    if (createNextRelease) {
+                        versionClient.create(next.getName());
+                        logger.info("Created version {}", next.getName());
+                        successorVersion = versionClient.findSuccessorVersion(release);
+                    }
+                } else {
+                    logger.info("Found successor {}.", successorVersion);
                 }
-                
-                List<Issue> unresolvedIssues = versionClient.findUnresolvedIssues(release);
-                if ( !unresolvedIssues.isEmpty() ) {
-                    logger.info("Will move {} unresolved issues from version {} to version {} :", 
-                            unresolvedIssues.isEmpty(), version.getName(), successorVersion.getName());
-                    unresolvedIssues.stream()
-                        .forEach( i -> logger.info("- {} : {}", i.getKey(), i.getSummary()));
-                    versionClient.moveIssuesToNewVersion(version, successorVersion, unresolvedIssues);
+                if (successorVersion != null) {
+                    List<Issue> unresolvedIssues = versionClient.findUnresolvedIssues(release);
+                    if (!unresolvedIssues.isEmpty()) {
+                        boolean moveIssues = false;
+                        if (context.getMode() == ExecutionContext.Mode.DRY_RUN) {
+                            logger.info("{} unresolved issues would be moved from version {} to version {} :",
+                                    unresolvedIssues.size(), version.getName(), successorVersion.getName());
+                        } else if (context.getMode() == ExecutionContext.Mode.INTERACTIVE) {
+                            InputOption answer = UserInput.yesNo(String.format("Should the %s unresolved issue(s) from version %s be " +
+                                            "moved " +
+                                    "to version %s?", unresolvedIssues.size(), version.getName(), successorVersion.getName()),
+                                    InputOption.YES);
+                            moveIssues = (answer == InputOption.YES);
+                        } else if (context.getMode() == ExecutionContext.Mode.AUTO) {
+                            moveIssues = true;
+                        }
+                        if (moveIssues) {
+                            logger.info("Moving the following issues from {} to {}.", version.getName(), successorVersion.getName());
+                            unresolvedIssues
+                                    .forEach(i -> logger.info("- {} : {}", i.getKey(), i.getSummary()));
+                            versionClient.moveIssuesToNewVersion(version, successorVersion, unresolvedIssues);
+                            logger.info("Done.");
+                        }
+                    }
                 }
             }
         } catch (IOException e) {
