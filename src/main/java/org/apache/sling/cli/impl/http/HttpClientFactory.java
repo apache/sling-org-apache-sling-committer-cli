@@ -16,8 +16,13 @@
  */
 package org.apache.sling.cli.impl.http;
 
+import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.AuthCache;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.client.BasicAuthCache;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -31,7 +36,7 @@ import org.osgi.service.component.annotations.Reference;
 @Component(service = HttpClientFactory.class)
 public class HttpClientFactory {
     
-    private static final String DEFAULT_JIRA_HOST = "jira.apache.org";
+    private static final String DEFAULT_JIRA_HOST = "issues.apache.org";
     private static final int DEFAULT_JIRA_PORT = 443;
     
     @Reference
@@ -49,6 +54,12 @@ public class HttpClientFactory {
 
     public CloseableHttpClient newClient() {
         
+        return HttpClients.custom()
+                .setDefaultCredentialsProvider(newCredentialsProvider())
+                .build();
+    }
+
+    private BasicCredentialsProvider newCredentialsProvider() {
         Credentials asf = credentialsService.getAsfCredentials();
         Credentials jira = credentialsService.getJiraCredentials();
         
@@ -59,9 +70,19 @@ public class HttpClientFactory {
                 new UsernamePasswordCredentials(asf.getUsername(), asf.getPassword()));
         credentialsProvider.setCredentials(new AuthScope(jiraHost, jiraPort), 
                 new UsernamePasswordCredentials(jira.getUsername(), jira.getPassword()));
-        
-        return HttpClients.custom()
-                .setDefaultCredentialsProvider(credentialsProvider)
-                .build();
+        return credentialsProvider;
     }
+    
+    public HttpClientContext newPreemptiveAuthenticationContext() {
+        
+        AuthCache authCache = new BasicAuthCache();
+        authCache.put(new HttpHost(jiraHost, jiraPort, "https"), new BasicScheme());
+        
+        HttpClientContext ctx = HttpClientContext.create();
+        ctx.setAuthCache(authCache);
+        ctx.setCredentialsProvider(newCredentialsProvider());
+        
+        return ctx;
+    }
+    
 }
