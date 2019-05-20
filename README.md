@@ -20,6 +20,18 @@ This invocation produces a list of available subcommands.
 
 ## Commands
 
+The commands can be executed in 3 different modes:
+
+  * `dry-run` (default mode) - commands only list their output without performing any actions on the user's behalf
+  * `interactive` - commands list their output but ask for user confirmation when it comes to performing an action on the user's behalf
+  * `auto` - comands list their output and assume that all questions are provided the default answers when it comes to performing an action on the user's behalf
+
+To select a non-default execution mode provide the mode as an argument to the command:
+
+    docker run -it --env-file=./docker-env apache/sling-cli release prepare-email $STAGING_REPOSITORY_ID --interactive
+
+Note that for running commands in the `interactive` mode you need to run the Docker container in interactive mode with a pseudo-tty attached (e.g. `docker run -it ...`).
+
 Listing active releases
 
     docker run --env-file=./docker-env apache/sling-cli release list
