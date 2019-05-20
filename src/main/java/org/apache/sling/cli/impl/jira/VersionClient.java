@@ -132,6 +132,7 @@ public class VersionClient {
      * @throws IOException In case of any errors creating the version in Jira
      */
     public void create(String versionName) throws IOException {
+        
         StringWriter w = new StringWriter();
         try ( JsonWriter jw = new Gson().newJsonWriter(w) ) {
             jw.beginObject();
@@ -144,7 +145,7 @@ public class VersionClient {
         post.setEntity(new StringEntity(w.toString()));
 
         try (CloseableHttpClient client = httpClientFactory.newClient()) {
-            try (CloseableHttpResponse response = client.execute(post)) {
+            try (CloseableHttpResponse response = client.execute(post, httpClientFactory.newPreemptiveAuthenticationContext())) {
                 try (InputStream content = response.getEntity().getContent();
                         InputStreamReader reader = new InputStreamReader(content)) {
                     
