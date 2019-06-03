@@ -33,6 +33,8 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.ExecutionContext;
+import org.apache.sling.cli.impl.InputOption;
+import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
@@ -62,29 +64,58 @@ public class UpdateReporterCommand implements Command {
     public void execute(ExecutionContext context) {
         try {
             StagingRepository repository = repoFinder.find(Integer.parseInt(context.getTarget()));
-            
-            try (CloseableHttpClient client = httpClientFactory.newClient() ) {
-                for ( Release release : Release.fromString(repository.getDescription()) ) {
-                    HttpPost post = new HttpPost("https://reporter.apache.org/addrelease.py");
-                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                    List<NameValuePair> parameters = new ArrayList<>();
-                    Date now = new Date();
-                    parameters.add(new BasicNameValuePair("date", Long.toString(now.getTime() / 1000)));
-                    parameters.add(new BasicNameValuePair("committee", "sling"));
-                    parameters.add(new BasicNameValuePair("version", release.getFullName()));
-                    parameters.add(new BasicNameValuePair("xdate", simpleDateFormat.format(now)));
-                    post.setEntity(new UrlEncodedFormEntity(parameters, StandardCharsets.UTF_8));
-                    try (CloseableHttpResponse response = client.execute(post)) {
-                        if (response.getStatusLine().getStatusCode() != 200) {
-                            throw new IOException(String.format("The Apache Reporter System update failed. Got response code %s instead of " +
-                                    "200.", response.getStatusLine().getStatusCode()));
-                        }
+            List<Release> releases = Release.fromString(repository.getDescription());
+            String releaseReleases = releases.size() > 1 ? "releases" : "release";
+            switch (context.getMode()) {
+                case DRY_RUN:
+                    LOGGER.info("The following {} would be added to the Apache Reporter System:", releaseReleases);
+                    releases.forEach(release -> LOGGER.info("  - {}", release.getFullName()));
+                    break;
+                case INTERACTIVE:
+                    StringBuilder question = new StringBuilder(String.format("Should the following %s be added to the Apache Reporter " +
+                            "System?", releaseReleases)).append("\n");
+                    releases.forEach(release -> question.append("  - ").append(release.getFullName()).append("\n"));
+                    InputOption answer = UserInput.yesNo(question.toString(), InputOption.YES);
+                    if (InputOption.YES.equals(answer)) {
+                        LOGGER.info("Updating the Apache Reporter System...");
+                        updateReporter(releases);
+                        LOGGER.info("Done.");
+                    } else if (InputOption.NO.equals(answer)) {
+                        LOGGER.info("Aborted updating the Apache Reporter System.");
                     }
-                }
+                    break;
+                case AUTO:
+                    LOGGER.info("The following {} will be added to the Apache Reporter System:", releaseReleases);
+                    releases.forEach(release -> LOGGER.info("  - {}", release.getFullName()));
+                    updateReporter(releases);
+                    LOGGER.info("Done.");
             }
+
         } catch (IOException e) {
             LOGGER.error(String.format("Unable to update reporter service; passed command: %s.", context.getTarget()), e);
         }
 
+    }
+
+    private void updateReporter(List<Release> releases) throws IOException {
+        try (CloseableHttpClient client = httpClientFactory.newClient()) {
+            for (Release release : releases) {
+                HttpPost post = new HttpPost("https://reporter.apache.org/addrelease.py");
+                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+                List<NameValuePair> parameters = new ArrayList<>();
+                Date now = new Date();
+                parameters.add(new BasicNameValuePair("date", Long.toString(now.getTime() / 1000)));
+                parameters.add(new BasicNameValuePair("committee", "sling"));
+                parameters.add(new BasicNameValuePair("version", release.getFullName()));
+                parameters.add(new BasicNameValuePair("xdate", simpleDateFormat.format(now)));
+                post.setEntity(new UrlEncodedFormEntity(parameters, StandardCharsets.UTF_8));
+                try (CloseableHttpResponse response = client.execute(post)) {
+                    if (response.getStatusLine().getStatusCode() != 200) {
+                        throw new IOException(String.format("The Apache Reporter System update failed for release %s. Got response code " +
+                                "%s instead of 200.", release.getFullName(), response.getStatusLine().getStatusCode()));
+                    }
+                }
+            }
+        }
     }
 }
