@@ -32,6 +32,7 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ResetCommand.ResetType;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.TextProgressMonitor;
+import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -52,7 +53,7 @@ public class UpdateLocalSiteCommand implements Command {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     
     @Override
-    public void execute(ExecutionContext context) {
+    public void execute(@NotNull ExecutionContext context) {
         try {
             ensureRepo();
             try ( Git git = Git.open(new File(GIT_CHECKOUT)) ) {

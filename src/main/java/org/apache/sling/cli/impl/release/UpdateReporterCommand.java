@@ -38,6 +38,7 @@ import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
+import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -61,7 +62,7 @@ public class UpdateReporterCommand implements Command {
     private HttpClientFactory httpClientFactory;
 
     @Override
-    public void execute(ExecutionContext context) {
+    public void execute(@NotNull ExecutionContext context) {
         try {
             StagingRepository repository = repoFinder.find(Integer.parseInt(context.getTarget()));
             List<Release> releases = Release.fromString(repository.getDescription());

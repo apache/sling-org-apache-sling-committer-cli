@@ -38,6 +38,7 @@ import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
+import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -85,7 +86,7 @@ public class TallyVotesCommand implements Command {
             "\n";
 
     @Override
-    public void execute(ExecutionContext context) {
+    public void execute(@NotNull ExecutionContext context) {
         try {
             
             StagingRepository repository = repoFinder.find(Integer.parseInt(context.getTarget()));

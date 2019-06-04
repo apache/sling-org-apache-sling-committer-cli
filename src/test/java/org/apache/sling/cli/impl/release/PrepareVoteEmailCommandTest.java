@@ -52,7 +52,7 @@ public class PrepareVoteEmailCommandTest {
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        command.execute(new ExecutionContext("123", "--auto"));
+        command.execute(new ExecutionContext(ExecutionContext.Mode.AUTO, "123"));
         verify(mailer).send(
                 "From: John Doe <johndoe@apache.org>\n" +
                         "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +

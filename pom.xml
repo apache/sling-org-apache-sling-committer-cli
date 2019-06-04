@@ -172,6 +172,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.osgi</groupId>
             <artifactId>org.osgi.service.component.annotations</artifactId>
             <scope>provided</scope>

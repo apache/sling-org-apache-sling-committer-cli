@@ -18,6 +18,10 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package org.apache.sling.cli.impl;
 
+import java.util.Objects;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,8 +32,9 @@ public class ExecutionContext {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ExecutionContext.class);
 
-    private final String target;
     private final Mode mode;
+    private final String target;
+    public static final ExecutionContext DEFAULT = new ExecutionContext(Mode.DRY_RUN, null);
 
     /**
      * Creates an {@code ExecutionContext}.
@@ -37,13 +42,9 @@ public class ExecutionContext {
      * @param target the command's target
      * @param mode   the execution mode
      */
-    public ExecutionContext(String target, String mode) {
-        this.target = target;
-        if (mode == null) {
-            this.mode = Mode.DRY_RUN;
-        } else {
-            this.mode = Mode.fromString(mode);
-        }
+    public ExecutionContext(@NotNull Mode mode, @Nullable String target) {
+        this.mode = mode;
+        this.target = Objects.requireNonNullElse(target, "");
     }
 
     /**
@@ -51,6 +52,7 @@ public class ExecutionContext {
      *
      * @return the execution target
      */
+    @NotNull
     public String getTarget() {
         return target;
     }
@@ -60,6 +62,7 @@ public class ExecutionContext {
      *
      * @return the execution mode
      */
+    @NotNull
     public Mode getMode() {
         return mode;
     }

@@ -16,11 +16,14 @@
  */
 package org.apache.sling.cli.impl;
 
+
+import org.jetbrains.annotations.NotNull;
+
 public interface Command {
     
     String PROPERTY_NAME_COMMAND = "command";
     String PROPERTY_NAME_SUBCOMMAND = "subcommand";
     String PROPERTY_NAME_SUMMARY = "summary";
 
-    void execute(ExecutionContext context) throws Exception;
+    void execute(@NotNull ExecutionContext context) throws Exception;
 }

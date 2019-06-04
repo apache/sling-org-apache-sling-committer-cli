@@ -85,7 +85,7 @@ public class TallyVotesCommandTest {
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        command.execute(new ExecutionContext("123", null));
+        command.execute(new ExecutionContext(ExecutionContext.Mode.DRY_RUN, "123"));
         verify(logger).info(
                 "From: John Doe <johndoe@apache.org> \n" +
                 "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
@@ -124,7 +124,7 @@ public class TallyVotesCommandTest {
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        command.execute(new ExecutionContext("123", null));
+        command.execute(new ExecutionContext(ExecutionContext.Mode.DRY_RUN, "123"));
         verify(logger).info(
                 "Release {} does not have at least 3 binding votes.",
                 "Apache Sling CLI Test 1.0.0"
@@ -148,7 +148,7 @@ public class TallyVotesCommandTest {
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        command.execute(new ExecutionContext("123", "--auto"));
+        command.execute(new ExecutionContext(ExecutionContext.Mode.AUTO, "123"));
         verify(mailer).send(
                 "From: John Doe <johndoe@apache.org> \n" +
                         "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +

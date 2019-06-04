@@ -28,6 +28,7 @@ import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
+import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -49,7 +50,7 @@ public class CreateJiraVersionCommand implements Command {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Override
-    public void execute(ExecutionContext context) {
+    public void execute(@NotNull ExecutionContext context) {
         try {
             StagingRepository repo = repoFinder.find(Integer.parseInt(context.getTarget()));
             for (Release release : Release.fromString(repo.getDescription()) ) {

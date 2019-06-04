@@ -90,7 +90,7 @@ public class UpdateReporterCommandTest {
         Command updateReporter = osgiContext.getService(Command.class);
         assertTrue("Expected to retrieve the UpdateReporterCommand from the mocked OSGi environment.",
                 updateReporter instanceof UpdateReporterCommand);
-        updateReporter.execute(new ExecutionContext("42", "--dry-run"));
+        updateReporter.execute(new ExecutionContext(ExecutionContext.Mode.DRY_RUN, "42"));
         verify(logger).info("The following {} would be added to the Apache Reporter System:", "releases");
         verify(logger).info("  - {}", "Apache Sling CLI 1");
         verify(logger).info("  - {}", "Apache Sling CLI 2");
@@ -113,7 +113,7 @@ public class UpdateReporterCommandTest {
         when(response.getStatusLine()).thenReturn(statusLine);
         when(statusLine.getStatusCode()).thenReturn(200);
         when(client.execute(any())).thenReturn(response);
-        updateReporter.execute(new ExecutionContext("42", "--interactive"));
+        updateReporter.execute(new ExecutionContext(ExecutionContext.Mode.INTERACTIVE, "42"));
         verify(client, times(2)).execute(any());
     }
 
@@ -128,7 +128,7 @@ public class UpdateReporterCommandTest {
         when(response.getStatusLine()).thenReturn(statusLine);
         when(statusLine.getStatusCode()).thenReturn(200);
         when(client.execute(any())).thenReturn(response);
-        updateReporter.execute(new ExecutionContext("42", "--auto"));
+        updateReporter.execute(new ExecutionContext(ExecutionContext.Mode.AUTO, "42"));
         verify(client, times(2)).execute(any());
     }
 

@@ -88,12 +88,12 @@ public class CommandProcessor {
 
     private ExecutionContext defineContext(String[] arguments) {
         if (arguments.length < 3)
-            return null;
+            return ExecutionContext.DEFAULT;
         String target = arguments[2];
         if (arguments.length > 3) {
-            return new ExecutionContext(target, arguments[3]);
+            return new ExecutionContext(ExecutionContext.Mode.fromString(arguments[3]), target);
         } else {
-            return new ExecutionContext(target, null);
+            return new ExecutionContext(ExecutionContext.Mode.DRY_RUN, target);
         }
     }
     

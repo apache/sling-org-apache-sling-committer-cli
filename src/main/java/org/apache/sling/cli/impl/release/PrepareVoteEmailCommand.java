@@ -33,6 +33,7 @@ import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
+import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -94,7 +95,7 @@ public class PrepareVoteEmailCommand implements Command {
             "https://issues.apache.org/jira/browse/SLING/fixforversion/##VERSION_ID##";
 
     @Override
-    public void execute(ExecutionContext context) {
+    public void execute(@NotNull ExecutionContext context) {
         try {
             int repoId = Integer.parseInt(context.getTarget());
             StagingRepository repo = repoFinder.find(repoId);
