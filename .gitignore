@@ -1,5 +1,6 @@
 docker-env
 /target/
+/launcher/
 .idea
 .classpath
 .metadata
