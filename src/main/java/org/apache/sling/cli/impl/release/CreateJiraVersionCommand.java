@@ -20,7 +20,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.sling.cli.impl.Command;
-import org.apache.sling.cli.impl.ExecutionContext;
+import org.apache.sling.cli.impl.ExecutionMode;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.jira.Issue;
@@ -28,18 +28,32 @@ import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
-import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Component(service = Command.class, property = {
-        Command.PROPERTY_NAME_COMMAND+"=release",
-        Command.PROPERTY_NAME_SUBCOMMAND+"=create-jira-new-version",
-        Command.PROPERTY_NAME_SUMMARY+"=Creates a new Jira version, if needed, and transitions any unresolved issues from the version being released to the next one."
-    })
+import picocli.CommandLine;
+
+@Component(service = Command.class,
+           property = {
+                   Command.PROPERTY_NAME_COMMAND_GROUP + "=" + CreateJiraVersionCommand.GROUP,
+                   Command.PROPERTY_NAME_COMMAND_NAME + "=" + CreateJiraVersionCommand.NAME
+           }
+)
+@CommandLine.Command(
+        name = CreateJiraVersionCommand.NAME,
+        description = "Creates a new Jira version, if needed, and transitions any unresolved issues from the version being released to " +
+                "the next one",
+        subcommands = CommandLine.HelpCommand.class
+)
 public class CreateJiraVersionCommand implements Command {
+
+    static final String GROUP = "release";
+    static final String NAME = "create-new-jira-version";
+
+    @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
+    private Integer repositoryId;
 
     @Reference
     private StagingRepositoryFinder repoFinder;
@@ -47,12 +61,15 @@ public class CreateJiraVersionCommand implements Command {
     @Reference
     private VersionClient versionClient;
 
+    @CommandLine.Mixin
+    private ReusableCLIOptions reusableCLIOptions;
+
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Override
-    public void execute(@NotNull ExecutionContext context) {
+    public void run() {
         try {
-            StagingRepository repo = repoFinder.find(Integer.parseInt(context.getTarget()));
+            StagingRepository repo = repoFinder.find(repositoryId);
             for (Release release : Release.fromString(repo.getDescription()) ) {
                 Version version = versionClient.find(release);
                 logger.info("Found {}.", version);
@@ -60,13 +77,13 @@ public class CreateJiraVersionCommand implements Command {
                 boolean createNextRelease = false;
                 if ( successorVersion == null ) {
                     Release next = release.next();
-                    if (context.getMode() == ExecutionContext.Mode.DRY_RUN) {
+                    if (reusableCLIOptions.executionMode == ExecutionMode.dryrun) {
                         logger.info("Version {} would be created.", next.getName());
-                    } else if (context.getMode() == ExecutionContext.Mode.INTERACTIVE) {
+                    } else if (reusableCLIOptions.executionMode == ExecutionMode.interactive) {
                         InputOption answer = UserInput.yesNo(String.format("Should version %s be created?", next.getName()),
                                 InputOption.YES);
                         createNextRelease = (answer == InputOption.YES);
-                    } else if (context.getMode() == ExecutionContext.Mode.AUTO) {
+                    } else if (reusableCLIOptions.executionMode == ExecutionMode.auto) {
                         createNextRelease = true;
                     }
                     if (createNextRelease) {
@@ -81,16 +98,16 @@ public class CreateJiraVersionCommand implements Command {
                     List<Issue> unresolvedIssues = versionClient.findUnresolvedIssues(release);
                     if (!unresolvedIssues.isEmpty()) {
                         boolean moveIssues = false;
-                        if (context.getMode() == ExecutionContext.Mode.DRY_RUN) {
+                        if (reusableCLIOptions.executionMode == ExecutionMode.dryrun) {
                             logger.info("{} unresolved issues would be moved from version {} to version {} :",
                                     unresolvedIssues.size(), version.getName(), successorVersion.getName());
-                        } else if (context.getMode() == ExecutionContext.Mode.INTERACTIVE) {
+                        } else if (reusableCLIOptions.executionMode == ExecutionMode.interactive) {
                             InputOption answer = UserInput.yesNo(String.format("Should the %s unresolved issue(s) from version %s be " +
                                             "moved " +
                                     "to version %s?", unresolvedIssues.size(), version.getName(), successorVersion.getName()),
                                     InputOption.YES);
                             moveIssues = (answer == InputOption.YES);
-                        } else if (context.getMode() == ExecutionContext.Mode.AUTO) {
+                        } else if (reusableCLIOptions.executionMode == ExecutionMode.auto) {
                             moveIssues = true;
                         }
                         if (moveIssues) {

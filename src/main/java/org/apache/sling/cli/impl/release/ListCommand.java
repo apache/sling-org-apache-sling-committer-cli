@@ -19,19 +19,25 @@ package org.apache.sling.cli.impl.release;
 import java.io.IOException;
 
 import org.apache.sling.cli.impl.Command;
-import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
-import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Component(service = Command.class, property = {
-        Command.PROPERTY_NAME_COMMAND + "=release",
-        Command.PROPERTY_NAME_SUBCOMMAND + "=list",
-        Command.PROPERTY_NAME_SUMMARY + "=Lists all open releases" })
+import picocli.CommandLine;
+
+@Component(service = Command.class,
+           property = {
+                   Command.PROPERTY_NAME_COMMAND_GROUP + "=" + ListCommand.GROUP,
+                   Command.PROPERTY_NAME_COMMAND_NAME + "=" + ListCommand.NAME,
+           }
+)
+@CommandLine.Command(name = ListCommand.NAME, description = "Lists all open releases", subcommands = CommandLine.HelpCommand.class)
 public class ListCommand implements Command {
+
+    static final String GROUP = "release";
+    static final String NAME = "list";
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -39,10 +45,9 @@ public class ListCommand implements Command {
     private StagingRepositoryFinder repoFinder;
 
     @Override
-    public void execute(@NotNull ExecutionContext context) {
+    public void run() {
         try {
-            repoFinder.list().stream()
-                .forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), r.getDescription()));
+            repoFinder.list().forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), r.getDescription()));
         } catch (IOException e) {
             logger.warn("Failed executing command", e);
         }

@@ -32,26 +32,33 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.sling.cli.impl.Command;
-import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
-import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import picocli.CommandLine;
+
 @Component(service = Command.class,
-    property = {
-        Command.PROPERTY_NAME_COMMAND + "=release",
-        Command.PROPERTY_NAME_SUBCOMMAND + "=update-reporter",
-        Command.PROPERTY_NAME_SUMMARY + "=Updates the Apache Reporter System with the new release information"
-    }
+           property = {
+                   Command.PROPERTY_NAME_COMMAND_GROUP + "=" + UpdateReporterCommand.GROUP,
+                   Command.PROPERTY_NAME_COMMAND_NAME + "=" + UpdateReporterCommand.NAME,
+           }
+)
+@CommandLine.Command(
+        name = UpdateReporterCommand.NAME,
+        description = "Updates the Apache Reporter System with the new release information",
+        subcommands = CommandLine.HelpCommand.class
 )
 public class UpdateReporterCommand implements Command {
+
+    static final String GROUP = "release";
+    static final String NAME = "update-reporter";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UpdateReporterCommand.class);
 
@@ -61,18 +68,24 @@ public class UpdateReporterCommand implements Command {
     @Reference
     private HttpClientFactory httpClientFactory;
 
+    @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
+    private Integer repositoryId;
+
+    @CommandLine.Mixin
+    private ReusableCLIOptions reusableCLIOptions;
+
     @Override
-    public void execute(@NotNull ExecutionContext context) {
+    public void run() {
         try {
-            StagingRepository repository = repoFinder.find(Integer.parseInt(context.getTarget()));
+            StagingRepository repository = repoFinder.find(repositoryId);
             List<Release> releases = Release.fromString(repository.getDescription());
             String releaseReleases = releases.size() > 1 ? "releases" : "release";
-            switch (context.getMode()) {
-                case DRY_RUN:
+            switch (reusableCLIOptions.executionMode) {
+                case dryrun:
                     LOGGER.info("The following {} would be added to the Apache Reporter System:", releaseReleases);
                     releases.forEach(release -> LOGGER.info("  - {}", release.getFullName()));
                     break;
-                case INTERACTIVE:
+                case interactive:
                     StringBuilder question = new StringBuilder(String.format("Should the following %s be added to the Apache Reporter " +
                             "System?", releaseReleases)).append("\n");
                     releases.forEach(release -> question.append("  - ").append(release.getFullName()).append("\n"));
@@ -85,7 +98,7 @@ public class UpdateReporterCommand implements Command {
                         LOGGER.info("Aborted updating the Apache Reporter System.");
                     }
                     break;
-                case AUTO:
+                case auto:
                     LOGGER.info("The following {} will be added to the Apache Reporter System:", releaseReleases);
                     releases.forEach(release -> LOGGER.info("  - {}", release.getFullName()));
                     updateReporter(releases);
@@ -93,7 +106,7 @@ public class UpdateReporterCommand implements Command {
             }
 
         } catch (IOException e) {
-            LOGGER.error(String.format("Unable to update reporter service; passed command: %s.", context.getTarget()), e);
+            LOGGER.error(String.format("Unable to update reporter service; passed command: %s.", repositoryId), e);
         }
 
     }

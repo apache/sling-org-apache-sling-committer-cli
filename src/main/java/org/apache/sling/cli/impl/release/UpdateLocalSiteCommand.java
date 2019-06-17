@@ -24,7 +24,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.apache.sling.cli.impl.Command;
-import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.jbake.JBakeContentUpdater;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
@@ -32,33 +31,43 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ResetCommand.ResetType;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.TextProgressMonitor;
-import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Component(service = Command.class, property = {
-    Command.PROPERTY_NAME_COMMAND+"=release",
-    Command.PROPERTY_NAME_SUBCOMMAND+"=update-local-site",
-    Command.PROPERTY_NAME_SUMMARY+"=Updates the Sling website with the new release information, based on a local checkout"
-})
+import picocli.CommandLine;
+
+@Component(service = Command.class,
+           property = {
+                   Command.PROPERTY_NAME_COMMAND_GROUP + "=" + UpdateLocalSiteCommand.GROUP,
+                   Command.PROPERTY_NAME_COMMAND_NAME + "=" + UpdateLocalSiteCommand.NAME
+           }
+)
+@CommandLine.Command(name = UpdateLocalSiteCommand.NAME, description = "Updates the Sling website with the new release information, " +
+        "based on a local checkout", subcommands = CommandLine.HelpCommand.class)
 public class UpdateLocalSiteCommand implements Command {
-    
+
+    static final String GROUP = "release";
+    static final String NAME = "update-local-site";
+
     private static final String GIT_CHECKOUT = "/tmp/sling-site";
 
     @Reference
     private StagingRepositoryFinder repoFinder;
     
     private final Logger logger = LoggerFactory.getLogger(getClass());
-    
+
+    @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
+    private Integer repositoryId;
+
     @Override
-    public void execute(@NotNull ExecutionContext context) {
+    public void run() {
         try {
             ensureRepo();
             try ( Git git = Git.open(new File(GIT_CHECKOUT)) ) {
                 
-                StagingRepository repository = repoFinder.find(Integer.parseInt(context.getTarget()));
+                StagingRepository repository = repoFinder.find(repositoryId);
                 List<Release> releases = Release.fromString(repository.getDescription());
                 
                 JBakeContentUpdater updater = new JBakeContentUpdater();

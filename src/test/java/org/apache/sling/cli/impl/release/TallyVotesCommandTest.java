@@ -29,7 +29,7 @@ import javax.mail.internet.InternetAddress;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.Credentials;
 import org.apache.sling.cli.impl.CredentialsService;
-import org.apache.sling.cli.impl.ExecutionContext;
+import org.apache.sling.cli.impl.ExecutionMode;
 import org.apache.sling.cli.impl.mail.Email;
 import org.apache.sling.cli.impl.mail.Mailer;
 import org.apache.sling.cli.impl.mail.VoteThreadFinder;
@@ -81,11 +81,16 @@ public class TallyVotesCommandTest {
             add(mockEmail("johndoe@apache.org", "John Doe"));
         }};
         prepareExecution(mock(Mailer.class), thread);
-        osgiContext.registerInjectActivateService(new TallyVotesCommand());
+        TallyVotesCommand tallyVotesCommand = spy(new TallyVotesCommand());
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.dryrun);
+        Whitebox.setInternalState(tallyVotesCommand, "repositoryId", 123);
+        Whitebox.setInternalState(tallyVotesCommand, "reusableCLIOptions", reusableCLIOptions);
+        osgiContext.registerInjectActivateService(tallyVotesCommand);
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        command.execute(new ExecutionContext(ExecutionContext.Mode.DRY_RUN, "123"));
+        command.run();
         verify(logger).info(
                 "From: John Doe <johndoe@apache.org> \n" +
                 "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
@@ -120,11 +125,16 @@ public class TallyVotesCommandTest {
             add(mockEmail("daniel@apache.org", "Daniel"));
         }};
         prepareExecution(mock(Mailer.class), thread);
-        osgiContext.registerInjectActivateService(new TallyVotesCommand());
+        TallyVotesCommand tallyVotesCommand = spy(new TallyVotesCommand());
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.dryrun);
+        Whitebox.setInternalState(tallyVotesCommand, "repositoryId", 123);
+        Whitebox.setInternalState(tallyVotesCommand, "reusableCLIOptions", reusableCLIOptions);
+        osgiContext.registerInjectActivateService(tallyVotesCommand);
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        command.execute(new ExecutionContext(ExecutionContext.Mode.DRY_RUN, "123"));
+        command.run();
         verify(logger).info(
                 "Release {} does not have at least 3 binding votes.",
                 "Apache Sling CLI Test 1.0.0"
@@ -144,11 +154,16 @@ public class TallyVotesCommandTest {
         }};
         Mailer mailer = mock(Mailer.class);
         prepareExecution(mailer, thread);
-        osgiContext.registerInjectActivateService(new TallyVotesCommand());
+        TallyVotesCommand tallyVotesCommand = spy(new TallyVotesCommand());
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.auto);
+        Whitebox.setInternalState(tallyVotesCommand, "repositoryId", 123);
+        Whitebox.setInternalState(tallyVotesCommand, "reusableCLIOptions", reusableCLIOptions);
+        osgiContext.registerInjectActivateService(tallyVotesCommand);
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        command.execute(new ExecutionContext(ExecutionContext.Mode.AUTO, "123"));
+        command.run();
         verify(mailer).send(
                 "From: John Doe <johndoe@apache.org> \n" +
                         "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +

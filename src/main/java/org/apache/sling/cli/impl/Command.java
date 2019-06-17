@@ -16,14 +16,12 @@
  */
 package org.apache.sling.cli.impl;
 
-
-import org.jetbrains.annotations.NotNull;
-
-public interface Command {
+/**
+ * Marker interface for {@code Commands} supported by the Apache Sling Committer CLI.
+ */
+public interface Command extends Runnable {
     
-    String PROPERTY_NAME_COMMAND = "command";
-    String PROPERTY_NAME_SUBCOMMAND = "subcommand";
-    String PROPERTY_NAME_SUMMARY = "summary";
+    String PROPERTY_NAME_COMMAND_GROUP = "command.group";
+    String PROPERTY_NAME_COMMAND_NAME = "command.name";
 
-    void execute(@NotNull ExecutionContext context) throws Exception;
 }
