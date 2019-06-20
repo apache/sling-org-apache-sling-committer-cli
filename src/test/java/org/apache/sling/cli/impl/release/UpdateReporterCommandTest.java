@@ -90,7 +90,7 @@ public class UpdateReporterCommandTest {
         UpdateReporterCommand updateReporterCommand = spy(new UpdateReporterCommand());
         Whitebox.setInternalState(updateReporterCommand, "repositoryId", 42);
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
-        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.dryrun);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.DRY_RUN);
         Whitebox.setInternalState(updateReporterCommand, "reusableCLIOptions", reusableCLIOptions);
         osgiContext.registerInjectActivateService(updateReporterCommand);
         Command updateReporter = osgiContext.getService(Command.class);
@@ -109,7 +109,7 @@ public class UpdateReporterCommandTest {
         UpdateReporterCommand updateReporterCommand = spy(new UpdateReporterCommand());
         Whitebox.setInternalState(updateReporterCommand, "repositoryId", 42);
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
-        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.interactive);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.INTERACTIVE);
         Whitebox.setInternalState(updateReporterCommand, "reusableCLIOptions", reusableCLIOptions);
         osgiContext.registerInjectActivateService(updateReporterCommand);
         Command updateReporter = osgiContext.getService(Command.class);
@@ -133,7 +133,7 @@ public class UpdateReporterCommandTest {
         UpdateReporterCommand updateReporterCommand = spy(new UpdateReporterCommand());
         Whitebox.setInternalState(updateReporterCommand, "repositoryId", 42);
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
-        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.auto);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.AUTO);
         Whitebox.setInternalState(updateReporterCommand, "reusableCLIOptions", reusableCLIOptions);
         osgiContext.registerInjectActivateService(updateReporterCommand);
         Command updateReporter = osgiContext.getService(Command.class);

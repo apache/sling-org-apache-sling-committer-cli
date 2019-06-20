@@ -81,11 +81,11 @@ public class UpdateReporterCommand implements Command {
             List<Release> releases = Release.fromString(repository.getDescription());
             String releaseReleases = releases.size() > 1 ? "releases" : "release";
             switch (reusableCLIOptions.executionMode) {
-                case dryrun:
+                case DRY_RUN:
                     LOGGER.info("The following {} would be added to the Apache Reporter System:", releaseReleases);
                     releases.forEach(release -> LOGGER.info("  - {}", release.getFullName()));
                     break;
-                case interactive:
+                case INTERACTIVE:
                     StringBuilder question = new StringBuilder(String.format("Should the following %s be added to the Apache Reporter " +
                             "System?", releaseReleases)).append("\n");
                     releases.forEach(release -> question.append("  - ").append(release.getFullName()).append("\n"));
@@ -98,7 +98,7 @@ public class UpdateReporterCommand implements Command {
                         LOGGER.info("Aborted updating the Apache Reporter System.");
                     }
                     break;
-                case auto:
+                case AUTO:
                     LOGGER.info("The following {} will be added to the Apache Reporter System:", releaseReleases);
                     releases.forEach(release -> LOGGER.info("  - {}", release.getFullName()));
                     updateReporter(releases);

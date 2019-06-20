@@ -26,7 +26,7 @@ class ReusableCLIOptions {
 
     @CommandLine.Option(
             names = {"-x", "--execution-mode"},
-            defaultValue = "dryrun",
+            defaultValue = "DRY_RUN",
             description = "execution mode: ${COMPLETION-CANDIDATES}; default: ${DEFAULT-VALUE}")
     ExecutionMode executionMode;
 

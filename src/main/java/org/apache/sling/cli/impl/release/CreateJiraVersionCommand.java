@@ -77,13 +77,13 @@ public class CreateJiraVersionCommand implements Command {
                 boolean createNextRelease = false;
                 if ( successorVersion == null ) {
                     Release next = release.next();
-                    if (reusableCLIOptions.executionMode == ExecutionMode.dryrun) {
+                    if (reusableCLIOptions.executionMode == ExecutionMode.DRY_RUN) {
                         logger.info("Version {} would be created.", next.getName());
-                    } else if (reusableCLIOptions.executionMode == ExecutionMode.interactive) {
+                    } else if (reusableCLIOptions.executionMode == ExecutionMode.INTERACTIVE) {
                         InputOption answer = UserInput.yesNo(String.format("Should version %s be created?", next.getName()),
                                 InputOption.YES);
                         createNextRelease = (answer == InputOption.YES);
-                    } else if (reusableCLIOptions.executionMode == ExecutionMode.auto) {
+                    } else if (reusableCLIOptions.executionMode == ExecutionMode.AUTO) {
                         createNextRelease = true;
                     }
                     if (createNextRelease) {
@@ -98,16 +98,16 @@ public class CreateJiraVersionCommand implements Command {
                     List<Issue> unresolvedIssues = versionClient.findUnresolvedIssues(release);
                     if (!unresolvedIssues.isEmpty()) {
                         boolean moveIssues = false;
-                        if (reusableCLIOptions.executionMode == ExecutionMode.dryrun) {
+                        if (reusableCLIOptions.executionMode == ExecutionMode.DRY_RUN) {
                             logger.info("{} unresolved issues would be moved from version {} to version {} :",
                                     unresolvedIssues.size(), version.getName(), successorVersion.getName());
-                        } else if (reusableCLIOptions.executionMode == ExecutionMode.interactive) {
+                        } else if (reusableCLIOptions.executionMode == ExecutionMode.INTERACTIVE) {
                             InputOption answer = UserInput.yesNo(String.format("Should the %s unresolved issue(s) from version %s be " +
                                             "moved " +
                                     "to version %s?", unresolvedIssues.size(), version.getName(), successorVersion.getName()),
                                     InputOption.YES);
                             moveIssues = (answer == InputOption.YES);
-                        } else if (reusableCLIOptions.executionMode == ExecutionMode.auto) {
+                        } else if (reusableCLIOptions.executionMode == ExecutionMode.AUTO) {
                             moveIssues = true;
                         }
                         if (moveIssues) {

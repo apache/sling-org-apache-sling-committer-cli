@@ -60,9 +60,6 @@ public class CommandProcessor {
 
     private Map<String, TreeSet<CommandWithProps>> commands = new ConcurrentHashMap<>();
 
-    public CommandProcessor() {
-    }
-
     @Activate
     private void activate(BundleContext ctx) {
         this.ctx = ctx;

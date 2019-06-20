@@ -20,17 +20,17 @@ package org.apache.sling.cli.impl;
 
 public enum ExecutionMode {
     /**
-     * In {@code dryrun} mode {@link Command}s should only output what actions they would execute.
+     * In {@code DRY_RUN} mode {@link Command}s should only output what actions they would execute.
      */
-    dryrun,
+    DRY_RUN,
 
     /**
-     * In {@code interactive} mode {@link Command}s should always ask for user confirmation for each action they would execute.
+     * In {@code INTERACTIVE} mode {@link Command}s should always ask for user confirmation for each action they would execute.
      */
-    interactive,
+    INTERACTIVE,
 
     /**
-     * In {@code auto} mode {@link Command}s should execute their normal actions assuming the user has provided all the default answers.
+     * In {@code AUTO} mode {@link Command}s should execute their normal actions assuming the user has provided all the default answers.
      */
-    auto;
+    AUTO;
 }

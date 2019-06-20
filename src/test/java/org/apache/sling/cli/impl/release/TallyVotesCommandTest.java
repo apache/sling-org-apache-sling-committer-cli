@@ -83,7 +83,7 @@ public class TallyVotesCommandTest {
         prepareExecution(mock(Mailer.class), thread);
         TallyVotesCommand tallyVotesCommand = spy(new TallyVotesCommand());
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
-        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.dryrun);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.DRY_RUN);
         Whitebox.setInternalState(tallyVotesCommand, "repositoryId", 123);
         Whitebox.setInternalState(tallyVotesCommand, "reusableCLIOptions", reusableCLIOptions);
         osgiContext.registerInjectActivateService(tallyVotesCommand);
@@ -127,7 +127,7 @@ public class TallyVotesCommandTest {
         prepareExecution(mock(Mailer.class), thread);
         TallyVotesCommand tallyVotesCommand = spy(new TallyVotesCommand());
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
-        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.dryrun);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.DRY_RUN);
         Whitebox.setInternalState(tallyVotesCommand, "repositoryId", 123);
         Whitebox.setInternalState(tallyVotesCommand, "reusableCLIOptions", reusableCLIOptions);
         osgiContext.registerInjectActivateService(tallyVotesCommand);
@@ -156,7 +156,7 @@ public class TallyVotesCommandTest {
         prepareExecution(mailer, thread);
         TallyVotesCommand tallyVotesCommand = spy(new TallyVotesCommand());
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
-        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.auto);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.AUTO);
         Whitebox.setInternalState(tallyVotesCommand, "repositoryId", 123);
         Whitebox.setInternalState(tallyVotesCommand, "reusableCLIOptions", reusableCLIOptions);
         osgiContext.registerInjectActivateService(tallyVotesCommand);

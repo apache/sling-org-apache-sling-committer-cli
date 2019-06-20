@@ -34,6 +34,6 @@ public class ReleaseCLIGroup implements CLIGroup {
 
     @Override
     public void run() {
-        commandSpec.commandLine().usage(System.out);
+        commandSpec.commandLine().usage(System.console().writer());
     }
 }

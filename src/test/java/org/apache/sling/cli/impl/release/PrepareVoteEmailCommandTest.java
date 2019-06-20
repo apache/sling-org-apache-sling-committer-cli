@@ -58,7 +58,7 @@ public class PrepareVoteEmailCommandTest {
         when(commandSpec.commandLine()).thenReturn(commandLine);
         when(commandLine.isUsageHelpRequested()).thenReturn(false);
         Whitebox.setInternalState(prepareVoteEmailCommand, "spec", commandSpec);
-        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.auto);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.AUTO);
         Whitebox.setInternalState(prepareVoteEmailCommand, "reusableCLIOptions", reusableCLIOptions);
         Whitebox.setInternalState(prepareVoteEmailCommand, "repositoryId", 123);
         osgiContext.registerInjectActivateService(prepareVoteEmailCommand);

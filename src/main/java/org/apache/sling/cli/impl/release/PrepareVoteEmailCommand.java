@@ -148,11 +148,11 @@ public class PrepareVoteEmailCommand implements Command {
                         .replace("##FIXED_ISSUES_COUNT##", String.valueOf(fixedIssueCounts))
                         .replace("##USER_NAME##", currentMember.getName());
                 switch (reusableCLIOptions.executionMode) {
-                    case dryrun:
+                    case DRY_RUN:
                         LOGGER.info("The following email would be sent from your @apache.org address (see the \"From:\" header):\n");
                         LOGGER.info(emailContents);
                         break;
-                    case interactive:
+                    case INTERACTIVE:
                         String question = "Should the following email be sent from your @apache.org address (see the" +
                                 " \"From:\" header)?\n\n" + emailContents;
                         InputOption answer = UserInput.yesNo(question, InputOption.YES);
@@ -164,7 +164,7 @@ public class PrepareVoteEmailCommand implements Command {
                             LOGGER.info("Aborted.");
                         }
                         break;
-                    case auto:
+                    case AUTO:
                         LOGGER.info(emailContents);
                         LOGGER.info("Sending email...");
                         mailer.send(emailContents);
