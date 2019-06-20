@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 import javax.mail.internet.InternetAddress;
 
 import org.apache.sling.cli.impl.Command;
-import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.mail.Email;
@@ -38,18 +37,24 @@ import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
-import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import picocli.CommandLine;
+
 @Component(service = Command.class, property = {
-    Command.PROPERTY_NAME_COMMAND+"=release",
-    Command.PROPERTY_NAME_SUBCOMMAND+"=tally-votes",
-    Command.PROPERTY_NAME_SUMMARY+"=Counts votes cast for a release and generates the result email"
+        Command.PROPERTY_NAME_COMMAND_GROUP + "=" + TallyVotesCommand.GROUP,
+        Command.PROPERTY_NAME_COMMAND_NAME + "=" + TallyVotesCommand.NAME
 })
+@CommandLine.Command(name = TallyVotesCommand.NAME,
+                     description = "Counts votes cast for a release and generates the result email",
+                     subcommands = CommandLine.HelpCommand.class)
 public class TallyVotesCommand implements Command {
+
+    static final String GROUP = "release";
+    static final String NAME = "tally-votes";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TallyVotesCommand.class);
 
@@ -64,6 +69,12 @@ public class TallyVotesCommand implements Command {
 
     @Reference
     private Mailer mailer;
+
+    @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
+    private Integer repositoryId;
+
+    @CommandLine.Mixin
+    private ReusableCLIOptions reusableCLIOptions;
 
     // TODO - move to file
     private static final String EMAIL_TEMPLATE =
@@ -86,10 +97,9 @@ public class TallyVotesCommand implements Command {
             "\n";
 
     @Override
-    public void execute(@NotNull ExecutionContext context) {
+    public void run() {
         try {
-            
-            StagingRepository repository = repoFinder.find(Integer.parseInt(context.getTarget()));
+            StagingRepository repository = repoFinder.find(repositoryId);
             List<Release> releases = Release.fromString(repository.getDescription());
             String releaseName = releases.stream().map(Release::getName).collect(Collectors.joining(", "));
             String releaseFullName = releases.stream().map(Release::getFullName).collect(Collectors.joining(", "));
@@ -130,7 +140,7 @@ public class TallyVotesCommand implements Command {
                 }
 
                 if (bindingVoters.size() >= 3) {
-                    switch (context.getMode()) {
+                    switch (reusableCLIOptions.executionMode) {
                         case DRY_RUN:
                             LOGGER.info("The following email would be sent from your @apache.org address (see the \"From:\" header):\n");
                             LOGGER.info(email);

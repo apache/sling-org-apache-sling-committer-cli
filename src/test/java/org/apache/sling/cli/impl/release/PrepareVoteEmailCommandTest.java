@@ -21,7 +21,7 @@ package org.apache.sling.cli.impl.release;
 import java.io.IOException;
 
 import org.apache.sling.cli.impl.Command;
-import org.apache.sling.cli.impl.ExecutionContext;
+import org.apache.sling.cli.impl.ExecutionMode;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.mail.Mailer;
@@ -33,8 +33,12 @@ import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
 import org.junit.Rule;
 import org.junit.Test;
 import org.osgi.framework.ServiceReference;
+import org.powermock.reflect.Whitebox;
+
+import picocli.CommandLine;
 
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,12 +51,22 @@ public class PrepareVoteEmailCommandTest {
     public void testPrepareEmailGeneration() throws Exception {
         Mailer mailer = mock(Mailer.class);
         prepareExecution(mailer);
-        osgiContext.registerInjectActivateService(new PrepareVoteEmailCommand());
+        PrepareVoteEmailCommand prepareVoteEmailCommand = spy(new PrepareVoteEmailCommand());
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        CommandLine.Model.CommandSpec commandSpec = mock(CommandLine.Model.CommandSpec.class);
+        CommandLine commandLine = mock(CommandLine.class);
+        when(commandSpec.commandLine()).thenReturn(commandLine);
+        when(commandLine.isUsageHelpRequested()).thenReturn(false);
+        Whitebox.setInternalState(prepareVoteEmailCommand, "spec", commandSpec);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.AUTO);
+        Whitebox.setInternalState(prepareVoteEmailCommand, "reusableCLIOptions", reusableCLIOptions);
+        Whitebox.setInternalState(prepareVoteEmailCommand, "repositoryId", 123);
+        osgiContext.registerInjectActivateService(prepareVoteEmailCommand);
 
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        command.execute(new ExecutionContext(ExecutionContext.Mode.AUTO, "123"));
+        command.run();
         verify(mailer).send(
                 "From: John Doe <johndoe@apache.org>\n" +
                         "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +

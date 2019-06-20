@@ -70,6 +70,9 @@
         },
         {
             "id": "org.apache.sling:org.apache.sling.javax.activation:0.1.0"
+        },
+        {
+            "id": "info.picocli:picocli:4.0.0-beta-2"
         }
     ]
 }

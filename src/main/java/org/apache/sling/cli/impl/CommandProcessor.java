@@ -16,10 +16,15 @@
  */
 package org.apache.sling.cli.impl;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.sling.cli.impl.release.ReleaseCLIGroup;
+import org.jetbrains.annotations.NotNull;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
@@ -30,9 +35,15 @@ import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import picocli.CommandLine;
+
 import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIPLE;
 import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
 
+@CommandLine.Command(
+        name = "docker run -it --env-file=./docker-env apache/sling-cli",
+        description = "Apache Sling Committers CLI"
+)
 @Component(service = CommandProcessor.class)
 public class CommandProcessor {
 
@@ -40,7 +51,14 @@ public class CommandProcessor {
     private static final String EXEC_ARGS = "exec.args";
     private BundleContext ctx;
 
-    private Map<CommandKey, CommandWithProps> commands = new ConcurrentHashMap<>();
+    private static final Map<String, Class> CLI_GROUPS;
+
+    static {
+        CLI_GROUPS = new HashMap<>();
+        CLI_GROUPS.put("release", ReleaseCLIGroup.class);
+    }
+
+    private Map<String, TreeSet<CommandWithProps>> commands = new ConcurrentHashMap<>();
 
     @Activate
     private void activate(BundleContext ctx) {
@@ -49,26 +67,56 @@ public class CommandProcessor {
 
     @Reference(service = Command.class, cardinality = MULTIPLE, policy = DYNAMIC)
     protected void bindCommand(Command cmd, Map<String, ?> props) {
-        commands.put(CommandKey.of(props), CommandWithProps.of(cmd, props));
+        CommandWithProps commandWithProps = CommandWithProps.of(cmd, props);
+        Set<CommandWithProps> bucket = commands.computeIfAbsent(commandWithProps.group, key -> new TreeSet<>());
+        bucket.add(commandWithProps);
     }
 
-    protected void unbindCommand(Map<String, ?> props) {
-        commands.remove(CommandKey.of(props));
+    protected void unbindCommand(Command cmd, Map<String, ?> props) {
+        CommandWithProps commandWithProps = CommandWithProps.of(cmd, props);
+        Set<CommandWithProps> bucket = commands.get(commandWithProps.group);
+        if (bucket != null) {
+            bucket.remove(commandWithProps);
+            if (bucket.isEmpty()) {
+                commands.remove(commandWithProps.group);
+            }
+        }
+
     }
 
     void runCommand() {
-        String[] arguments = arguments(ctx.getProperty(EXEC_ARGS));
-        CommandKey key = CommandKey.of(arguments);
-        ExecutionContext context = defineContext(arguments);
+        System.setProperty("picocli.usage.width", "140");
+        CommandLine commandLine = new CommandLine(this);
+        commandLine.addSubcommand(CommandLine.HelpCommand.class);
+        for (Map.Entry<String, TreeSet<CommandWithProps>> entry : commands.entrySet()) {
+            String group = entry.getKey();
+            Class<?> groupClass = CLI_GROUPS.get(group);
+            if (groupClass != null) {
+                CommandLine secondary = new CommandLine(groupClass);
+                for (CommandWithProps command : entry.getValue()) {
+                    secondary.addSubcommand(command.name, command.cmd);
+                }
+                secondary.addSubcommand(CommandLine.HelpCommand.class);
+                commandLine.addSubcommand(group, secondary);
+            } else {
+                for (CommandWithProps command : entry.getValue()) {
+                    commandLine.addSubcommand(command.group, command.cmd);
+                }
+            }
+        }
+        int commandExitCode;
         try {
-            commands.getOrDefault(key, new CommandWithProps(ignored -> {
-                logger.info("Usage: sling command sub-command [target]");
-                logger.info("");
-                logger.info("Available commands:");
-                commands.forEach((k, c) -> logger.info("{} {}: {}", k.command, k.subCommand, c.summary));
-            }, "")).cmd.execute(context);
+            String[] arguments = arguments(ctx.getProperty(EXEC_ARGS));
+            commandExitCode = commandLine.execute(arguments);
+        } catch (CommandLine.ParameterException e) {
+            commandLine.getErr().println(e.getMessage());
+            if (!CommandLine.UnmatchedArgumentException.printSuggestions(e, commandLine.getErr())) {
+                e.getCommandLine().usage(commandLine.getErr());
+            }
+            commandExitCode = commandLine.getCommandSpec().exitCodeOnInvalidInput();
         } catch (Exception e) {
-            logger.warn("Failed running command", e);
+            logger.warn("Failed running command.", e);
+            commandExitCode = 1;
         } finally {
             try {
                 ctx.getBundle(Constants.SYSTEM_BUNDLE_LOCATION).adapt(Framework.class).stop();
@@ -77,6 +125,7 @@ public class CommandProcessor {
                 System.exit(1);
             }
         }
+        System.exit(commandExitCode);
     }
 
     private String[] arguments(String cliSpec) {
@@ -86,70 +135,52 @@ public class CommandProcessor {
         return cliSpec.split(" ");
     }
 
-    private ExecutionContext defineContext(String[] arguments) {
-        if (arguments.length < 3)
-            return ExecutionContext.DEFAULT;
-        String target = arguments[2];
-        if (arguments.length > 3) {
-            return new ExecutionContext(ExecutionContext.Mode.fromString(arguments[3]), target);
-        } else {
-            return new ExecutionContext(ExecutionContext.Mode.DRY_RUN, target);
-        }
-    }
-    
+    static class CommandWithProps implements Comparable<CommandWithProps> {
+        private final String group;
+        private final String name;
+        private final Command cmd;
 
-    static class CommandKey {
-
-        private static final CommandKey EMPTY = new CommandKey("", "");
-
-        private final String command;
-        private final String subCommand;
-
-        static CommandKey of(String[] arguments) {
-            if (arguments.length < 2)
-                return EMPTY;
-
-            return new CommandKey(arguments[0], arguments[1]);
+        static CommandWithProps of(Command cmd, Map<String, ?> props) {
+            return new CommandWithProps(
+                    cmd,
+                    (String) props.get(Command.PROPERTY_NAME_COMMAND_GROUP),
+                    (String) props.get(Command.PROPERTY_NAME_COMMAND_NAME)
+            );
         }
 
-        static CommandKey of(Map<String, ?> serviceProps) {
-            return new CommandKey((String) serviceProps.get(Command.PROPERTY_NAME_COMMAND), (String) serviceProps.get(Command.PROPERTY_NAME_SUBCOMMAND));
+        CommandWithProps(Command cmd, String group, String name) {
+            this.cmd = cmd;
+            this.group = group;
+            this.name = name;
         }
 
-        CommandKey(String command, String subCommand) {
-            this.command = command;
-            this.subCommand = subCommand;
+        @Override
+        public int compareTo(@NotNull CommandProcessor.CommandWithProps o) {
+            if (!group.equals(o.group)) {
+                return group.compareTo(o.group);
+            } else {
+                return name.compareTo(o.name);
+            }
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(command, subCommand);
+            return Objects.hash(group, name);
         }
 
         @Override
         public boolean equals(Object obj) {
-            if (this == obj)
+            if (this == obj) {
                 return true;
-            if (obj == null)
+            }
+            if (obj == null) {
                 return false;
-            if (getClass() != obj.getClass())
-                return false;
-            CommandKey other = (CommandKey) obj;
-            return Objects.equals(command, other.command) && Objects.equals(subCommand, other.subCommand);
-        }
-    }
-    
-    static class CommandWithProps {
-        private final Command cmd;
-        private final String summary;
-
-        static CommandWithProps of(Command cmd, Map<String, ?> props) {
-            return new CommandWithProps(cmd, (String) props.get(Command.PROPERTY_NAME_SUMMARY));
-        }
-        
-        CommandWithProps(Command cmd, String summary) {
-            this.cmd = cmd;
-            this.summary = summary;
+            }
+            if (obj instanceof CommandWithProps) {
+                CommandWithProps other = (CommandWithProps) obj;
+                return Objects.equals(group, other.group) && Objects.equals(name, other.name);
+            }
+            return false;
         }
     }
 }

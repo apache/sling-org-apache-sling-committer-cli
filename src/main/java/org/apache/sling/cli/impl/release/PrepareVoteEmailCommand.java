@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 import javax.mail.internet.InternetAddress;
 
 import org.apache.sling.cli.impl.Command;
-import org.apache.sling.cli.impl.ExecutionContext;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.jira.Version;
@@ -33,17 +32,28 @@ import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
-import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Component(service = Command.class, property = {
-    Command.PROPERTY_NAME_COMMAND + "=release",
-    Command.PROPERTY_NAME_SUBCOMMAND + "=prepare-email",
-    Command.PROPERTY_NAME_SUMMARY + "=Prepares an email vote for the specified release." })
+import picocli.CommandLine;
+
+@Component(service = Command.class,
+           property = {
+                   Command.PROPERTY_NAME_COMMAND_GROUP + "=" + PrepareVoteEmailCommand.GROUP,
+                   Command.PROPERTY_NAME_COMMAND_NAME + "=" + PrepareVoteEmailCommand.NAME
+           }
+)
+@CommandLine.Command(
+        name = PrepareVoteEmailCommand.NAME,
+        description = "Prepares an email vote for the releases found in the Nexus staged repository",
+        subcommands = CommandLine.HelpCommand.class
+)
 public class PrepareVoteEmailCommand implements Command {
+
+    static final String GROUP = "release";
+    static final String NAME = "prepare-email";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PrepareVoteEmailCommand.class);
 
@@ -58,6 +68,15 @@ public class PrepareVoteEmailCommand implements Command {
 
     @Reference
     private Mailer mailer;
+
+    @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
+    private Integer repositoryId;
+
+    @CommandLine.Mixin
+    private ReusableCLIOptions reusableCLIOptions;
+
+    @CommandLine.Spec
+    CommandLine.Model.CommandSpec spec;
 
     // TODO - replace with file template
     private static final String EMAIL_TEMPLATE =
@@ -95,59 +114,63 @@ public class PrepareVoteEmailCommand implements Command {
             "https://issues.apache.org/jira/browse/SLING/fixforversion/##VERSION_ID##";
 
     @Override
-    public void execute(@NotNull ExecutionContext context) {
+    public void run() {
         try {
-            int repoId = Integer.parseInt(context.getTarget());
-            StagingRepository repo = repoFinder.find(repoId);
-            List<Release> releases = Release.fromString(repo.getDescription());
-            List<Version> versions = releases.stream()
-                    .map( r -> versionClient.find(r))
-                    .collect(Collectors.toList());
+            CommandLine commandLine = spec.commandLine();
+            if (commandLine.isUsageHelpRequested()) {
+                commandLine.usage(commandLine.getOut());
+            } else {
+                StagingRepository repo = repoFinder.find(repositoryId);
+                List<Release> releases = Release.fromString(repo.getDescription());
+                List<Version> versions = releases.stream()
+                        .map(r -> versionClient.find(r))
+                        .collect(Collectors.toList());
 
-            String releaseName = releases.stream()
-                    .map( Release::getFullName )
-                    .collect(Collectors.joining(", "));
+                String releaseName = releases.stream()
+                        .map(Release::getFullName)
+                        .collect(Collectors.joining(", "));
 
-            int fixedIssueCounts = versions.stream().mapToInt( Version::getIssuesFixedCount).sum();
-            String releaseOrReleases = versions.size() > 1 ?
-                    "these releases" : "this release";
+                int fixedIssueCounts = versions.stream().mapToInt(Version::getIssuesFixedCount).sum();
+                String releaseOrReleases = versions.size() > 1 ?
+                        "these releases" : "this release";
 
-            String releaseJiraLinks = versions.stream()
-                .map( v -> RELEASE_TEMPLATE.replace("##VERSION_ID##", String.valueOf(v.getId())))
-                .collect(Collectors.joining("\n"));
+                String releaseJiraLinks = versions.stream()
+                        .map(v -> RELEASE_TEMPLATE.replace("##VERSION_ID##", String.valueOf(v.getId())))
+                        .collect(Collectors.joining("\n"));
 
-            Member currentMember = membersFinder.getCurrentMember();
-            String emailContents = EMAIL_TEMPLATE
-                    .replace("##FROM##", new InternetAddress(currentMember.getEmail(), currentMember.getName()).toString())
-                    .replace("##RELEASE_NAME##", releaseName)
-                    .replace("##RELEASE_ID##", String.valueOf(repoId))
-                    .replace("##RELEASE_OR_RELEASES##", releaseOrReleases)
-                    .replace("##RELEASE_JIRA_LINKS##", releaseJiraLinks)
-                    .replace("##FIXED_ISSUES_COUNT##", String.valueOf(fixedIssueCounts))
-                    .replace("##USER_NAME##", currentMember.getName());
-            switch (context.getMode()) {
-                case DRY_RUN:
-                    LOGGER.info("The following email would be sent from your @apache.org address (see the \"From:\" header):\n");
-                    LOGGER.info(emailContents);
-                    break;
-                case INTERACTIVE:
-                    String question ="Should the following email be sent from your @apache.org address (see the" +
-                            " \"From:\" header)?\n\n" + emailContents;
-                    InputOption answer = UserInput.yesNo(question, InputOption.YES);
-                    if (InputOption.YES.equals(answer)) {
+                Member currentMember = membersFinder.getCurrentMember();
+                String emailContents = EMAIL_TEMPLATE
+                        .replace("##FROM##", new InternetAddress(currentMember.getEmail(), currentMember.getName()).toString())
+                        .replace("##RELEASE_NAME##", releaseName)
+                        .replace("##RELEASE_ID##", String.valueOf(repositoryId))
+                        .replace("##RELEASE_OR_RELEASES##", releaseOrReleases)
+                        .replace("##RELEASE_JIRA_LINKS##", releaseJiraLinks)
+                        .replace("##FIXED_ISSUES_COUNT##", String.valueOf(fixedIssueCounts))
+                        .replace("##USER_NAME##", currentMember.getName());
+                switch (reusableCLIOptions.executionMode) {
+                    case DRY_RUN:
+                        LOGGER.info("The following email would be sent from your @apache.org address (see the \"From:\" header):\n");
+                        LOGGER.info(emailContents);
+                        break;
+                    case INTERACTIVE:
+                        String question = "Should the following email be sent from your @apache.org address (see the" +
+                                " \"From:\" header)?\n\n" + emailContents;
+                        InputOption answer = UserInput.yesNo(question, InputOption.YES);
+                        if (InputOption.YES.equals(answer)) {
+                            LOGGER.info("Sending email...");
+                            mailer.send(emailContents);
+                            LOGGER.info("Done!");
+                        } else if (InputOption.NO.equals(answer)) {
+                            LOGGER.info("Aborted.");
+                        }
+                        break;
+                    case AUTO:
+                        LOGGER.info(emailContents);
                         LOGGER.info("Sending email...");
                         mailer.send(emailContents);
                         LOGGER.info("Done!");
-                    } else if (InputOption.NO.equals(answer)) {
-                        LOGGER.info("Aborted.");
-                    }
-                    break;
-                case AUTO:
-                    LOGGER.info(emailContents);
-                    LOGGER.info("Sending email...");
-                    mailer.send(emailContents);
-                    LOGGER.info("Done!");
-                    break;
+                        break;
+                }
             }
         } catch (IOException e) {
             LOGGER.warn("Failed executing command", e);

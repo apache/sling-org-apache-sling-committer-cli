@@ -24,7 +24,7 @@ import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.sling.cli.impl.Command;
-import org.apache.sling.cli.impl.ExecutionContext;
+import org.apache.sling.cli.impl.ExecutionMode;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
@@ -38,12 +38,14 @@ import org.junit.runner.RunWith;
 import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+import org.powermock.reflect.Whitebox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -81,16 +83,20 @@ public class UpdateReporterCommandTest {
 
     @Test
     @PrepareForTest({LoggerFactory.class})
-    public void testDryRun() throws Exception {
+    public void testDryRun() {
         mockStatic(LoggerFactory.class);
         Logger logger = mock(Logger.class);
         when(LoggerFactory.getLogger(UpdateReporterCommand.class)).thenReturn(logger);
-
-        osgiContext.registerInjectActivateService(new UpdateReporterCommand());
+        UpdateReporterCommand updateReporterCommand = spy(new UpdateReporterCommand());
+        Whitebox.setInternalState(updateReporterCommand, "repositoryId", 42);
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.DRY_RUN);
+        Whitebox.setInternalState(updateReporterCommand, "reusableCLIOptions", reusableCLIOptions);
+        osgiContext.registerInjectActivateService(updateReporterCommand);
         Command updateReporter = osgiContext.getService(Command.class);
         assertTrue("Expected to retrieve the UpdateReporterCommand from the mocked OSGi environment.",
                 updateReporter instanceof UpdateReporterCommand);
-        updateReporter.execute(new ExecutionContext(ExecutionContext.Mode.DRY_RUN, "42"));
+        updateReporter.run();
         verify(logger).info("The following {} would be added to the Apache Reporter System:", "releases");
         verify(logger).info("  - {}", "Apache Sling CLI 1");
         verify(logger).info("  - {}", "Apache Sling CLI 2");
@@ -100,7 +106,12 @@ public class UpdateReporterCommandTest {
     @Test
     @PrepareForTest({UserInput.class})
     public void testInteractive() throws Exception {
-        osgiContext.registerInjectActivateService(new UpdateReporterCommand());
+        UpdateReporterCommand updateReporterCommand = spy(new UpdateReporterCommand());
+        Whitebox.setInternalState(updateReporterCommand, "repositoryId", 42);
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.INTERACTIVE);
+        Whitebox.setInternalState(updateReporterCommand, "reusableCLIOptions", reusableCLIOptions);
+        osgiContext.registerInjectActivateService(updateReporterCommand);
         Command updateReporter = osgiContext.getService(Command.class);
         assertTrue("Expected to retrieve the UpdateReporterCommand from the mocked OSGi environment.",
                 updateReporter instanceof UpdateReporterCommand);
@@ -113,13 +124,18 @@ public class UpdateReporterCommandTest {
         when(response.getStatusLine()).thenReturn(statusLine);
         when(statusLine.getStatusCode()).thenReturn(200);
         when(client.execute(any())).thenReturn(response);
-        updateReporter.execute(new ExecutionContext(ExecutionContext.Mode.INTERACTIVE, "42"));
+        updateReporter.run();
         verify(client, times(2)).execute(any());
     }
 
     @Test
     public void testAuto() throws Exception {
-        osgiContext.registerInjectActivateService(new UpdateReporterCommand());
+        UpdateReporterCommand updateReporterCommand = spy(new UpdateReporterCommand());
+        Whitebox.setInternalState(updateReporterCommand, "repositoryId", 42);
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.AUTO);
+        Whitebox.setInternalState(updateReporterCommand, "reusableCLIOptions", reusableCLIOptions);
+        osgiContext.registerInjectActivateService(updateReporterCommand);
         Command updateReporter = osgiContext.getService(Command.class);
         assertTrue("Expected to retrieve the UpdateReporterCommand from the mocked OSGi environment.",
                 updateReporter instanceof UpdateReporterCommand);
@@ -128,7 +144,7 @@ public class UpdateReporterCommandTest {
         when(response.getStatusLine()).thenReturn(statusLine);
         when(statusLine.getStatusCode()).thenReturn(200);
         when(client.execute(any())).thenReturn(response);
-        updateReporter.execute(new ExecutionContext(ExecutionContext.Mode.AUTO, "42"));
+        updateReporter.run();
         verify(client, times(2)).execute(any());
     }
 

@@ -16,21 +16,24 @@ The image is built using `mvn package`. Afterwards it may be run with
 
     docker run --env-file=./docker-env apache/sling-cli
     
-This invocation produces a list of available subcommands.
+This invocation produces a list of available commands.
 
 ## Commands
 
 The commands can be executed in 3 different modes:
 
-  * `dry-run` (default mode) - commands only list their output without performing any actions on the user's behalf
-  * `interactive` - commands list their output but ask for user confirmation when it comes to performing an action on the user's behalf
-  * `auto` - comands list their output and assume that all questions are provided the default answers when it comes to performing an action on the user's behalf
+  * `DRY_RUN` (default mode) - commands only list their output without performing any actions on the user's behalf
+  * `INTERACTIVE` - commands list their output but ask for user confirmation when it comes to performing an action on the user's behalf
+  * `AUTO` - commands list their output and assume that all questions are provided the default answers when it comes to performing an 
+  action on the user's behalf
 
 To select a non-default execution mode provide the mode as an argument to the command:
 
-    docker run -it --env-file=./docker-env apache/sling-cli release prepare-email $STAGING_REPOSITORY_ID --interactive
+    docker run -it --env-file=./docker-env apache/sling-cli release prepare-email --repository=$STAGING_REPOSITORY 
+    --execution-mode=INTERACTIVE
 
-Note that for running commands in the `interactive` mode you need to run the Docker container in interactive mode with a pseudo-tty attached (e.g. `docker run -it ...`).
+Note that for running commands in the `INTERACTIVE` mode you need to run the Docker container in interactive mode with a pseudo-tty 
+attached (e.g. `docker run -it ...`).
 
 Listing active releases
 
@@ -38,15 +41,15 @@ Listing active releases
 
 Generating a release vote email
 
-    docker run --env-file=./docker-env apache/sling-cli release prepare-email $STAGING_REPOSITORY_ID
+    docker run --env-file=./docker-env apache/sling-cli release prepare-email --repository=$STAGING_REPOSITORY_ID
     
 Generating a release vote result email
 
-    docker run --env-file=./docker-env apache/sling-cli release tally-votes $STAGING_REPOSITORY_ID
+    docker run --env-file=./docker-env apache/sling-cli release tally-votes --repository=$STAGING_REPOSITORY_ID
     
 Generating the website update (only diff for now)
 
-	docker run --env-file=docker-env apache/sling-cli release update-local-site $STAGING_REPOSITORY_ID
+	docker run --env-file=docker-env apache/sling-cli release update-local-site --repository=$STAGING_REPOSITORY_ID
 
 ## Assumptions
 
