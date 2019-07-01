@@ -19,9 +19,9 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
-import java.util.Calendar;
 
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.DateProvider;
 import org.apache.sling.cli.impl.ExecutionMode;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
@@ -33,11 +33,7 @@ import org.apache.sling.cli.impl.people.MembersFinder;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.osgi.framework.ServiceReference;
-import org.powermock.core.classloader.annotations.PowerMockIgnore;
-import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.reflect.Whitebox;
 
 import picocli.CommandLine;
@@ -46,16 +42,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.powermock.api.mockito.PowerMockito.mockStatic;
 
-@RunWith(PowerMockRunner.class)
-@PrepareForTest(PrepareVoteEmailCommand.class)
-@PowerMockIgnore({
-                         // https://github.com/powermock/powermock/issues/864
-                         "com.sun.org.apache.xerces.*",
-                         "javax.xml.*",
-                         "org.w3c.dom.*"
-                 })
 public class PrepareVoteEmailCommandTest {
 
     @Rule
@@ -63,10 +50,6 @@ public class PrepareVoteEmailCommandTest {
 
     @Test
     public void testPrepareEmailGeneration() throws Exception {
-        mockStatic(Calendar.class);
-        Calendar calendar = mock(Calendar.class);
-        when(calendar.getTimeInMillis()).thenReturn(0L);
-        when(Calendar.getInstance()).thenReturn(calendar);
         Mailer mailer = mock(Mailer.class);
         prepareExecution(mailer);
         PrepareVoteEmailCommand prepareVoteEmailCommand = spy(new PrepareVoteEmailCommand());
@@ -133,6 +116,10 @@ public class PrepareVoteEmailCommandTest {
         when(version.getId()).thenReturn(1);
         when(version.getIssuesFixedCount()).thenReturn(42);
         when(versionClient.find(Release.fromString("CLI Test 1.0.0").get(0))).thenReturn(version);
+
+        DateProvider dateProvider = mock(DateProvider.class);
+        when(dateProvider.getCurrentDateForEmailHeader()).thenReturn("Thu, 1 Jan 1970 01:00:00 +0100");
+        osgiContext.registerService(DateProvider.class, dateProvider);
 
         osgiContext.registerService(MembersFinder.class, membersFinder);
         osgiContext.registerService(StagingRepositoryFinder.class, stagingRepositoryFinder);

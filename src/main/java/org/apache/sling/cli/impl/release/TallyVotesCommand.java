@@ -19,9 +19,7 @@ package org.apache.sling.cli.impl.release;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.Collator;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Calendar;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -32,6 +30,7 @@ import javax.mail.internet.InternetAddress;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.DateProvider;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.mail.Email;
@@ -73,6 +72,9 @@ public class TallyVotesCommand implements Command {
 
     @Reference
     private Mailer mailer;
+
+    @Reference
+    private DateProvider dateProvider;
 
     @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
     private Integer repositoryId;
@@ -125,10 +127,9 @@ public class TallyVotesCommand implements Command {
                         }
                 );
                 Member currentMember = membersFinder.getCurrentMember();
-                SimpleDateFormat sdf = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss Z");
                 String email = EMAIL_TEMPLATE
                         .replace("##FROM##", new InternetAddress(currentMember.getEmail(), currentMember.getName()).toUnicodeString())
-                        .replace("##DATE##", sdf.format(Calendar.getInstance().getTime()))
+                        .replace("##DATE##", dateProvider.getCurrentDateForEmailHeader())
                         .replace("##RELEASE_NAME##", releaseFullName)
                         .replace("##BINDING_VOTERS##", String.join(", ", bindingVoters))
                         .replace("##USER_NAME##", membersFinder.getCurrentMember().getName());

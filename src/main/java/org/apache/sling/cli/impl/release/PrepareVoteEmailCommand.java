@@ -18,8 +18,6 @@ package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -27,6 +25,7 @@ import javax.mail.internet.InternetAddress;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.DateProvider;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.jira.Version;
@@ -73,6 +72,9 @@ public class PrepareVoteEmailCommand implements Command {
     @Reference
     private Mailer mailer;
 
+    @Reference
+    private DateProvider dateProvider;
+
     @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
     private Integer repositoryId;
 
@@ -80,7 +82,7 @@ public class PrepareVoteEmailCommand implements Command {
     private ReusableCLIOptions reusableCLIOptions;
 
     @CommandLine.Spec
-    CommandLine.Model.CommandSpec spec;
+    private CommandLine.Model.CommandSpec spec;
 
     private static final String EMAIL_TEMPLATE;
 
@@ -124,10 +126,9 @@ public class PrepareVoteEmailCommand implements Command {
                         .collect(Collectors.joining("\n"));
 
                 Member currentMember = membersFinder.getCurrentMember();
-                SimpleDateFormat sdf = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss Z");
                 String emailContents = EMAIL_TEMPLATE
                         .replace("##FROM##", new InternetAddress(currentMember.getEmail(), currentMember.getName()).toString())
-                        .replace("##DATE##", sdf.format(Calendar.getInstance().getTime()))
+                        .replace("##DATE##", dateProvider.getCurrentDateForEmailHeader())
                         .replace("##RELEASE_NAME##", releaseName)
                         .replace("##RELEASE_ID##", String.valueOf(repositoryId))
                         .replace("##RELEASE_OR_RELEASES##", releaseOrReleases)

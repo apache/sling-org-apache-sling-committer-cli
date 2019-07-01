@@ -20,7 +20,6 @@ package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,6 +29,7 @@ import javax.mail.internet.InternetAddress;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.Credentials;
 import org.apache.sling.cli.impl.CredentialsService;
+import org.apache.sling.cli.impl.DateProvider;
 import org.apache.sling.cli.impl.ExecutionMode;
 import org.apache.sling.cli.impl.mail.Email;
 import org.apache.sling.cli.impl.mail.Mailer;
@@ -39,7 +39,7 @@ import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,22 +64,20 @@ import static org.powermock.api.mockito.PowerMockito.mockStatic;
                          "javax.xml.*",
                          "org.w3c.dom.*"
                  })
-@PrepareForTest(TallyVotesCommand.class)
 public class TallyVotesCommandTest {
 
-    @BeforeClass
-    public static void beforeClass() {
-        mockStatic(Calendar.class);
-        Calendar calendar = mock(Calendar.class);
-        when(calendar.getTimeInMillis()).thenReturn(0L);
-        when(Calendar.getInstance()).thenReturn(calendar);
+    @Before
+    public void beforeClass() {
+        DateProvider dateProvider = mock(DateProvider.class);
+        when(dateProvider.getCurrentDateForEmailHeader()).thenReturn("Thu, 1 Jan 1970 01:00:00 +0100");
+        osgiContext.registerService(DateProvider.class, dateProvider);
     }
 
     @Rule
     public final OsgiContext osgiContext = new OsgiContext();
 
     @Test
-    @PrepareForTest({TallyVotesCommand.class, LoggerFactory.class})
+    @PrepareForTest({LoggerFactory.class})
     public void testDryRun() throws Exception {
         mockStatic(LoggerFactory.class);
         Logger logger = mock(Logger.class);
