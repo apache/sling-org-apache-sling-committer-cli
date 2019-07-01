@@ -17,8 +17,11 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.text.Collator;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +30,7 @@ import java.util.stream.Collectors;
 
 import javax.mail.internet.InternetAddress;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
@@ -76,25 +80,18 @@ public class TallyVotesCommand implements Command {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
-    // TODO - move to file
-    private static final String EMAIL_TEMPLATE =
-            "From: ##FROM## \n" +
-            "To: \"Sling Developers List\" <dev@sling.apache.org>\n" + 
-            "Subject: [RESULT] [VOTE] Release ##RELEASE_NAME##\n" + 
-            "\n" + 
-            "Hi,\n" + 
-            "\n" + 
-            "The vote has passed with the following result:\n" +
-            "\n" + 
-            "+1 (binding): ##BINDING_VOTERS##\n" + 
-            "+1 (non-binding): ##NON_BINDING_VOTERS##\n" +
-            "\n" +
-            "I will copy this release to the Sling dist directory and\n" + 
-            "promote the artifacts to the central Maven repository.\n" +
-            "\n" +
-            "Regards,\n" +
-            "##USER_NAME##\n" +
-            "\n";
+    private static final String EMAIL_TEMPLATE;
+
+    static {
+        try {
+            EMAIL_TEMPLATE = IOUtils.toString(
+                    TallyVotesCommand.class.getClassLoader().getResourceAsStream("templates/tally-votes.email"),
+                    StandardCharsets.UTF_8
+            );
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to read embedded email template.", e);
+        }
+    }
 
     @Override
     public void run() {
@@ -128,8 +125,10 @@ public class TallyVotesCommand implements Command {
                         }
                 );
                 Member currentMember = membersFinder.getCurrentMember();
+                SimpleDateFormat sdf = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss Z");
                 String email = EMAIL_TEMPLATE
                         .replace("##FROM##", new InternetAddress(currentMember.getEmail(), currentMember.getName()).toUnicodeString())
+                        .replace("##DATE##", sdf.format(Calendar.getInstance().getTime()))
                         .replace("##RELEASE_NAME##", releaseFullName)
                         .replace("##BINDING_VOTERS##", String.join(", ", bindingVoters))
                         .replace("##USER_NAME##", membersFinder.getCurrentMember().getName());

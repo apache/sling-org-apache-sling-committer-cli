@@ -17,11 +17,15 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import javax.mail.internet.InternetAddress;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
@@ -78,37 +82,18 @@ public class PrepareVoteEmailCommand implements Command {
     @CommandLine.Spec
     CommandLine.Model.CommandSpec spec;
 
-    // TODO - replace with file template
-    private static final String EMAIL_TEMPLATE =
-            "From: ##FROM##\n" +
-            "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
-            "Subject: [VOTE] Release ##RELEASE_NAME##\n" + 
-            "\n" + 
-            "Hi,\n" + 
-            "\n" + 
-            "We solved ##FIXED_ISSUES_COUNT## issue(s) in ##RELEASE_OR_RELEASES##:\n" +
-            "##RELEASE_JIRA_LINKS##\n" +
-            "\n" +
-            "Staging repository:\n" +
-            "https://repository.apache.org/content/repositories/orgapachesling-##RELEASE_ID##/\n" +
-            "\n" +
-            "You can use this UNIX script to download the release and verify the signatures:\n" +
-            "https://gitbox.apache.org/repos/asf?p=sling-tooling-release.git;a=blob;f=check_staged_release.sh;hb=HEAD\n" +
-            "\n" +
-            "Usage:\n" +
-            "sh check_staged_release.sh ##RELEASE_ID## /tmp/sling-staging\n" +
-            "\n" +
-            "Please vote to approve this release:\n" +
-            "\n" +
-            "  [ ] +1 Approve the release\n" +
-            "  [ ]  0 Don't care\n" +
-            "  [ ] -1 Don't release, because ...\n" +
-            "\n" +
-            "This majority vote is open for at least 72 hours.\n" +
-            "\n" +
-            "Regards,\n" +
-            "##USER_NAME##\n" +
-            "\n";
+    private static final String EMAIL_TEMPLATE;
+
+    static {
+        try {
+            EMAIL_TEMPLATE = IOUtils.toString(
+                    PrepareVoteEmailCommand.class.getClassLoader().getResourceAsStream("templates/release.email"),
+                    StandardCharsets.UTF_8
+            );
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to read embedded email template.", e);
+        }
+    }
 
     private static final String RELEASE_TEMPLATE =
             "https://issues.apache.org/jira/browse/SLING/fixforversion/##VERSION_ID##";
@@ -139,8 +124,10 @@ public class PrepareVoteEmailCommand implements Command {
                         .collect(Collectors.joining("\n"));
 
                 Member currentMember = membersFinder.getCurrentMember();
+                SimpleDateFormat sdf = new SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss Z");
                 String emailContents = EMAIL_TEMPLATE
                         .replace("##FROM##", new InternetAddress(currentMember.getEmail(), currentMember.getName()).toString())
+                        .replace("##DATE##", sdf.format(Calendar.getInstance().getTime()))
                         .replace("##RELEASE_NAME##", releaseName)
                         .replace("##RELEASE_ID##", String.valueOf(repositoryId))
                         .replace("##RELEASE_OR_RELEASES##", releaseOrReleases)

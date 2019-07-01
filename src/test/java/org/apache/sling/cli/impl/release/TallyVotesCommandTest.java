@@ -20,6 +20,7 @@ package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -38,6 +39,7 @@ import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -62,12 +64,22 @@ import static org.powermock.api.mockito.PowerMockito.mockStatic;
                          "javax.xml.*",
                          "org.w3c.dom.*"
                  })
+@PrepareForTest(TallyVotesCommand.class)
 public class TallyVotesCommandTest {
+
+    @BeforeClass
+    public static void beforeClass() {
+        mockStatic(Calendar.class);
+        Calendar calendar = mock(Calendar.class);
+        when(calendar.getTimeInMillis()).thenReturn(0L);
+        when(Calendar.getInstance()).thenReturn(calendar);
+    }
+
     @Rule
     public final OsgiContext osgiContext = new OsgiContext();
 
     @Test
-    @PrepareForTest({LoggerFactory.class})
+    @PrepareForTest({TallyVotesCommand.class, LoggerFactory.class})
     public void testDryRun() throws Exception {
         mockStatic(LoggerFactory.class);
         Logger logger = mock(Logger.class);
@@ -92,8 +104,10 @@ public class TallyVotesCommandTest {
         Command command = (Command) osgiContext.bundleContext().getService(reference);
         command.run();
         verify(logger).info(
-                "From: John Doe <johndoe@apache.org> \n" +
+                "From: John Doe <johndoe@apache.org>\n" +
                 "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
+                "Reply-To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
+                "Date: Thu, 1 Jan 1970 01:00:00 +0100\n" +
                 "Subject: [RESULT] [VOTE] Release Apache Sling CLI Test 1.0.0\n" +
                 "\n" +
                 "Hi,\n" +
@@ -107,8 +121,7 @@ public class TallyVotesCommandTest {
                 "promote the artifacts to the central Maven repository.\n" +
                 "\n" +
                 "Regards,\n" +
-                "John Doe\n" +
-                "\n"
+                "John Doe\n"
         );
     }
 
@@ -165,8 +178,10 @@ public class TallyVotesCommandTest {
         Command command = (Command) osgiContext.bundleContext().getService(reference);
         command.run();
         verify(mailer).send(
-                "From: John Doe <johndoe@apache.org> \n" +
+                "From: John Doe <johndoe@apache.org>\n" +
                         "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
+                        "Reply-To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
+                        "Date: Thu, 1 Jan 1970 01:00:00 +0100\n" +
                         "Subject: [RESULT] [VOTE] Release Apache Sling CLI Test 1.0.0\n" +
                         "\n" +
                         "Hi,\n" +
@@ -180,8 +195,7 @@ public class TallyVotesCommandTest {
                         "promote the artifacts to the central Maven repository.\n" +
                         "\n" +
                         "Regards,\n" +
-                        "John Doe\n" +
-                        "\n"
+                        "John Doe\n"
         );
     }
 
