@@ -21,6 +21,7 @@ package org.apache.sling.cli.impl.release;
 import java.io.IOException;
 
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.DateProvider;
 import org.apache.sling.cli.impl.ExecutionMode;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
@@ -70,6 +71,8 @@ public class PrepareVoteEmailCommandTest {
         verify(mailer).send(
                 "From: John Doe <johndoe@apache.org>\n" +
                         "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
+                        "Reply-To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
+                        "Date: Thu, 1 Jan 1970 01:00:00 +0100\n" +
                         "Subject: [VOTE] Release Apache Sling CLI Test 1.0.0\n" +
                         "\n" +
                         "Hi,\n" +
@@ -95,8 +98,7 @@ public class PrepareVoteEmailCommandTest {
                         "This majority vote is open for at least 72 hours.\n" +
                         "\n" +
                         "Regards,\n" +
-                        "John Doe\n" +
-                        "\n");
+                        "John Doe\n");
     }
 
     private void prepareExecution(Mailer mailer) throws IOException {
@@ -114,6 +116,10 @@ public class PrepareVoteEmailCommandTest {
         when(version.getId()).thenReturn(1);
         when(version.getIssuesFixedCount()).thenReturn(42);
         when(versionClient.find(Release.fromString("CLI Test 1.0.0").get(0))).thenReturn(version);
+
+        DateProvider dateProvider = mock(DateProvider.class);
+        when(dateProvider.getCurrentDateForEmailHeader()).thenReturn("Thu, 1 Jan 1970 01:00:00 +0100");
+        osgiContext.registerService(DateProvider.class, dateProvider);
 
         osgiContext.registerService(MembersFinder.class, membersFinder);
         osgiContext.registerService(StagingRepositoryFinder.class, stagingRepositoryFinder);

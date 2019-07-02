@@ -1,0 +1,30 @@
+From: ##FROM##
+To: "Sling Developers List" <dev@sling.apache.org>
+Reply-To: "Sling Developers List" <dev@sling.apache.org>
+Date: ##DATE##
+Subject: [VOTE] Release ##RELEASE_NAME##
+
+Hi,
+
+We solved ##FIXED_ISSUES_COUNT## issue(s) in ##RELEASE_OR_RELEASES##:
+##RELEASE_JIRA_LINKS##
+
+Staging repository:
+https://repository.apache.org/content/repositories/orgapachesling-##RELEASE_ID##/
+
+You can use this UNIX script to download the release and verify the signatures:
+https://gitbox.apache.org/repos/asf?p=sling-tooling-release.git;a=blob;f=check_staged_release.sh;hb=HEAD
+
+Usage:
+sh check_staged_release.sh ##RELEASE_ID## /tmp/sling-staging
+
+Please vote to approve this release:
+
+  [ ] +1 Approve the release
+  [ ]  0 Don't care
+  [ ] -1 Don't release, because ...
+
+This majority vote is open for at least 72 hours.
+
+Regards,
+##USER_NAME##
