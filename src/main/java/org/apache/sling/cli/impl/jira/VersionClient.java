@@ -192,6 +192,33 @@ public class VersionClient {
         }
     }
 
+    public List<Issue> findFixedIssues(Release release) throws IOException {
+        try {
+            HttpGet get = newGet("search");
+            URIBuilder builder = new URIBuilder(get.getURI());
+            builder.addParameter("jql", "project = "+ PROJECT_KEY+" AND resolution = Fixed AND fixVersion = \"" + release.getName() + "\"");
+            builder.addParameter("fields", "summary");
+            get.setURI(builder.build());
+
+            try ( CloseableHttpClient client = httpClientFactory.newClient() ) {
+                try (CloseableHttpResponse response = client.execute(get)) {
+                    try (InputStream content = response.getEntity().getContent();
+                         InputStreamReader reader = new InputStreamReader(content)) {
+
+                        if (response.getStatusLine().getStatusCode() != 200) {
+                            throw newException(response, reader);
+                        }
+
+                        Gson gson = new Gson();
+                        return gson.fromJson(reader, IssueResponse.class).getIssues();
+                    }
+                }
+            }
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
     private IOException newException(CloseableHttpResponse response, InputStreamReader reader) {
         
         StringBuilder message = new StringBuilder();

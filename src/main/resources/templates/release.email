@@ -6,7 +6,7 @@ Subject: [VOTE] Release ##RELEASE_NAME##
 
 Hi,
 
-We solved ##FIXED_ISSUES_COUNT## issue(s) in ##RELEASE_OR_RELEASES##:
+We solved ##FIXED_ISSUES_COUNT## ##ISSUE_OR_ISSUES## in ##RELEASE_OR_RELEASES##:
 ##RELEASE_JIRA_LINKS##
 
 Staging repository:

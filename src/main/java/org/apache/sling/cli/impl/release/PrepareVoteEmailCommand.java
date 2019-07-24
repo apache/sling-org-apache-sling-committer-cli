@@ -18,7 +18,9 @@ package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.mail.internet.InternetAddress;
@@ -28,6 +30,7 @@ import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.DateProvider;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
+import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.mail.Mailer;
@@ -117,7 +120,12 @@ public class PrepareVoteEmailCommand implements Command {
                         .map(Release::getFullName)
                         .collect(Collectors.joining(", "));
 
-                int fixedIssueCounts = versions.stream().mapToInt(Version::getIssuesFixedCount).sum();
+                Set<Issue> fixedIssues = new HashSet<>();
+                for (Release release : releases) {
+                    fixedIssues.addAll(versionClient.findFixedIssues(release));
+                }
+                int fixedIssuesCount =  fixedIssues.size();
+                String issueOrIssues = fixedIssuesCount > 1 ? "issues" : "issue";
                 String releaseOrReleases = versions.size() > 1 ?
                         "these releases" : "this release";
 
@@ -133,7 +141,8 @@ public class PrepareVoteEmailCommand implements Command {
                         .replace("##RELEASE_ID##", String.valueOf(repositoryId))
                         .replace("##RELEASE_OR_RELEASES##", releaseOrReleases)
                         .replace("##RELEASE_JIRA_LINKS##", releaseJiraLinks)
-                        .replace("##FIXED_ISSUES_COUNT##", String.valueOf(fixedIssueCounts))
+                        .replace("##FIXED_ISSUES_COUNT##", String.valueOf(fixedIssuesCount))
+                        .replace("##ISSUE_OR_ISSUES##", issueOrIssues)
                         .replace("##USER_NAME##", currentMember.getName());
                 switch (reusableCLIOptions.executionMode) {
                     case DRY_RUN:

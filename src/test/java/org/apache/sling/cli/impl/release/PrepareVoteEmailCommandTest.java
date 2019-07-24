@@ -19,10 +19,13 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.DateProvider;
 import org.apache.sling.cli.impl.ExecutionMode;
+import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.mail.Mailer;
@@ -77,7 +80,7 @@ public class PrepareVoteEmailCommandTest {
                         "\n" +
                         "Hi,\n" +
                         "\n" +
-                        "We solved 42 issue(s) in this release:\n" +
+                        "We solved 42 issues in this release:\n" +
                         "https://issues.apache.org/jira/browse/SLING/fixforversion/1\n" +
                         "\n" +
                         "Staging repository:\n" +
@@ -115,7 +118,13 @@ public class PrepareVoteEmailCommandTest {
         when(version.getName()).thenReturn("CLI Test 1.0.0");
         when(version.getId()).thenReturn(1);
         when(version.getIssuesFixedCount()).thenReturn(42);
-        when(versionClient.find(Release.fromString("CLI Test 1.0.0").get(0))).thenReturn(version);
+        Release release = Release.fromString("CLI Test 1.0.0").get(0);
+        List<Issue> fixedIssues = new ArrayList<>();
+        for (int i = 0; i < 42; i++) {
+            fixedIssues.add(mock(Issue.class));
+        }
+        when(versionClient.findFixedIssues(release)).thenReturn(fixedIssues);
+        when(versionClient.find(release)).thenReturn(version);
 
         DateProvider dateProvider = mock(DateProvider.class);
         when(dateProvider.getCurrentDateForEmailHeader()).thenReturn("Thu, 1 Jan 1970 01:00:00 +0100");

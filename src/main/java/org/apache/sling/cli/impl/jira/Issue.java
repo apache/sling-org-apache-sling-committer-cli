@@ -37,7 +37,27 @@ public class Issue {
     static class Fields {
         private String summary;    
     }
-    
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (obj instanceof Issue) {
+            Issue other = (Issue) obj;
+            return id == other.id;
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return id;
+    }
+
     @Override
     public String toString() {
         return getClass().getSimpleName() + "[" +  key + " : " + getSummary() + " ]"; 
