@@ -30,6 +30,7 @@ import java.util.function.Predicate;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -162,6 +163,13 @@ public class VersionClient {
         post.addHeader("Content-Type", CONTENT_TYPE_JSON);
         post.addHeader("Accept", CONTENT_TYPE_JSON);
         return post;
+    }
+    
+    private HttpPut newPut(String suffix) {
+        HttpPut put = new HttpPut(jiraUrlPrefix + suffix);
+        put.addHeader("Content-Type", CONTENT_TYPE_JSON);
+        put.addHeader("Accept", CONTENT_TYPE_JSON);
+        return put;
     }
     
     public List<Issue> findUnresolvedIssues(Release release) throws IOException {
@@ -332,17 +340,18 @@ public class VersionClient {
             IssueUpdate update = new IssueUpdate();
             update.recordAdd("fixVersions", newVersion.getName());
             update.recordRemove("fixVersions", oldVersion.getName());
+            Gson gson = new Gson();
+            gson.toJson(update, w);
             
-            HttpPost post = newPost("issue/" + issue.getKey());
-            post.setEntity(new StringEntity(w.toString(), StandardCharsets.UTF_8));
+            HttpPut put = newPut("issue/" + issue.getKey());
+            put.setEntity(new StringEntity(w.toString(), StandardCharsets.UTF_8));
 
             try (CloseableHttpClient client = httpClientFactory.newClient()) {
-                try (CloseableHttpResponse response = client.execute(post)) {
-                    try (InputStream content = response.getEntity().getContent();
-                            InputStreamReader reader = new InputStreamReader(content)) {
-                        
-                        if (response.getStatusLine().getStatusCode() != 204) {
-                            throw newException(response, reader);
+                try (CloseableHttpResponse response = client.execute(put, httpClientFactory.newPreemptiveAuthenticationContext())) {
+                    if (response.getStatusLine().getStatusCode() != 204) {
+                        try (InputStream content = response.getEntity().getContent();
+                                InputStreamReader reader = new InputStreamReader(content)) {
+                                throw newException(response, reader);
                         }
                     }
                 }
@@ -350,6 +359,5 @@ public class VersionClient {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        // '{"update":{"fixVersions":[{"add":{"name":"6.5 L19"}},{"remove":{"name":"6.5 L17"}}]}}'
     }
 }
