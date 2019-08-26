@@ -16,6 +16,9 @@
     </appender>
 
     <logger name="org.apache.sling.cli" level="INFO" />
+    <!--
+    <logger name="org.apache.http" level="DEBUG" />
+     -->
 
     <root level="WARN">
         <appender-ref ref="STDOUT" />
