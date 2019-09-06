@@ -26,10 +26,10 @@ public class StagingRepository {
         open, closed;
     }
     
-    private String description;
-    private String repositoryId;
-    private String repositoryURI;
-    private Status type;
+    protected String description;
+    protected String repositoryId;
+    protected String repositoryURI;
+    protected Status type;
 
     public String getDescription() {
         return description;

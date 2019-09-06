@@ -66,6 +66,12 @@
             "start-level": "3"
         },
         {
+            "id": "org.bouncycastle:bcpg-jdk15on:1.62"
+        },
+        {
+            "id": "org.bouncycastle:bcprov-jdk15on:1.62"
+        },
+        {
             "id": "javax.mail:mail:1.5.0-b01"
         },
         {
