@@ -107,6 +107,8 @@ public class RepositoryDownloader {
                                             artifact.getRepositoryRelativeSignaturePath());
                                     downloadArtifactFile(repository, client, artifactFolderPath,
                                             artifact.getRepositoryRelativeSha1SumPath());
+                                    downloadArtifactFile(repository, client, artifactFolderPath,
+                                            artifact.getRepositoryRelativeMd5SumPath());
                                 }
                                 localRepository = new LocalRepository(repository, artifacts, rootFolder);
                                 repositories.put(localRepository.getRepositoryId(), localRepository);

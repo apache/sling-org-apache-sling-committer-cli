@@ -33,6 +33,7 @@ public class Artifact {
     private final String repositoryRelativePath;
     private final String repositoryRelativeSignaturePath;
     private final String repositoryRelativeSha1SumPath;
+    private final String repositoryRelativeMd5SumPath;
 
     public Artifact(String groupId, String artifactId, String version, String classifier, String type) {
         this.groupId = groupId;
@@ -49,6 +50,7 @@ public class Artifact {
         repositoryRelativePath = stringBuilder.toString();
         repositoryRelativeSignaturePath = repositoryRelativePath + ".asc";
         repositoryRelativeSha1SumPath = repositoryRelativePath + ".sha1";
+        repositoryRelativeMd5SumPath = repositoryRelativePath + ".md5";
     }
 
     public String getRepositoryRelativePath() {
@@ -61,6 +63,10 @@ public class Artifact {
 
     public String getRepositoryRelativeSha1SumPath() {
         return repositoryRelativeSha1SumPath;
+    }
+
+    public String getRepositoryRelativeMd5SumPath() {
+        return repositoryRelativeMd5SumPath;
     }
 
     public String getGroupId() {

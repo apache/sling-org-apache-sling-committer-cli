@@ -29,12 +29,12 @@ import java.security.NoSuchAlgorithmException;
 import org.bouncycastle.util.encoders.Hex;
 import org.osgi.service.component.annotations.Component;
 
-@Component(service = SHA1HashValidator.class)
-public class SHA1HashValidator {
+@Component(service = HashValidator.class)
+public class HashValidator {
 
-    public SHA1HashResult validate(Path artifact, Path hash) {
+    public ValidationResult validate(Path artifact, Path hash, String algorithm) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-1");
+            MessageDigest digest = MessageDigest.getInstance(algorithm);
             InputStream artifactIS = Files.newInputStream(artifact);
             byte[] buff = new byte[4096];
             int read;
@@ -44,10 +44,34 @@ public class SHA1HashValidator {
             byte[] hashed = digest.digest();
             String actualHash = Hex.toHexString(hashed);
             String expectedHash = Files.readString(hash, StandardCharsets.US_ASCII);
-            return new SHA1HashResult(actualHash.equalsIgnoreCase(expectedHash), expectedHash, actualHash);
+            return new ValidationResult(actualHash.equalsIgnoreCase(expectedHash), expectedHash, actualHash);
         } catch (NoSuchAlgorithmException | IOException e) {
-            throw new IllegalStateException("Cannot validate SHA-1 hash.", e);
+            throw new IllegalStateException(String.format("Cannot validate %s hash.", algorithm), e);
         }
     }
 
+    public static class ValidationResult {
+
+        private final boolean valid;
+        private final String expectedHash;
+        private final String actualHash;
+
+        ValidationResult(boolean valid, String expectedHash, String actualHash) {
+            this.valid = valid;
+            this.expectedHash = expectedHash;
+            this.actualHash = actualHash;
+        }
+
+        public boolean isValid() {
+            return valid;
+        }
+
+        public String getExpectedHash() {
+            return expectedHash;
+        }
+
+        public String getActualHash() {
+            return actualHash;
+        }
+    }
 }

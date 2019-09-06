@@ -28,10 +28,8 @@ import org.apache.sling.cli.impl.nexus.Artifact;
 import org.apache.sling.cli.impl.nexus.LocalRepository;
 import org.apache.sling.cli.impl.nexus.RepositoryDownloader;
 import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
-import org.apache.sling.cli.impl.pgp.PGPSignaturesValidator;
-import org.apache.sling.cli.impl.pgp.SHA1HashResult;
-import org.apache.sling.cli.impl.pgp.SHA1HashValidator;
-import org.apache.sling.cli.impl.pgp.SignatureVerificationResult;
+import org.apache.sling.cli.impl.pgp.PGPSignatureValidator;
+import org.apache.sling.cli.impl.pgp.HashValidator;
 import org.bouncycastle.openpgp.PGPPublicKey;
 import org.bouncycastle.util.encoders.Hex;
 import org.osgi.service.component.annotations.Component;
@@ -63,10 +61,10 @@ public class VerifyReleasesCommand implements Command {
     private RepositoryDownloader repositoryDownloader;
 
     @Reference
-    private PGPSignaturesValidator pgpSignaturesValidator;
+    private PGPSignatureValidator pgpSignatureValidator;
 
     @Reference
-    private SHA1HashValidator sha1HashValidator;
+    private HashValidator hashValidator;
 
     @CommandLine.Option(names = {"-r", "--repository"},
                         description = "Nexus repository id",
@@ -84,17 +82,24 @@ public class VerifyReleasesCommand implements Command {
             for (Artifact artifact : repository.getArtifacts()) {
                 Path artifactFilePath = repositoryRootPath.resolve(artifact.getRepositoryRelativePath());
                 Path artifactSignaturePath = repositoryRootPath.resolve(artifact.getRepositoryRelativeSignaturePath());
-                SignatureVerificationResult signatureVerificationResult = pgpSignaturesValidator.verify(artifactFilePath,
+                PGPSignatureValidator.ValidationResult ValidationResult = pgpSignatureValidator.verify(artifactFilePath,
                         artifactSignaturePath);
-                SHA1HashResult sha1HashResult = sha1HashValidator.validate(artifactFilePath,
-                        repositoryRootPath.resolve(artifact.getRepositoryRelativeSha1SumPath()));
+                HashValidator.ValidationResult sha1validationResult = hashValidator.validate(artifactFilePath,
+                        repositoryRootPath.resolve(artifact.getRepositoryRelativeSha1SumPath()), "SHA-1");
+                HashValidator.ValidationResult md5validationResult = hashValidator.validate(artifactFilePath,
+                        repositoryRootPath.resolve(artifact.getRepositoryRelativeMd5SumPath()), "MD5");
                 LOGGER.info("\n" + artifactFilePath.getFileName().toString());
-                PGPPublicKey key = signatureVerificationResult.getKey();
-                LOGGER.info("GPG: {}", signatureVerificationResult.isValid() ? String.format("signed by %s with key (id=0x%X; " +
+                PGPPublicKey key = ValidationResult.getKey();
+                LOGGER.info("GPG: {}", ValidationResult.isValid() ? String.format("signed by %s with key (id=0x%X; " +
                         "fingerprint=%s)", getKeyUserId(key), key.getKeyID(),
                         Hex.toHexString(key.getFingerprint()).toUpperCase(Locale.US)) : "INVALID");
-                LOGGER.info("SHA-1: {}", sha1HashResult.isValid() ? String.format("VALID (%s)", sha1HashResult.getActualHash()) :
-                        String.format("INVALID (expected %s, got %s)", sha1HashResult.getExpectedHash(), sha1HashResult.getActualHash()));
+                LOGGER.info("SHA-1: {}",
+                        sha1validationResult.isValid() ? String.format("VALID (%s)", sha1validationResult.getActualHash()) :
+                                String.format("INVALID (expected %s, got %s)", sha1validationResult.getExpectedHash(),
+                                        sha1validationResult.getActualHash()));
+                LOGGER.info("MD-5: {}", md5validationResult.isValid() ? String.format("VALID (%s)", md5validationResult.getActualHash()) :
+                        String.format("INVALID (expected %s, got %s)", md5validationResult.getExpectedHash(),
+                                md5validationResult.getActualHash()));
             }
         } catch (IOException e) {
             LOGGER.error("Command execution failed.", e);

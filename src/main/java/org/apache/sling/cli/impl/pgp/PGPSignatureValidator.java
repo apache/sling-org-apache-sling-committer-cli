@@ -39,16 +39,17 @@ import org.bouncycastle.openpgp.PGPUtil;
 import org.bouncycastle.openpgp.operator.bc.BcKeyFingerprintCalculator;
 import org.bouncycastle.openpgp.operator.bc.BcPGPContentVerifierBuilderProvider;
 import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
+import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 
-@Component(service = PGPSignaturesValidator.class)
-public class PGPSignaturesValidator {
+@Component(service = PGPSignatureValidator.class)
+public class PGPSignatureValidator {
 
     private static final String KEYS_FILE = "/tmp/sling-keys.asc";
     private PGPPublicKeyRingCollection keyRing;
 
-    public SignatureVerificationResult verify(Path artifact, Path signature) {
+    public ValidationResult verify(Path artifact, Path signature) {
         try (
                 InputStream fileStream = Files.newInputStream(artifact) ;
                 InputStream signatureStream = Files.newInputStream(signature)
@@ -69,7 +70,7 @@ public class PGPSignaturesValidator {
                 pgpSignature.update(buff, 0, read);
             }
             fileStream.close();
-            return new SignatureVerificationResult(pgpSignature.verify(), key);
+            return new ValidationResult(pgpSignature.verify(), key);
         } catch (PGPException | IOException e) {
             throw new IllegalStateException(String.format("Unable to verify signature %s.", signature.getFileName()), e);
         }
@@ -102,6 +103,26 @@ public class PGPSignaturesValidator {
             }
         } catch (IOException | PGPException e) {
             throw new IllegalStateException(String.format("Cannot read Sling keys file at %s.", KEYS_FILE), e);
+        }
+    }
+
+    public static class ValidationResult {
+
+        private boolean valid;
+        private PGPPublicKey key;
+
+        ValidationResult(boolean valid, @NotNull PGPPublicKey key) {
+            this.key = key;
+            this.valid = valid;
+        }
+
+        public boolean isValid() {
+            return valid;
+        }
+
+        @NotNull
+        public PGPPublicKey getKey() {
+            return key;
         }
     }
 }
