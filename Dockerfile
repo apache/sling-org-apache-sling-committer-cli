@@ -19,6 +19,7 @@ COPY --from=builder /opt/jre /opt/jre
 
 # Generate class data sharing
 RUN /opt/jre/bin/java -Xshare:dump
+RUN apk add --no-cache wget openssl git libxml2-utils jq curl gnupg
 
 # escaping required to properly handle arguments with spaces
 ENTRYPOINT ["/usr/share/sling-cli/bin/launcher.sh"]
@@ -28,7 +29,9 @@ ADD target/lib /usr/share/sling-cli/launcher
 # Add launcher script
 ADD target/classes/scripts /usr/share/sling-cli/bin
 # workaround for MRESOURCES-236
-RUN chmod a+x /usr/share/sling-cli/bin/*
+RUN chmod a+x /usr/share/sling-cli/bin/* \
+    /usr/share/sling-cli/bin/actions/* \
+    /usr/share/sling-cli/bin/actions/check-release/*
 # Add config files
 ADD target/classes/conf /usr/share/sling-cli/conf
 # Add all bundles
