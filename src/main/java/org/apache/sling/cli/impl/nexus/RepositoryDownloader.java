@@ -136,7 +136,7 @@ public class RepositoryDownloader {
         String fileName = relativeFilePath.substring(relativeFilePath.lastIndexOf('/') + 1);
         Path filePath = Files.createFile(artifactFolderPath.resolve(fileName));
         HttpGet get = new HttpGet(repository.getRepositoryURI() + "/" + relativeFilePath);
-        LOGGER.info("Downloading " + get.getURI().toString());
+        LOGGER.debug("Downloading " + get.getURI().toString());
         try (CloseableHttpResponse response = client.execute(get)) {
             try (InputStream content = response.getEntity().getContent()) {
                 IOUtils.copyLarge(content, Files.newOutputStream(filePath));

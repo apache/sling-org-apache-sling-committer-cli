@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.Locale;
 
 import org.apache.sling.cli.impl.Command;
+import org.apache.sling.cli.impl.ci.CIStatusValidator;
 import org.apache.sling.cli.impl.nexus.Artifact;
 import org.apache.sling.cli.impl.nexus.LocalRepository;
 import org.apache.sling.cli.impl.nexus.RepositoryDownloader;
@@ -39,14 +40,10 @@ import org.slf4j.LoggerFactory;
 
 import picocli.CommandLine;
 
-@Component(service = Command.class,
-           property = {
-                   Command.PROPERTY_NAME_COMMAND_GROUP + "=" + VerifyReleasesCommand.GROUP,
-                   Command.PROPERTY_NAME_COMMAND_NAME + "=" + VerifyReleasesCommand.NAME
-           })
-@CommandLine.Command(name = VerifyReleasesCommand.NAME,
-                     description = "Downloads the staging repository and verifies the artifacts' signatures and hashes.",
-                     subcommands = CommandLine.HelpCommand.class)
+@Component(service = Command.class, property = {
+        Command.PROPERTY_NAME_COMMAND_GROUP + "=" + VerifyReleasesCommand.GROUP,
+        Command.PROPERTY_NAME_COMMAND_NAME + "=" + VerifyReleasesCommand.NAME })
+@CommandLine.Command(name = VerifyReleasesCommand.NAME, description = "Downloads the staging repository and verifies the artifacts' signatures and hashes.", subcommands = CommandLine.HelpCommand.class)
 public class VerifyReleasesCommand implements Command {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(VerifyReleasesCommand.class);
@@ -64,11 +61,12 @@ public class VerifyReleasesCommand implements Command {
     private PGPSignatureValidator pgpSignatureValidator;
 
     @Reference
+    private CIStatusValidator ciStatusValidator;
+
+    @Reference
     private HashValidator hashValidator;
 
-    @CommandLine.Option(names = {"-r", "--repository"},
-                        description = "Nexus repository id",
-                        required = true)
+    @CommandLine.Option(names = { "-r", "--repository" }, description = "Nexus repository id", required = true)
     private Integer repositoryId;
 
     @CommandLine.Mixin
@@ -76,34 +74,68 @@ public class VerifyReleasesCommand implements Command {
 
     @Override
     public void run() {
+        int checksRun = 0;
+        int failedChecks = 0;
         try {
             LocalRepository repository = repositoryDownloader.download(stagingRepositoryFinder.find(repositoryId));
             Path repositoryRootPath = repository.getRootFolder();
             for (Artifact artifact : repository.getArtifacts()) {
                 Path artifactFilePath = repositoryRootPath.resolve(artifact.getRepositoryRelativePath());
                 Path artifactSignaturePath = repositoryRootPath.resolve(artifact.getRepositoryRelativeSignaturePath());
-                PGPSignatureValidator.ValidationResult ValidationResult = pgpSignatureValidator.verify(artifactFilePath,
+                PGPSignatureValidator.ValidationResult validationResult = pgpSignatureValidator.verify(artifactFilePath,
                         artifactSignaturePath);
+                checksRun++;
+                if (!validationResult.isValid()) {
+                    failedChecks++;
+                }
                 HashValidator.ValidationResult sha1validationResult = hashValidator.validate(artifactFilePath,
                         repositoryRootPath.resolve(artifact.getRepositoryRelativeSha1SumPath()), "SHA-1");
+                checksRun++;
+                if (!sha1validationResult.isValid()) {
+                    failedChecks++;
+                }
                 HashValidator.ValidationResult md5validationResult = hashValidator.validate(artifactFilePath,
                         repositoryRootPath.resolve(artifact.getRepositoryRelativeMd5SumPath()), "MD5");
+                checksRun++;
+                if (!md5validationResult.isValid()) {
+                    failedChecks++;
+                }
                 LOGGER.info("\n" + artifactFilePath.getFileName().toString());
-                PGPPublicKey key = ValidationResult.getKey();
-                LOGGER.info("GPG: {}", ValidationResult.isValid() ? String.format("signed by %s with key (id=0x%X; " +
-                        "fingerprint=%s)", getKeyUserId(key), key.getKeyID(),
-                        Hex.toHexString(key.getFingerprint()).toUpperCase(Locale.US)) : "INVALID");
+                PGPPublicKey key = validationResult.getKey();
+                LOGGER.info("GPG: {}", validationResult.isValid()
+                        ? String.format("signed by %s with key (id=0x%X; " + "fingerprint=%s)", getKeyUserId(key),
+                                key.getKeyID(), Hex.toHexString(key.getFingerprint()).toUpperCase(Locale.US))
+                        : "INVALID");
                 LOGGER.info("SHA-1: {}",
-                        sha1validationResult.isValid() ? String.format("VALID (%s)", sha1validationResult.getActualHash()) :
-                                String.format("INVALID (expected %s, got %s)", sha1validationResult.getExpectedHash(),
+                        sha1validationResult.isValid()
+                                ? String.format("VALID (%s)", sha1validationResult.getActualHash())
+                                : String.format("INVALID (expected %s, got %s)", sha1validationResult.getExpectedHash(),
                                         sha1validationResult.getActualHash()));
-                LOGGER.info("MD-5: {}", md5validationResult.isValid() ? String.format("VALID (%s)", md5validationResult.getActualHash()) :
-                        String.format("INVALID (expected %s, got %s)", md5validationResult.getExpectedHash(),
-                                md5validationResult.getActualHash()));
+                LOGGER.info("MD-5: {}",
+                        md5validationResult.isValid() ? String.format("VALID (%s)", md5validationResult.getActualHash())
+                                : String.format("INVALID (expected %s, got %s)", md5validationResult.getExpectedHash(),
+                                        md5validationResult.getActualHash()));
+
+                if (ciStatusValidator.shouldCheck(artifact, artifactFilePath)) {
+                    CIStatusValidator.ValidationResult ciValidationResult = ciStatusValidator.isValid(artifact,
+                            artifactFilePath);
+                    LOGGER.info("CI Status: {}",
+                            ciValidationResult.isValid() ? String.format("VALID: \n%s", ciValidationResult.getMessage())
+                                    : String.format("INVALID: \n%s", ciValidationResult.getMessage()));
+                    checksRun++;
+                    if (!ciValidationResult.isValid()) {
+                        failedChecks++;
+                    }
+                }
             }
+
         } catch (IOException e) {
             LOGGER.error("Command execution failed.", e);
         }
+
+        LOGGER.info("\n\nRelease Summary: {}\n\n",
+                failedChecks == 0 ? String.format("VALID (%d checks executed)", checksRun)
+                        : String.format("INVALID (%d of %d checks failed)", failedChecks, checksRun));
     }
 
     private String getKeyUserId(PGPPublicKey key) {
