@@ -35,7 +35,7 @@ import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.mail.Mailer;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
-import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
+import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
 import org.osgi.service.component.annotations.Component;
@@ -67,7 +67,7 @@ public class PrepareVoteEmailCommand implements Command {
     private MembersFinder membersFinder;
 
     @Reference
-    private StagingRepositoryFinder repoFinder;
+    private RepositoryService repoFinder;
 
     @Reference
     private VersionClient versionClient;

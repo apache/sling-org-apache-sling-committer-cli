@@ -27,7 +27,7 @@ import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
-import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
+import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -56,7 +56,7 @@ public class CreateJiraVersionCommand implements Command {
     private Integer repositoryId;
 
     @Reference
-    private StagingRepositoryFinder repoFinder;
+    private RepositoryService repoFinder;
     
     @Reference
     private VersionClient versionClient;

@@ -29,7 +29,7 @@ import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
-import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
+import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
 import org.junit.Before;
 import org.junit.Rule;
@@ -68,7 +68,7 @@ public class UpdateReporterCommandTest {
 
     @Before
     public void before() throws IOException {
-        StagingRepositoryFinder repositoryFinder = mock(StagingRepositoryFinder.class);
+        RepositoryService repositoryFinder = mock(RepositoryService.class);
         StagingRepository stagingRepository = mock(StagingRepository.class);
         when(stagingRepository.getDescription()).thenReturn("Apache Sling CLI 1, Apache Sling CLI 2");
         when(repositoryFinder.find(42)).thenReturn(stagingRepository);

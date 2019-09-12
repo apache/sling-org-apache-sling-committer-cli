@@ -35,7 +35,7 @@ import org.apache.sling.cli.impl.mail.Email;
 import org.apache.sling.cli.impl.mail.Mailer;
 import org.apache.sling.cli.impl.mail.VoteThreadFinder;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
-import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
+import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
@@ -221,15 +221,15 @@ public class TallyVotesCommandTest {
 
         StagingRepository stagingRepository = mock(StagingRepository.class);
         when(stagingRepository.getDescription()).thenReturn("Apache Sling CLI Test 1.0.0");
-        StagingRepositoryFinder stagingRepositoryFinder = mock(StagingRepositoryFinder.class);
-        when(stagingRepositoryFinder.find(123)).thenReturn(stagingRepository);
+        RepositoryService repositoryService = mock(RepositoryService.class);
+        when(repositoryService.find(123)).thenReturn(stagingRepository);
 
         VoteThreadFinder voteThreadFinder = mock(VoteThreadFinder.class);
         when(voteThreadFinder.findVoteThread("CLI Test 1.0.0")).thenReturn(thread);
 
         osgiContext.registerService(CredentialsService.class, credentialsService);
         osgiContext.registerInjectActivateService(membersFinder);
-        osgiContext.registerService(StagingRepositoryFinder.class, stagingRepositoryFinder);
+        osgiContext.registerService(RepositoryService.class, repositoryService);
         osgiContext.registerService(VoteThreadFinder.class, voteThreadFinder);
         osgiContext.registerService(Mailer.class, mailer);
     }

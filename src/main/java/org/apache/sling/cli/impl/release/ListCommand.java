@@ -19,7 +19,7 @@ package org.apache.sling.cli.impl.release;
 import java.io.IOException;
 
 import org.apache.sling.cli.impl.Command;
-import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
+import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -42,7 +42,7 @@ public class ListCommand implements Command {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Reference
-    private StagingRepositoryFinder repoFinder;
+    private RepositoryService repoFinder;
 
     @Override
     public void run() {

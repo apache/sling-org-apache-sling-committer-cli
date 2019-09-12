@@ -37,7 +37,7 @@ import org.apache.sling.cli.impl.mail.Email;
 import org.apache.sling.cli.impl.mail.Mailer;
 import org.apache.sling.cli.impl.mail.VoteThreadFinder;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
-import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
+import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
 import org.osgi.service.component.annotations.Component;
@@ -65,7 +65,7 @@ public class TallyVotesCommand implements Command {
     private MembersFinder membersFinder;
 
     @Reference
-    private StagingRepositoryFinder repoFinder;
+    private RepositoryService repoFinder;
 
     @Reference
     private VoteThreadFinder voteThreadFinder;

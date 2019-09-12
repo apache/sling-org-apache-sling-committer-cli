@@ -30,7 +30,7 @@ import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.mail.Mailer;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
-import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
+import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
@@ -110,8 +110,8 @@ public class PrepareVoteEmailCommandTest {
 
         StagingRepository stagingRepository = mock(StagingRepository.class);
         when(stagingRepository.getDescription()).thenReturn("Apache Sling CLI Test 1.0.0");
-        StagingRepositoryFinder stagingRepositoryFinder = mock(StagingRepositoryFinder.class);
-        when(stagingRepositoryFinder.find(123)).thenReturn(stagingRepository);
+        RepositoryService repositoryService = mock(RepositoryService.class);
+        when(repositoryService.find(123)).thenReturn(stagingRepository);
 
         VersionClient versionClient = mock(VersionClient.class);
         Version version = mock(Version.class);
@@ -131,7 +131,7 @@ public class PrepareVoteEmailCommandTest {
         osgiContext.registerService(DateProvider.class, dateProvider);
 
         osgiContext.registerService(MembersFinder.class, membersFinder);
-        osgiContext.registerService(StagingRepositoryFinder.class, stagingRepositoryFinder);
+        osgiContext.registerService(RepositoryService.class, repositoryService);
         osgiContext.registerService(VersionClient.class, versionClient);
         osgiContext.registerService(Mailer.class, mailer);
     }

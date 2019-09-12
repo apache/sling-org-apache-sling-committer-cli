@@ -26,7 +26,7 @@ import java.util.List;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.jbake.JBakeContentUpdater;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
-import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
+import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ResetCommand.ResetType;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -54,7 +54,7 @@ public class UpdateLocalSiteCommand implements Command {
     private static final String GIT_CHECKOUT = "/tmp/sling-site";
 
     @Reference
-    private StagingRepositoryFinder repoFinder;
+    private RepositoryService repoFinder;
     
     private final Logger logger = LoggerFactory.getLogger(getClass());
 

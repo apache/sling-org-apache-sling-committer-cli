@@ -27,10 +27,9 @@ import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.ci.CIStatusValidator;
 import org.apache.sling.cli.impl.nexus.Artifact;
 import org.apache.sling.cli.impl.nexus.LocalRepository;
-import org.apache.sling.cli.impl.nexus.RepositoryDownloader;
-import org.apache.sling.cli.impl.nexus.StagingRepositoryFinder;
-import org.apache.sling.cli.impl.pgp.PGPSignatureValidator;
+import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.cli.impl.pgp.HashValidator;
+import org.apache.sling.cli.impl.pgp.PGPSignatureValidator;
 import org.bouncycastle.openpgp.PGPPublicKey;
 import org.bouncycastle.util.encoders.Hex;
 import org.osgi.service.component.annotations.Component;
@@ -52,10 +51,7 @@ public class VerifyReleasesCommand implements Command {
     static final String NAME = "verify";
 
     @Reference
-    private StagingRepositoryFinder stagingRepositoryFinder;
-
-    @Reference
-    private RepositoryDownloader repositoryDownloader;
+    private RepositoryService repositoryService;
 
     @Reference
     private PGPSignatureValidator pgpSignatureValidator;
@@ -77,7 +73,7 @@ public class VerifyReleasesCommand implements Command {
         int checksRun = 0;
         int failedChecks = 0;
         try {
-            LocalRepository repository = repositoryDownloader.download(stagingRepositoryFinder.find(repositoryId));
+            LocalRepository repository = repositoryService.download(repositoryService.find(repositoryId));
             Path repositoryRootPath = repository.getRootFolder();
             for (Artifact artifact : repository.getArtifacts()) {
                 Path artifactFilePath = repositoryRootPath.resolve(artifact.getRepositoryRelativePath());
