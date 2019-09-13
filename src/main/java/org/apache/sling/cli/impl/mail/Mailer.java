@@ -41,13 +41,15 @@ public class Mailer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Mailer.class);
 
-    private static final Properties SMTP_PROPERTIES = new Properties() {{
-        put("mail.smtp.host", "mail-relay.apache.org");
-        put("mail.smtp.port", "465");
-        put("mail.smtp.auth", "true");
-        put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
-        put("mail.smtp.socketFactory.fallback", "false");
-    }};
+    private static final Properties SMTP_PROPERTIES = new Properties();
+    static {
+
+        SMTP_PROPERTIES.put("mail.smtp.host", "mail-relay.apache.org");
+        SMTP_PROPERTIES.put("mail.smtp.port", "465");
+        SMTP_PROPERTIES.put("mail.smtp.auth", "true");
+        SMTP_PROPERTIES.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+        SMTP_PROPERTIES.put("mail.smtp.socketFactory.fallback", "false");
+    };
 
     @Reference
     private CredentialsService credentialsService;

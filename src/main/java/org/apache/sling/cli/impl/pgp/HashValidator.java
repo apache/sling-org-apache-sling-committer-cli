@@ -35,16 +35,17 @@ public class HashValidator {
     public ValidationResult validate(Path artifact, Path hash, String algorithm) {
         try {
             MessageDigest digest = MessageDigest.getInstance(algorithm);
-            InputStream artifactIS = Files.newInputStream(artifact);
-            byte[] buff = new byte[4096];
-            int read;
-            while ((read = artifactIS.read(buff)) != -1) {
-                digest.update(buff, 0, read);
+            try (InputStream artifactIS = Files.newInputStream(artifact)) {
+                byte[] buff = new byte[4096];
+                int read;
+                while ((read = artifactIS.read(buff)) != -1) {
+                    digest.update(buff, 0, read);
+                }
+                byte[] hashed = digest.digest();
+                String actualHash = Hex.toHexString(hashed);
+                String expectedHash = Files.readString(hash, StandardCharsets.US_ASCII);
+                return new ValidationResult(actualHash.equalsIgnoreCase(expectedHash), expectedHash, actualHash);
             }
-            byte[] hashed = digest.digest();
-            String actualHash = Hex.toHexString(hashed);
-            String expectedHash = Files.readString(hash, StandardCharsets.US_ASCII);
-            return new ValidationResult(actualHash.equalsIgnoreCase(expectedHash), expectedHash, actualHash);
         } catch (NoSuchAlgorithmException | IOException e) {
             throw new IllegalStateException(String.format("Cannot validate %s hash.", algorithm), e);
         }

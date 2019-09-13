@@ -116,8 +116,8 @@ public class VerifyReleasesCommand implements Command {
                     CIStatusValidator.ValidationResult ciValidationResult = ciStatusValidator.isValid(artifact,
                             artifactFilePath);
                     LOGGER.info("CI Status: {}",
-                            ciValidationResult.isValid() ? String.format("VALID: \n%s", ciValidationResult.getMessage())
-                                    : String.format("INVALID: \n%s", ciValidationResult.getMessage()));
+                            ciValidationResult.isValid() ? String.format("VALID: %n%s", ciValidationResult.getMessage())
+                                    : String.format("INVALID: %n%s", ciValidationResult.getMessage()));
                     checksRun++;
                     if (!ciValidationResult.isValid()) {
                         failedChecks++;

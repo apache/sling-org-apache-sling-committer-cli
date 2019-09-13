@@ -59,7 +59,7 @@ public class PGPSignatureValidator {
     private HttpClientFactory httpClientFactory;
 
     private static final String KEYS_FILE = "/tmp/sling-keys.asc";
-    private PGPPublicKeyRingCollection keyRing;
+    private PGPPublicKeyRingCollection keyRingCollection;
 
     public ValidationResult verify(Path artifact, Path signature) {
         try (InputStream fileStream = Files.newInputStream(artifact);
@@ -68,7 +68,7 @@ public class PGPSignatureValidator {
             PGPObjectFactory pgpObjectFactory = new PGPObjectFactory(sigInputStream, new BcKeyFingerprintCalculator());
             PGPSignatureList sigList = (PGPSignatureList) pgpObjectFactory.nextObject();
             PGPSignature pgpSignature = sigList.get(0);
-            PGPPublicKey key = keyRing.getPublicKey(pgpSignature.getKeyID());
+            PGPPublicKey key = keyRingCollection.getPublicKey(pgpSignature.getKeyID());
             if (key == null) {
                 throw new IllegalStateException(String
                         .format("Signature %s was not generated with any of the known keys.", signature.getFileName()));
@@ -79,7 +79,6 @@ public class PGPSignatureValidator {
             while ((read = fileStream.read(buff)) != -1) {
                 pgpSignature.update(buff, 0, read);
             }
-            fileStream.close();
             return new ValidationResult(pgpSignature.verify(), key);
         } catch (PGPException | IOException e) {
             throw new IllegalStateException(String.format("Unable to verify signature %s.", signature.getFileName()),
@@ -122,7 +121,7 @@ public class PGPSignatureValidator {
                     }
                 }
                 if (!keyRings.isEmpty()) {
-                    keyRing = new PGPPublicKeyRingCollection(keyRings);
+                    keyRingCollection = new PGPPublicKeyRingCollection(keyRings);
                 } else {
                     throw new IllegalStateException(String.format("Sling keys file from %s does not contain any keys.", keysFile));
                 }
