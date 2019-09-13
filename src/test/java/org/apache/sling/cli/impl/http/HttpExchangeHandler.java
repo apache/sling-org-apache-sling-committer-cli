@@ -16,31 +16,31 @@
  ~ specific language governing permissions and limitations
  ~ under the License.
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-package org.apache.sling.cli.impl.jira;
+package org.apache.sling.cli.impl.http;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.util.function.Consumer;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.sling.cli.impl.http.HttpExchangeHandler;
-import org.apache.sling.cli.impl.jira.ErrorResponse;
 
-import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 
-public interface JiraAction extends HttpExchangeHandler {
-    
-    default void error(HttpExchange httpExchange, Gson gson, Consumer<ErrorResponse> c) throws IOException {
-        try ( OutputStreamWriter out = new OutputStreamWriter(httpExchange.getResponseBody()) ) {
-            httpExchange.sendResponseHeaders(400, 0);
-            ErrorResponse er = new ErrorResponse();
-            c.accept(er);
-            gson.toJson(er, out);
+public interface HttpExchangeHandler {
+
+    default void serveFileFromClasspath(HttpExchange ex, String classpathLocation) throws IOException {
+        InputStream in = getClass().getResourceAsStream(classpathLocation);
+        if ( in == null  ) {
+            ex.sendResponseHeaders(404, -1);
+            return;
+        }
+
+        ex.sendResponseHeaders(200, 0);
+        try ( OutputStream out = ex.getResponseBody() ) {
+            IOUtils.copy(in, out);
         }
     }
-    
+
+    boolean tryHandle(HttpExchange ex) throws IOException;
 
 }

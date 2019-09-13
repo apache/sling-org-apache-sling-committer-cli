@@ -173,6 +173,7 @@
                 <configuration>
                     <excludes>
                         <exclude>src/main/resources/templates/*</exclude>
+                        <exclude>src/test/resources/nexus/orgapachesling-0/**/*</exclude>
                     </excludes>
                 </configuration>
             </plugin>

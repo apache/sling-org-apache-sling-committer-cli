@@ -1,0 +1,52 @@
+{
+    "data": [
+        {
+            "profileId"            : "6a443ac86e2212",
+            "profileName"          : "org.apache.sling",
+            "profileType"          : "repository",
+            "repositoryId"         : "orgapachesling-0",
+            "type"                 : "closed",
+            "policy"               : "release",
+            "userId"               : "radu",
+            "userAgent"            : "Apache-Maven/3.6.1 (Java 1.8.0_222; Mac OS X 10.14.6)",
+            "ipAddress"            : "127.0.0.1",
+            "repositoryURI"        : "{nexusHost}/content/repositories/orgapachesling-0",
+            "created"              : "2019-09-13T00:00:00.000Z",
+            "createdDate"          : "Fri Sep 13 00:00:00 UTC 2019",
+            "createdTimestamp"     : 1568332800000,
+            "updated"              : "2019-09-13T00:00:00.000Z",
+            "updatedDate"          : "Fri Sep 13 00:00:00 UTC 2019",
+            "updatedTimestamp"     : 1568332800000,
+            "description"          : "Implicitly created (auto staging).",
+            "provider"             : "maven2",
+            "releaseRepositoryId"  : "releases",
+            "releaseRepositoryName": "Releases",
+            "notifications"        : 0,
+            "transitioning"        : false
+        },
+        {
+            "profileId"            : "6a443ac86e2212",
+            "profileName"          : "org.apache.sling",
+            "profileType"          : "repository",
+            "repositoryId"         : "orgapachesling-1",
+            "type"                 : "closed",
+            "policy"               : "release",
+            "userId"               : "radu",
+            "userAgent"            : "Apache-Maven/3.6.1 (Java 1.8.0_222; Mac OS X 10.14.6)",
+            "ipAddress"            : "127.0.0.1",
+            "repositoryURI"        : "{nexusHost}/content/repositories/orgapachesling-1",
+            "created"              : "2019-09-13T00:00:00.000Z",
+            "createdDate"          : "Fri Sep 13 00:00:00 UTC 2019",
+            "createdTimestamp"     : 1568332800000,
+            "updated"              : "2019-09-13T00:00:00.000Z",
+            "updatedDate"          : "Fri Sep 13 00:00:00 UTC 2019",
+            "updatedTimestamp"     : 1568332800000,
+            "description"          : "Implicitly created (auto staging).",
+            "provider"             : "maven2",
+            "releaseRepositoryId"  : "releases",
+            "releaseRepositoryName": "Releases",
+            "notifications"        : 0,
+            "transitioning"        : false
+        }
+    ]
+}

@@ -16,12 +16,6 @@
  */
 package org.apache.sling.cli.impl.ci;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -29,16 +23,23 @@ import java.nio.file.Path;
 
 import org.apache.sling.cli.impl.ci.CIStatusValidator.ValidationResult;
 import org.apache.sling.cli.impl.nexus.Artifact;
+import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.junit.Test;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+
 public class CIStatusValidatorTest {
 
     private CIStatusValidator validator = new CIStatusValidator() {
 
-        protected JsonObject fetchCIStatus(String ciEndpoint) throws UnsupportedOperationException, IOException {
+        protected JsonObject fetchCIStatus(String ciEndpoint) throws UnsupportedOperationException {
             InputStreamReader reader = null;
             if ("https://api.github.com/repos/apache/sling-repo-pom/commits/repo-pom-1.0/status".equals(ciEndpoint)) {
                 reader = new InputStreamReader(CIStatusValidatorTest.class.getResourceAsStream("/ci/failure.json"));
@@ -46,16 +47,20 @@ public class CIStatusValidatorTest {
                     .equals(ciEndpoint)) {
                 reader = new InputStreamReader(CIStatusValidatorTest.class.getResourceAsStream("/ci/success.json"));
             }
+            if (reader == null) {
+                throw new NullPointerException("No reader was found for " + ciEndpoint);
+            }
             JsonParser parser = new JsonParser();
             return parser.parse(reader).getAsJsonObject();
         }
 
     };
-    private static Artifact JAR = new Artifact("org.apache.sling", "sample-artifact", "1.0", "", "jar");
-    private static Artifact NON_REPO_POM_ARTIFACT = new Artifact("org.apache.sling", "no-repo-pom", "1.0", "", "pom");
+    private static final StagingRepository REPOSITORY = mock(StagingRepository.class);
+    private static Artifact JAR = new Artifact(REPOSITORY, "org.apache.sling", "sample-artifact", "1.0", "", "jar");
+    private static Artifact NON_REPO_POM_ARTIFACT = new Artifact(REPOSITORY, "org.apache.sling", "no-repo-pom", "1.0", "", "pom");
     private static Path NON_REPO_POM_FILE;
-    private static Artifact POM_ARTIFACT = new Artifact("org.apache.sling", "repo-pom", "1.0", "", "pom");
-    private static Artifact SUCCESSFUL_POM_ARTIFACT = new Artifact("org.apache.sling", "successful-pom", "1.0", "",
+    private static Artifact POM_ARTIFACT = new Artifact(REPOSITORY, "org.apache.sling", "repo-pom", "1.0", "", "pom");
+    private static Artifact SUCCESSFUL_POM_ARTIFACT = new Artifact(REPOSITORY, "org.apache.sling", "successful-pom", "1.0", "",
             "pom");
     private static Path POM_FILE;
 

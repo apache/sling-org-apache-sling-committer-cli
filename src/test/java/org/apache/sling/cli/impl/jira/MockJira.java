@@ -16,11 +16,11 @@
  */
 package org.apache.sling.cli.impl.jira;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.sling.cli.impl.http.HttpExchangeHandler;
 import org.junit.rules.ExternalResource;
 
 import com.sun.net.httpserver.Authenticator;
@@ -64,24 +64,21 @@ public class MockJira extends ExternalResource {
             }
         });
         
-        List<JiraAction> actions = new ArrayList<>();
+        List<HttpExchangeHandler> actions = new ArrayList<>();
         actions.add(new ListVersionsJiraAction());
         actions.add(new GetRelatedIssueCountsForVersionsJiraAction());
         actions.add(new CreateVersionJiraAction());
         actions.add(new IssuesSearchJiraAction());
         
         // fallback, always executed
-        actions.add(new JiraAction() {
-            @Override
-            public boolean tryHandle(HttpExchange ex) throws IOException {
-                ex.sendResponseHeaders(400, -1);
-                return true;
-            }
+        actions.add(ex -> {
+            ex.sendResponseHeaders(400, -1);
+            return true;
         });
         
         rootContext.setHandler(httpExchange -> {
             
-            for ( JiraAction action : actions ) {
+            for ( HttpExchangeHandler action : actions ) {
                 if ( action.tryHandle(httpExchange) ) {
                     break;
                 }

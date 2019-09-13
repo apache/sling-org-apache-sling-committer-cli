@@ -1,0 +1,51 @@
+{
+    "totalCount": 4,
+    "from": -1,
+    "count": -1,
+    "tooManyResults": false,
+    "collapsed": false,
+    "repoDetails": [
+        {
+            "repositoryId": "orgapachesling-0",
+            "repositoryName": "orgapachesling-0 (staging: closed)",
+            "repositoryContentClass": "maven2",
+            "repositoryKind": "hosted",
+            "repositoryPolicy": "RELEASE",
+            "repositoryURL": "https://repository.apache.org/service/local/repositories/orgapachesling-0"
+        }
+    ],
+    "data": [
+        {
+            "groupId": "org.apache.sling",
+            "artifactId": "adapter-annotations",
+            "version": "1.0.0",
+            "latestRelease": "1.0.0",
+            "latestReleaseRepositoryId": "orgapachesling-0",
+            "artifactHits": [
+                {
+                    "repositoryId": "orgapachesling-0",
+                    "artifactLinks": [
+                        {
+                            "extension": "pom"
+                        },
+                        {
+                            "extension": "jar"
+                        },
+                        {
+                            "classifier": "sources",
+                            "extension": "jar"
+                        },
+                        {
+                            "classifier": "source-release",
+                            "extension": "zip"
+                        },
+                        {
+                            "classifier": "javadoc",
+                            "extension": "jar"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

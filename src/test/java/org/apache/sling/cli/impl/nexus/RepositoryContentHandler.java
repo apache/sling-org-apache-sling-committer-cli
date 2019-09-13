@@ -16,31 +16,22 @@
  ~ specific language governing permissions and limitations
  ~ under the License.
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-package org.apache.sling.cli.impl.jira;
+package org.apache.sling.cli.impl.nexus;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.util.function.Consumer;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.sling.cli.impl.http.HttpExchangeHandler;
-import org.apache.sling.cli.impl.jira.ErrorResponse;
 
-import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 
-public interface JiraAction extends HttpExchangeHandler {
-    
-    default void error(HttpExchange httpExchange, Gson gson, Consumer<ErrorResponse> c) throws IOException {
-        try ( OutputStreamWriter out = new OutputStreamWriter(httpExchange.getResponseBody()) ) {
-            httpExchange.sendResponseHeaders(400, 0);
-            ErrorResponse er = new ErrorResponse();
-            c.accept(er);
-            gson.toJson(er, out);
-        }
-    }
-    
+public class RepositoryContentHandler implements HttpExchangeHandler {
 
+    @Override
+    public boolean tryHandle(HttpExchange ex) throws IOException {
+        if (!"GET".equals(ex.getRequestMethod()) && !ex.getRequestURI().getPath().startsWith("/content/repositories/")) {
+            return false;
+        }
+        serveFileFromClasspath(ex, "/nexus/" + ex.getRequestURI().getPath().substring(22));
+        return true;
+    }
 }

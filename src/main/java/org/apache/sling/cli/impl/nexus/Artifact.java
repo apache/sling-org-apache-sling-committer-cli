@@ -18,6 +18,7 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package org.apache.sling.cli.impl.nexus;
 
+import java.net.URI;
 import java.util.Objects;
 
 /**
@@ -25,17 +26,20 @@ import java.util.Objects;
  */
 public class Artifact {
 
+    private final StagingRepository repository;
     private final String groupId;
     private final String artifactId;
     private final String version;
     private final String classifier;
     private final String type;
+    private final URI uri;
     private final String repositoryRelativePath;
     private final String repositoryRelativeSignaturePath;
     private final String repositoryRelativeSha1SumPath;
     private final String repositoryRelativeMd5SumPath;
 
-    public Artifact(String groupId, String artifactId, String version, String classifier, String type) {
+    public Artifact(StagingRepository repository, String groupId, String artifactId, String version, String classifier, String type) {
+        this.repository = repository;
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.version = version;
@@ -48,9 +52,18 @@ public class Artifact {
         }
         stringBuilder.append(".").append(this.type);
         repositoryRelativePath = stringBuilder.toString();
+        uri = URI.create(repository.getRepositoryURI() + "/" + repositoryRelativePath);
         repositoryRelativeSignaturePath = repositoryRelativePath + ".asc";
         repositoryRelativeSha1SumPath = repositoryRelativePath + ".sha1";
         repositoryRelativeMd5SumPath = repositoryRelativePath + ".md5";
+    }
+
+    public StagingRepository getRepository() {
+        return repository;
+    }
+
+    public URI getUri() {
+        return uri;
     }
 
     public String getRepositoryRelativePath() {

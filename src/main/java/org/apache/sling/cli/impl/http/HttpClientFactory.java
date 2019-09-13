@@ -30,6 +30,7 @@ import org.apache.sling.cli.impl.ComponentContextHelper;
 import org.apache.sling.cli.impl.Credentials;
 import org.apache.sling.cli.impl.CredentialsService;
 import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
@@ -38,18 +39,25 @@ public class HttpClientFactory {
     
     private static final String DEFAULT_JIRA_HOST = "issues.apache.org";
     private static final int DEFAULT_JIRA_PORT = 443;
+
+    private static final String DEFAULT_NEXUS_HOST = "repository.apache.org";
+    private static final int DEFAULT_NEXUS_PORT = 443;
     
     @Reference
     private CredentialsService credentialsService;
     
     private String jiraHost;
     private int jiraPort;
-    
+    private String nexusHost;
+    private int nexusPort;
+
+    @Activate
     protected void activate(ComponentContext ctx) {
-        
         ComponentContextHelper helper = ComponentContextHelper.wrap(ctx);
         jiraHost = helper.getProperty("jira.host", DEFAULT_JIRA_HOST);
         jiraPort = helper.getProperty("jira.port", DEFAULT_JIRA_PORT);
+        nexusHost = helper.getProperty("nexus.host", DEFAULT_NEXUS_HOST);
+        nexusPort = helper.getProperty("nexus.port", DEFAULT_NEXUS_PORT);
     }
 
     public CloseableHttpClient newClient() {
@@ -64,7 +72,7 @@ public class HttpClientFactory {
         Credentials jira = credentialsService.getJiraCredentials();
         
         BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-        credentialsProvider.setCredentials(new AuthScope("repository.apache.org", 443), 
+        credentialsProvider.setCredentials(new AuthScope(nexusHost, nexusPort),
                 new UsernamePasswordCredentials(asf.getUsername(), asf.getPassword()));
         credentialsProvider.setCredentials(new AuthScope("reporter.apache.org", 443), 
                 new UsernamePasswordCredentials(asf.getUsername(), asf.getPassword()));

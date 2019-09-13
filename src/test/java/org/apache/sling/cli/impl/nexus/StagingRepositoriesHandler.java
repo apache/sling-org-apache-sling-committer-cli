@@ -16,31 +16,35 @@
  ~ specific language governing permissions and limitations
  ~ under the License.
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-package org.apache.sling.cli.impl.jira;
+package org.apache.sling.cli.impl.nexus;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.util.function.Consumer;
+import java.nio.charset.StandardCharsets;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.sling.cli.impl.http.HttpExchangeHandler;
-import org.apache.sling.cli.impl.jira.ErrorResponse;
 
-import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 
-public interface JiraAction extends HttpExchangeHandler {
-    
-    default void error(HttpExchange httpExchange, Gson gson, Consumer<ErrorResponse> c) throws IOException {
-        try ( OutputStreamWriter out = new OutputStreamWriter(httpExchange.getResponseBody()) ) {
-            httpExchange.sendResponseHeaders(400, 0);
-            ErrorResponse er = new ErrorResponse();
-            c.accept(er);
-            gson.toJson(er, out);
-        }
-    }
-    
+public class StagingRepositoriesHandler implements HttpExchangeHandler {
 
+    @Override
+    public boolean tryHandle(HttpExchange ex) throws IOException {
+        if ( !ex.getRequestMethod().equals("GET") ||
+                !ex.getRequestURI().getPath().equals("/service/local/staging/profile_repositories")) {
+            return false;
+        }
+        InputStream in = getClass().getResourceAsStream("/nexus/staging-repositories.json");
+        String json = IOUtils.toString(in, StandardCharsets.UTF_8);
+        String processedJson =
+                json.replaceAll("\\{nexusHost\\}", "http://localhost:" + ex.getHttpContext().getServer().getAddress().getPort());
+        byte[] bytes = processedJson.getBytes(StandardCharsets.UTF_8);
+        ex.sendResponseHeaders(200, bytes.length);
+        try ( OutputStream out = ex.getResponseBody() ) {
+            out.write(bytes);
+        }
+        return true;
+    }
 }

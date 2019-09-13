@@ -38,6 +38,7 @@ import org.apache.sling.cli.impl.ComponentContextHelper;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.release.Release;
 import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
@@ -60,7 +61,8 @@ public class VersionClient {
     @Reference
     private HttpClientFactory httpClientFactory;
     private String jiraUrlPrefix;
-    
+
+    @Activate
     protected void activate(ComponentContext ctx) {
         ComponentContextHelper helper = ComponentContextHelper.wrap(ctx);
         jiraUrlPrefix = helper.getProperty("jira.url.prefix", DEFAULT_JIRA_URL_PREFIX);
