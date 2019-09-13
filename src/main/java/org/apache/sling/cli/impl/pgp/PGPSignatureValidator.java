@@ -32,6 +32,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.sling.cli.impl.ComponentContextHelper;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.bouncycastle.bcpg.ArmoredInputStream;
 import org.bouncycastle.openpgp.PGPException;
@@ -46,6 +47,7 @@ import org.bouncycastle.openpgp.operator.bc.BcKeyFingerprintCalculator;
 import org.bouncycastle.openpgp.operator.bc.BcPGPContentVerifierBuilderProvider;
 import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
 import org.jetbrains.annotations.NotNull;
+import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -86,15 +88,17 @@ public class PGPSignatureValidator {
     }
 
     @Activate
-    private void readKeyRing() {
-        Path keysFile = Paths.get(KEYS_FILE);
-        if (Files.notExists(keysFile)) {
+    private void readKeyRing(ComponentContext componentContext) {
+        ComponentContextHelper helper = ComponentContextHelper.wrap(componentContext);
+        String keysFile = helper.getProperty("sling.keys", KEYS_FILE);
+        Path keysFilePath = Paths.get(keysFile);
+        if (Files.notExists(keysFilePath)) {
             try {
                 try (CloseableHttpClient client = httpClientFactory.newClient()) {
                     HttpGet get = new HttpGet("https://people.apache.org/keys/group/sling.asc");
                     try (CloseableHttpResponse response = client.execute(get)) {
                         try (InputStream content = response.getEntity().getContent()) {
-                            IOUtils.copy(content, new FileOutputStream(keysFile.toFile()));
+                            IOUtils.copy(content, new FileOutputStream(keysFilePath.toFile()));
                         }
                     }
                 }
@@ -103,7 +107,7 @@ public class PGPSignatureValidator {
                         "Cannot download Sling key file from https://people.apache.org/keys/group/sling.asc", e);
             }
         }
-        try (InputStream in = Files.newInputStream(keysFile)) {
+        try (InputStream in = Files.newInputStream(keysFilePath)) {
             InputStream bouncyIn = org.bouncycastle.openpgp.PGPUtil.getDecoderStream(in);
             if (bouncyIn instanceof ArmoredInputStream) {
                 ArmoredInputStream as = (ArmoredInputStream) bouncyIn;
@@ -120,12 +124,11 @@ public class PGPSignatureValidator {
                 if (!keyRings.isEmpty()) {
                     keyRing = new PGPPublicKeyRingCollection(keyRings);
                 } else {
-                    throw new IllegalStateException(
-                            String.format("Sling keys file from %s does not contain any keys.", KEYS_FILE));
+                    throw new IllegalStateException(String.format("Sling keys file from %s does not contain any keys.", keysFile));
                 }
             }
         } catch (IOException | PGPException e) {
-            throw new IllegalStateException(String.format("Cannot read Sling keys file at %s.", KEYS_FILE), e);
+            throw new IllegalStateException(String.format("Cannot read Sling keys file at %s.", keysFile), e);
         }
     }
 
