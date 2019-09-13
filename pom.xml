@@ -173,7 +173,9 @@
                 <configuration>
                     <excludes>
                         <exclude>src/main/resources/templates/*</exclude>
-                        <exclude>src/test/resources/nexus/orgapachesling-0/**/*</exclude>
+                        <exclude>**/*.md5</exclude>
+                        <exclude>**/*.sha1</exclude>
+                        <exclude>**/*.asc</exclude>
                     </excludes>
                 </configuration>
             </plugin>
