@@ -28,8 +28,8 @@ import com.sun.net.httpserver.HttpExchange;
 
 public class IssuesSearchJiraAction implements JiraAction {
     
-    private static final String UNRESOLVED_QUERY = "project = SLING AND resolution = Unresolved AND fixVersion = \"Committer CLI 1.0.0\"";
-    private static final String FIXED_QUERY = "project = SLING AND resolution = Fixed AND fixVersion = \"Committer CLI 1.0.0\"";
+    private static final String UNRESOLVED_QUERY = "project = SLING AND resolution is empty AND fixVersion = \"Committer CLI 1.0.0\"";
+    private static final String FIXED_QUERY = "project = SLING AND resolution is not empty AND fixVersion = \"Committer CLI 1.0.0\"";
 
     @Override
     public boolean tryHandle(HttpExchange ex) throws IOException {

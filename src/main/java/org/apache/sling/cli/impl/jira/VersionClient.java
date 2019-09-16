@@ -175,11 +175,11 @@ public class VersionClient {
     }
     
     public List<Issue> findUnresolvedIssues(Release release) throws IOException {
-        return findIssues("Unresolved", release);
+        return findIssues("is empty", release);
     }
 
     public List<Issue> findFixedIssues(Release release) throws IOException {
-        return findIssues("Fixed", release);
+        return findIssues("is not empty", release);
     }
 
     private List<Issue> findIssues(String resolution, Release release) throws IOException {
@@ -187,7 +187,7 @@ public class VersionClient {
             HttpGet get = newGet("search");
             URIBuilder builder = new URIBuilder(get.getURI());
             builder.addParameter("jql",
-                    String.format("project = %s AND resolution = %s AND fixVersion = \"%s\"", PROJECT_KEY, resolution, release.getName()));
+                    String.format("project = %s AND resolution %s AND fixVersion = \"%s\"", PROJECT_KEY, resolution, release.getName()));
             builder.addParameter("fields", "summary");
             get.setURI(builder.build());
 
