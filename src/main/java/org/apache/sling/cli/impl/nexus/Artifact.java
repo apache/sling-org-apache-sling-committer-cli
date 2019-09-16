@@ -118,4 +118,10 @@ public class Artifact {
         }
         return false;
     }
+
+    @Override
+    public String toString() {
+        return String.format("Artifact {groupId=%s; artifactId=%s; version=%s; classifier=%s; type=%s}", groupId, artifactId, version,
+                classifier, type);
+    }
 }

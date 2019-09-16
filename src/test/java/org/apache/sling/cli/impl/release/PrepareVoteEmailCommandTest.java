@@ -21,6 +21,7 @@ package org.apache.sling.cli.impl.release;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.DateProvider;
@@ -118,7 +119,8 @@ public class PrepareVoteEmailCommandTest {
         when(version.getName()).thenReturn("CLI Test 1.0.0");
         when(version.getId()).thenReturn(1);
         when(version.getIssuesFixedCount()).thenReturn(42);
-        Release release = Release.fromString("CLI Test 1.0.0").get(0);
+        Release release = Release.fromString("Apache Sling CLI Test 1.0.0").get(0);
+        when(repositoryService.getReleases(stagingRepository)).thenReturn(Set.of(release));
         List<Issue> fixedIssues = new ArrayList<>();
         for (int i = 0; i < 42; i++) {
             fixedIssues.add(mock(Issue.class));

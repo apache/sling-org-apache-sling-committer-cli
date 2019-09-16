@@ -223,6 +223,9 @@ public class TallyVotesCommandTest {
         when(stagingRepository.getDescription()).thenReturn("Apache Sling CLI Test 1.0.0");
         RepositoryService repositoryService = mock(RepositoryService.class);
         when(repositoryService.find(123)).thenReturn(stagingRepository);
+        Release release = Release.fromString("Apache Sling CLI Test 1.0.0").get(0);
+        when(repositoryService.getReleases(stagingRepository)).thenReturn(Set.of(release));
+
 
         VoteThreadFinder voteThreadFinder = mock(VoteThreadFinder.class);
         when(voteThreadFinder.findVoteThread("CLI Test 1.0.0")).thenReturn(thread);

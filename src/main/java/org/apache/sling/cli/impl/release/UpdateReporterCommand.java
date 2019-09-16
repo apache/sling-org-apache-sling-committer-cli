@@ -24,6 +24,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.http.NameValuePair;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
@@ -35,8 +36,8 @@ import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
-import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
+import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -63,7 +64,7 @@ public class UpdateReporterCommand implements Command {
     private static final Logger LOGGER = LoggerFactory.getLogger(UpdateReporterCommand.class);
 
     @Reference
-    private RepositoryService repoFinder;
+    private RepositoryService repositoryService;
 
     @Reference
     private HttpClientFactory httpClientFactory;
@@ -77,8 +78,8 @@ public class UpdateReporterCommand implements Command {
     @Override
     public void run() {
         try {
-            StagingRepository repository = repoFinder.find(repositoryId);
-            List<Release> releases = Release.fromString(repository.getDescription());
+            StagingRepository repository = repositoryService.find(repositoryId);
+            Set<Release> releases = repositoryService.getReleases(repository);
             String releaseReleases = releases.size() > 1 ? "releases" : "release";
             switch (reusableCLIOptions.executionMode) {
                 case DRY_RUN:
@@ -111,7 +112,7 @@ public class UpdateReporterCommand implements Command {
 
     }
 
-    private void updateReporter(List<Release> releases) throws IOException {
+    private void updateReporter(Set<Release> releases) throws IOException {
         try (CloseableHttpClient client = httpClientFactory.newClient()) {
             for (Release release : releases) {
                 HttpPost post = new HttpPost("https://reporter.apache.org/addrelease.py");

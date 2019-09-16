@@ -19,6 +19,10 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -64,20 +68,22 @@ public class UpdateReporterCommandTest {
     private CloseableHttpClient client;
 
     @Rule
-    public final OsgiContext osgiContext = new OsgiContext();
+    public OsgiContext osgiContext = new OsgiContext();
 
     @Before
     public void before() throws IOException {
-        RepositoryService repositoryFinder = mock(RepositoryService.class);
+        RepositoryService repositoryService = mock(RepositoryService.class);
         StagingRepository stagingRepository = mock(StagingRepository.class);
         when(stagingRepository.getDescription()).thenReturn("Apache Sling CLI 1, Apache Sling CLI 2");
-        when(repositoryFinder.find(42)).thenReturn(stagingRepository);
+        when(repositoryService.find(42)).thenReturn(stagingRepository);
+        List<Release> releases = Release.fromString("Apache Sling CLI 1, Apache Sling CLI 2");
+        when(repositoryService.getReleases(stagingRepository)).thenReturn(new HashSet<>(releases));
 
         HttpClientFactory httpClientFactory = mock(HttpClientFactory.class);
         client = mock(CloseableHttpClient.class);
         when(httpClientFactory.newClient()).thenReturn(client);
 
-        osgiContext.registerService(repositoryFinder);
+        osgiContext.registerService(repositoryService);
         osgiContext.registerService(httpClientFactory);
     }
 

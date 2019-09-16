@@ -36,8 +36,8 @@ import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.mail.Email;
 import org.apache.sling.cli.impl.mail.Mailer;
 import org.apache.sling.cli.impl.mail.VoteThreadFinder;
-import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
+import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
 import org.osgi.service.component.annotations.Component;
@@ -65,7 +65,7 @@ public class TallyVotesCommand implements Command {
     private MembersFinder membersFinder;
 
     @Reference
-    private RepositoryService repoFinder;
+    private RepositoryService repositoryService;
 
     @Reference
     private VoteThreadFinder voteThreadFinder;
@@ -98,8 +98,8 @@ public class TallyVotesCommand implements Command {
     @Override
     public void run() {
         try {
-            StagingRepository repository = repoFinder.find(repositoryId);
-            List<Release> releases = Release.fromString(repository.getDescription());
+            StagingRepository repository = repositoryService.find(repositoryId);
+            Set<Release> releases = repositoryService.getReleases(repository);
             String releaseName = releases.stream().map(Release::getName).collect(Collectors.joining(", "));
             String releaseFullName = releases.stream().map(Release::getFullName).collect(Collectors.joining(", "));
             Set<String> bindingVoters = new LinkedHashSet<>();

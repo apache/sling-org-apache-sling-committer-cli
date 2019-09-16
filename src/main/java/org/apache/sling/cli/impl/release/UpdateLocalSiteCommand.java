@@ -21,12 +21,12 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.jbake.JBakeContentUpdater;
-import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
+import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ResetCommand.ResetType;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -54,7 +54,7 @@ public class UpdateLocalSiteCommand implements Command {
     private static final String GIT_CHECKOUT = "/tmp/sling-site";
 
     @Reference
-    private RepositoryService repoFinder;
+    private RepositoryService repositoryService;
     
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -67,8 +67,8 @@ public class UpdateLocalSiteCommand implements Command {
             ensureRepo();
             try ( Git git = Git.open(new File(GIT_CHECKOUT)) ) {
                 
-                StagingRepository repository = repoFinder.find(repositoryId);
-                List<Release> releases = Release.fromString(repository.getDescription());
+                StagingRepository repository = repositoryService.find(repositoryId);
+                Set<Release> releases = repositoryService.getReleases(repository);
                 
                 JBakeContentUpdater updater = new JBakeContentUpdater();
         

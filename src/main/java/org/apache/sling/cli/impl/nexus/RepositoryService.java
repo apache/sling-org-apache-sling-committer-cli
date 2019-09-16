@@ -31,6 +31,14 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -39,6 +47,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.sling.cli.impl.ComponentContextHelper;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.nexus.StagingRepository.Status;
+import org.apache.sling.cli.impl.release.Release;
 import org.jetbrains.annotations.NotNull;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -46,6 +55,8 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -63,6 +74,8 @@ public class RepositoryService {
 
     private Map<String, LocalRepository> repositories = new HashMap<>();
     private ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+    private final XPathFactory xPathFactory = XPathFactory.newInstance();
+    private final DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
 
     @Reference
     private HttpClientFactory httpClientFactory;
@@ -202,6 +215,33 @@ public class RepositoryService {
                 consumer.accept(response.getEntity().getContent());
             }
         }
+    }
+
+    public Set<Release> getReleases(StagingRepository stagingRepository) throws IOException {
+        Set<Release> releases = new HashSet<>();
+        getArtifacts(stagingRepository).stream().filter(artifact -> "pom".equals(artifact.getType())).forEach(pom -> {
+            try {
+                XPath xPath = xPathFactory.newXPath();
+                processArtifactStream(pom, stream -> {
+                    try {
+                        DocumentBuilder builder = builderFactory.newDocumentBuilder();
+                        Document xmlDocument = builder.parse(stream);
+                        String name = (String) xPath.compile("/project/name/text()").evaluate(xmlDocument, XPathConstants.STRING);
+                        String version = (String) xPath.compile("/project/version/text()").evaluate(xmlDocument, XPathConstants.STRING);
+                        try {
+                            releases.addAll(Release.fromString(name + " " + version));
+                        } catch (IllegalArgumentException e) {
+                            LOGGER.error(String.format("Unable to determine a valid release from '%s %s'", name, version), e);
+                        }
+                    } catch (ParserConfigurationException | SAXException | XPathExpressionException | IOException e) {
+                        LOGGER.error(String.format("Unable to process artifact %s.", pom), e);
+                    }
+                });
+            } catch (IOException e) {
+                LOGGER.error(String.format("Unable to process artifact %s.", pom), e);
+            }
+        });
+        return Set.copyOf(releases);
     }
 
     private void downloadFileFromRepository(@NotNull StagingRepository repository, @NotNull CloseableHttpClient client,

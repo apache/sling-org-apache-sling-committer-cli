@@ -36,6 +36,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.sling.cli.impl.CredentialsService;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.jira.SystemPropertiesRule;
+import org.apache.sling.cli.impl.release.Release;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
 import org.junit.Before;
 import org.junit.Rule;
@@ -148,6 +149,15 @@ public class RepositoryServiceTest {
             LOGGER.debug("Deleting empty folder {}.", directory.toString());
             Files.delete(directory);
         }
+    }
+
+    @Test
+    public void testReleaseLookup() throws IOException {
+        StagingRepository stagingRepository = getStagingRepository();
+        Set<Release> releases = repositoryService.getReleases(stagingRepository);
+        assertEquals(1, releases.size());
+        Release release = releases.iterator().next();
+        assertEquals("Sling Adapter Annotations 1.0.0", release.getFullName());
     }
 
 

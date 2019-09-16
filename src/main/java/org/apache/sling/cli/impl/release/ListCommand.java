@@ -42,12 +42,12 @@ public class ListCommand implements Command {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Reference
-    private RepositoryService repoFinder;
+    private RepositoryService repositoryService;
 
     @Override
     public void run() {
         try {
-            repoFinder.list().forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), r.getDescription()));
+            repositoryService.list().forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), r.getDescription()));
         } catch (IOException e) {
             logger.warn("Failed executing command", e);
         }

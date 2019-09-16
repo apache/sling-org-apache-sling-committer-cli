@@ -56,7 +56,7 @@ public class CreateJiraVersionCommand implements Command {
     private Integer repositoryId;
 
     @Reference
-    private RepositoryService repoFinder;
+    private RepositoryService repositoryService;
     
     @Reference
     private VersionClient versionClient;
@@ -69,8 +69,8 @@ public class CreateJiraVersionCommand implements Command {
     @Override
     public void run() {
         try {
-            StagingRepository repo = repoFinder.find(repositoryId);
-            for (Release release : Release.fromString(repo.getDescription()) ) {
+            StagingRepository repo = repositoryService.find(repositoryId);
+            for (Release release : repositoryService.getReleases(repo)) {
                 Version version = versionClient.find(release);
                 logger.info("Found {}.", version);
                 Version successorVersion = versionClient.findSuccessorVersion(release);

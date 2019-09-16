@@ -67,7 +67,7 @@ public class PrepareVoteEmailCommand implements Command {
     private MembersFinder membersFinder;
 
     @Reference
-    private RepositoryService repoFinder;
+    private RepositoryService repositoryService;
 
     @Reference
     private VersionClient versionClient;
@@ -110,8 +110,8 @@ public class PrepareVoteEmailCommand implements Command {
             if (commandLine.isUsageHelpRequested()) {
                 commandLine.usage(commandLine.getOut());
             } else {
-                StagingRepository repo = repoFinder.find(repositoryId);
-                List<Release> releases = Release.fromString(repo.getDescription());
+                StagingRepository repo = repositoryService.find(repositoryId);
+                Set<Release> releases = repositoryService.getReleases(repo);
                 List<Version> versions = releases.stream()
                         .map(r -> versionClient.find(r))
                         .collect(Collectors.toList());
