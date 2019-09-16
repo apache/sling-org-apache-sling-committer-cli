@@ -166,7 +166,7 @@ public class TallyVotesCommand implements Command {
                     }
                 } else {
                     LOGGER.info("Release {} does not have at least 3 binding votes.", releaseFullName);
-                    LOGGER.info("Binding votes: {}.", String.join(", ", bindingVoters));
+                    LOGGER.info("Binding votes: {}.", bindingVoters.isEmpty() ? "none" : String.join(", ", bindingVoters));
                 }
             }
             

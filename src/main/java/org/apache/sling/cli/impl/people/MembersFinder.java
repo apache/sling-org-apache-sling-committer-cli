@@ -55,7 +55,7 @@ public class MembersFinder {
     private CredentialsService credentialsService;
 
     public synchronized Set<Member> findMembers() {
-        final Set<Member> _members = new HashSet<>();
+        final Set<Member> membersReplacementSet = new HashSet<>();
         if (lastCheck == 0 || System.currentTimeMillis() > lastCheck + STALENESS_IN_HOURS * 3600 * 1000) {
             lastCheck = System.currentTimeMillis();
             try (CloseableHttpClient client = HttpClients.createDefault()) {
@@ -92,12 +92,12 @@ public class MembersFinder {
                         JsonObject people = json.get("people").getAsJsonObject();
                         for (String id : memberIds) {
                             String name = people.get(id).getAsJsonObject().get("name").getAsString();
-                            _members.add(new Member(id, name, pmcMemberIds.contains(id)));
+                            membersReplacementSet.add(new Member(id, name, pmcMemberIds.contains(id)));
                         }
 
                     }
                 }
-                members = Collections.unmodifiableSet(_members);
+                members = Collections.unmodifiableSet(membersReplacementSet);
             } catch (IOException e) {
                 LOGGER.error("Unable to retrieve Apache Sling project members.", e);
             }

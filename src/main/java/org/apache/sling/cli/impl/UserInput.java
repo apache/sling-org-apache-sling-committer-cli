@@ -32,6 +32,8 @@ public class UserInput {
     private static final Logger LOGGER = LoggerFactory.getLogger(UserInput.class);
     private static final InputOption[] YES_NO = new InputOption[]{InputOption.YES, InputOption.NO};
 
+    private UserInput() {}
+
     public static InputOption yesNo(String question, InputOption defaultOption) {
         LOGGER.info(question);
         Set<InputOption> answers = new LinkedHashSet<>(Arrays.asList(YES_NO));

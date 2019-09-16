@@ -17,9 +17,9 @@
 package org.apache.sling.cli.impl.jira;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-import org.apache.commons.io.Charsets;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 
@@ -28,7 +28,8 @@ import com.sun.net.httpserver.HttpExchange;
 
 public class IssuesSearchJiraAction implements JiraAction {
     
-    static final String KNOWN_JQL_QUERY = "project = SLING AND resolution = Unresolved AND fixVersion = \"Committer CLI 1.0.0\""; 
+    private static final String UNRESOLVED_QUERY = "project = SLING AND resolution = Unresolved AND fixVersion = \"Committer CLI 1.0.0\"";
+    private static final String FIXED_QUERY = "project = SLING AND resolution = Fixed AND fixVersion = \"Committer CLI 1.0.0\"";
 
     @Override
     public boolean tryHandle(HttpExchange ex) throws IOException {
@@ -37,15 +38,21 @@ public class IssuesSearchJiraAction implements JiraAction {
             return false;
         }
         
-        List<NameValuePair> parsed = URLEncodedUtils.parse(ex.getRequestURI(), Charsets.UTF_8);
+        List<NameValuePair> parsed = URLEncodedUtils.parse(ex.getRequestURI(), StandardCharsets.UTF_8);
         
         for ( NameValuePair pair : parsed ) {
-            if ( "jql".equals(pair.getName()) && KNOWN_JQL_QUERY.equals(pair.getValue()) ) {
-                serveFileFromClasspath(ex, "/jira/search/unresolved-committer-cli-1.0.0.json");
-                return true;
+            if ( "jql".equals(pair.getName())) {
+                if (UNRESOLVED_QUERY.equals(pair.getValue())) {
+                    serveFileFromClasspath(ex, "/jira/search/unresolved-committer-cli-1.0.0.json");
+                    return true;
+                } else if (FIXED_QUERY.equals(pair.getValue())) {
+                    serveFileFromClasspath(ex, "/jira/search/fixed-committer-cli-1.0.0.json");
+                    return true;
+                }
             }
         }
-        error(ex, new Gson(), er -> er.getErrorMessages().add("Unable to run unknown JQL query, only available one is [" + KNOWN_JQL_QUERY +"]"));
+        error(ex, new Gson(), er -> er.getErrorMessages().add("Unable to run unknown JQL query, available ones are [" +
+                UNRESOLVED_QUERY + "," + FIXED_QUERY +"]"));
         
         return true;
     }

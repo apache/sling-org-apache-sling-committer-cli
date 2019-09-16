@@ -96,7 +96,7 @@ public class VerifyReleasesCommand implements Command {
                 if (!md5validationResult.isValid()) {
                     failedChecks++;
                 }
-                LOGGER.info("\n" + artifactFilePath.getFileName().toString());
+                LOGGER.info("\n{}", artifactFilePath.getFileName().toString());
                 PGPPublicKey key = validationResult.getKey();
                 LOGGER.info("GPG: {}", validationResult.isValid()
                         ? String.format("signed by %s with key (id=0x%X; " + "fingerprint=%s)", getKeyUserId(key),

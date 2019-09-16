@@ -32,6 +32,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -209,7 +210,7 @@ public class RepositoryService {
         Path filePath = Files.createFile(artifactFolderPath.resolve(fileName));
         HttpGet get = new HttpGet(repository.getRepositoryURI() + "/" + relativeFilePath);
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Downloading {}.", get.getURI().toString());
+            LOGGER.debug("Downloading {}.", get.getURI());
         }
         try (CloseableHttpResponse response = client.execute(get)) {
             try (InputStream content = response.getEntity().getContent()) {
@@ -220,7 +221,7 @@ public class RepositoryService {
 
     private HttpGet newGet(String suffix) {
         HttpGet get = new HttpGet(nexusUrlPrefix + suffix);
-        get.addHeader("Accept", CONTENT_TYPE_JSON);
+        get.addHeader(HttpHeaders.ACCEPT, CONTENT_TYPE_JSON);
         return get;
     }
 

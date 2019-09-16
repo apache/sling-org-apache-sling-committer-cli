@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
+import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -106,7 +107,6 @@ public class VersionClient {
      * 
      * @param release the release to find a successor for
      * @return the successor version, possibly <code>null</code>
-     * @throws IOException in case of communication errors with Jira
      */
     public Version findSuccessorVersion(Release release) {
         Version version;
@@ -115,7 +115,7 @@ public class VersionClient {
             Optional<Version> opt = findVersion ( 
                     v -> isFollowingVersion(Release.fromString(v.getName()).get(0), release)
                     ,client);
-            if ( !opt.isPresent() )
+            if (opt.isEmpty())
                 return null;
             version = opt.get();
             populateRelatedIssuesCount(client, version);
@@ -162,55 +162,36 @@ public class VersionClient {
 
     private HttpPost newPost(String suffix) {
         HttpPost post = new HttpPost(jiraUrlPrefix + suffix);
-        post.addHeader("Content-Type", CONTENT_TYPE_JSON);
-        post.addHeader("Accept", CONTENT_TYPE_JSON);
+        post.addHeader(HttpHeaders.CONTENT_TYPE, CONTENT_TYPE_JSON);
+        post.addHeader(HttpHeaders.ACCEPT, CONTENT_TYPE_JSON);
         return post;
     }
     
     private HttpPut newPut(String suffix) {
         HttpPut put = new HttpPut(jiraUrlPrefix + suffix);
-        put.addHeader("Content-Type", CONTENT_TYPE_JSON);
-        put.addHeader("Accept", CONTENT_TYPE_JSON);
+        put.addHeader(HttpHeaders.CONTENT_TYPE, CONTENT_TYPE_JSON);
+        put.addHeader(HttpHeaders.ACCEPT, CONTENT_TYPE_JSON);
         return put;
     }
     
     public List<Issue> findUnresolvedIssues(Release release) throws IOException {
-        
-        try {
-            HttpGet get = newGet("search");
-            URIBuilder builder = new URIBuilder(get.getURI());
-            builder.addParameter("jql", "project = "+ PROJECT_KEY+" AND resolution = Unresolved AND fixVersion = \"" + release.getName() + "\"");
-            builder.addParameter("fields", "summary");
-            get.setURI(builder.build());
-            
-            try ( CloseableHttpClient client = httpClientFactory.newClient() ) {
-                try (CloseableHttpResponse response = client.execute(get)) {
-                    try (InputStream content = response.getEntity().getContent();
-                            InputStreamReader reader = new InputStreamReader(content)) {
-                        
-                        if (response.getStatusLine().getStatusCode() != 200) {
-                            throw newException(response, reader);
-                        }
-                        
-                        Gson gson = new Gson();
-                        return gson.fromJson(reader, IssueResponse.class).getIssues();
-                    }
-                }
-            }
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException(e);
-        }
+        return findIssues("Unresolved", release);
     }
 
     public List<Issue> findFixedIssues(Release release) throws IOException {
+        return findIssues("Fixed", release);
+    }
+
+    private List<Issue> findIssues(String resolution, Release release) throws IOException {
         try {
             HttpGet get = newGet("search");
             URIBuilder builder = new URIBuilder(get.getURI());
-            builder.addParameter("jql", "project = "+ PROJECT_KEY+" AND resolution = Fixed AND fixVersion = \"" + release.getName() + "\"");
+            builder.addParameter("jql",
+                    String.format("project = %s AND resolution = %s AND fixVersion = \"%s\"", PROJECT_KEY, resolution, release.getName()));
             builder.addParameter("fields", "summary");
             get.setURI(builder.build());
 
-            try ( CloseableHttpClient client = httpClientFactory.newClient() ) {
+            try (CloseableHttpClient client = httpClientFactory.newClient()) {
                 try (CloseableHttpResponse response = client.execute(get)) {
                     try (InputStream content = response.getEntity().getContent();
                          InputStreamReader reader = new InputStreamReader(content)) {
@@ -232,7 +213,7 @@ public class VersionClient {
     private IOException newException(CloseableHttpResponse response, InputStreamReader reader) {
         
         StringBuilder message = new StringBuilder();
-        message.append("Status line : " + response.getStatusLine());
+        message.append("Status line : ").append(response.getStatusLine());
         
         try {
             Gson gson = new Gson();
@@ -243,8 +224,7 @@ public class VersionClient {
                         .append(errors.getErrorMessages());
                 
                 if ( !errors.getErrors().isEmpty() )
-                    errors.getErrors().entrySet().stream()
-                        .forEach( e -> message.append(". Error for "  + e.getKey() + " : " + e.getValue()));
+                    errors.getErrors().forEach((key, value) -> message.append(". Error for ").append(key).append(" : ").append(value));
             }
         } catch ( JsonIOException | JsonSyntaxException e) {
             message.append(". Failed parsing response as JSON ( ")
@@ -270,15 +250,14 @@ public class VersionClient {
                 return versions.stream()
                         .filter( v -> v.getName().length() > 1) // avoid old '3' release
                         .filter(matcher)
-                        .sorted(VersionClient::compare)
-                        .findFirst();
+                        .min(VersionClient::compare);
             }
         }
     }
         
     private HttpGet newGet(String suffix) {
         HttpGet get = new HttpGet(jiraUrlPrefix + suffix);
-        get.addHeader("Accept", CONTENT_TYPE_JSON);
+        get.addHeader(HttpHeaders.ACCEPT, CONTENT_TYPE_JSON);
         return get;
     }
     
@@ -330,8 +309,7 @@ public class VersionClient {
     }
 
     public void moveIssuesToNewVersion(Version oldVersion, Version newVersion, List<Issue> issues) {
-        issues.stream()
-            .forEach( i -> moveIssueToNewVersion(oldVersion, newVersion, i));
+        issues.forEach( i -> moveIssueToNewVersion(oldVersion, newVersion, i));
         
     }
     

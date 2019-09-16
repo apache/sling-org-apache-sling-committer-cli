@@ -114,4 +114,18 @@ public class VersionClientTest {
         assertThat(issues.get(0).getKey(), equalTo("SLING-8338"));
         assertThat(issues.get(1).getKey(), equalTo("SLING-8337"));
     }
+
+    @Test
+    public void findFixedIssuesForVersion() throws IOException {
+        List<Issue> issues = versionClient.findFixedIssues(Release.fromString("Committer CLI 1.0.0").get(0));
+
+        assertThat(issues, hasSize(7));
+        assertThat(issues.get(0).getKey(), equalTo("SLING-8707"));
+        assertThat(issues.get(1).getKey(), equalTo("SLING-8699"));
+        assertThat(issues.get(2).getKey(), equalTo("SLING-8395"));
+        assertThat(issues.get(3).getKey(), equalTo("SLING-8394"));
+        assertThat(issues.get(4).getKey(), equalTo("SLING-8393"));
+        assertThat(issues.get(5).getKey(), equalTo("SLING-8392"));
+        assertThat(issues.get(6).getKey(), equalTo("SLING-8338"));
+    }
 }

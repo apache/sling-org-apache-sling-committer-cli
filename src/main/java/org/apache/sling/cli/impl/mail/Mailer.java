@@ -43,13 +43,12 @@ public class Mailer {
 
     private static final Properties SMTP_PROPERTIES = new Properties();
     static {
-
         SMTP_PROPERTIES.put("mail.smtp.host", "mail-relay.apache.org");
         SMTP_PROPERTIES.put("mail.smtp.port", "465");
         SMTP_PROPERTIES.put("mail.smtp.auth", "true");
         SMTP_PROPERTIES.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
         SMTP_PROPERTIES.put("mail.smtp.socketFactory.fallback", "false");
-    };
+    }
 
     @Reference
     private CredentialsService credentialsService;
@@ -62,7 +61,7 @@ public class Mailer {
             Credentials credentials = credentialsService.getAsfCredentials();
             Transport.send(message, credentials.getUsername(), credentials.getPassword());
         } catch (MessagingException e) {
-            LOGGER.error(String.format("Unable to send the following email:\n%s", source), e);
+            LOGGER.error(String.format("Unable to send the following email:%n%s", source), e);
         }
 
     }

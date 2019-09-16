@@ -24,7 +24,6 @@ import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -34,6 +33,7 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -54,11 +54,11 @@ import com.google.gson.JsonParser;
 @Component(service = CIStatusValidator.class)
 public class CIStatusValidator {
 
-    public class ValidationResult {
+    public static class ValidationResult {
         private final String message;
         private final boolean valid;
 
-        public ValidationResult(boolean valid, String message) {
+        ValidationResult(boolean valid, String message) {
             this.valid = valid;
             this.message = message;
         }
@@ -80,10 +80,10 @@ public class CIStatusValidator {
 
     private XPathFactory xPathFactory = XPathFactory.newInstance();
 
-    protected JsonObject fetchCIStatus(String ciEndpoint) throws UnsupportedOperationException, IOException {
+    protected JsonObject fetchCIStatus(String ciEndpoint) throws IOException {
         try (CloseableHttpClient client = httpClientFactory.newClient()) {
             HttpGet get = new HttpGet(ciEndpoint);
-            get.addHeader("Accept", "application/json");
+            get.addHeader(HttpHeaders.ACCEPT, "application/json");
             try (CloseableHttpResponse response = client.execute(get)) {
                 try (InputStream content = response.getEntity().getContent()) {
                     InputStreamReader reader = new InputStreamReader(content);
@@ -94,7 +94,7 @@ public class CIStatusValidator {
         }
     }
 
-    protected String getCIEndpoint(Artifact artifact, Path artifactFilePath) {
+    String getCIEndpoint(Artifact artifact, Path artifactFilePath) {
         log.trace("getCIEndpoint");
         String ciEndpoint = null;
         try {
@@ -135,7 +135,7 @@ public class CIStatusValidator {
                 messageEntries.add("\t\tDescription: " + item.get("description").getAsString());
                 messageEntries.add("\t\tSee: " + item.get("target_url").getAsString());
             }
-            String message = messageEntries.stream().collect(Collectors.joining("\n"));
+            String message = String.join("\n", messageEntries);
             if ("success".equals(status.get("state").getAsString())) {
                 return new ValidationResult(true, message);
             } else {
