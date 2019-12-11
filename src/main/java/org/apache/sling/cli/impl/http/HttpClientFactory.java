@@ -17,9 +17,13 @@
 package org.apache.sling.cli.impl.http;
 
 import org.apache.http.HttpHost;
+import org.apache.http.HttpRequestInterceptor;
+import org.apache.http.HttpResponseInterceptor;
+import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.AuthCache;
+import org.apache.http.client.methods.HttpRequestWrapper;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.BasicAuthCache;
@@ -61,9 +65,18 @@ public class HttpClientFactory {
     }
 
     public CloseableHttpClient newClient() {
-        
+        final String[] urlHolder = new String[1];
         return HttpClients.custom()
                 .setDefaultCredentialsProvider(newCredentialsProvider())
+                .addInterceptorFirst(
+                        (HttpRequestInterceptor) (request, context) ->
+                        urlHolder[0] = ((HttpRequestWrapper) request).getOriginal().getRequestLine().getUri()
+                )
+                .addInterceptorFirst((HttpResponseInterceptor) (response, context) -> {
+                    if (response.getStatusLine().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+                        throw new IllegalStateException("Server returned a 401 status; please check your authentication details for " + urlHolder[0]);
+                    }
+                })
                 .build();
     }
 
