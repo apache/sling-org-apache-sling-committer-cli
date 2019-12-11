@@ -44,9 +44,6 @@ public class CredentialsServiceTest {
             assertThat(creds.getAsfCredentials().getUsername(), equalTo("asf.username.val"));
             assertThat(creds.getAsfCredentials().getPassword(), equalTo("asf.password.val"));
             
-            assertThat(creds.getJiraCredentials().getUsername(), equalTo("jira.username.val"));
-            assertThat(creds.getJiraCredentials().getPassword(), equalTo("jira.password.val"));
-            
         } finally {
             for ( String prop : VALID_PROPS ) {
                 System.clearProperty(prop);

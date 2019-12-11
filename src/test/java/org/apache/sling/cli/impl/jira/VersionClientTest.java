@@ -41,8 +41,6 @@ public class VersionClientTest {
     static {
         SYSTEM_PROPS.put("asf.username", "asf-user");
         SYSTEM_PROPS.put("asf.password", "asf-password");
-        SYSTEM_PROPS.put("jira.username", MockJira.AUTH_USER);
-        SYSTEM_PROPS.put("jira.password", MockJira.AUTH_PWD);
     }
     
     @Rule

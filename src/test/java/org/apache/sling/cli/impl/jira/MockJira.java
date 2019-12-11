@@ -32,8 +32,8 @@ import com.sun.net.httpserver.HttpServer;
 
 public class MockJira extends ExternalResource {
     
-    static final String AUTH_USER = "jira-user";
-    static final String AUTH_PWD = "jira-password";
+    static final String AUTH_USER = "asf-user";
+    static final String AUTH_PWD = "asf-password";
     
     public static void main(String[] args) throws Throwable {
         

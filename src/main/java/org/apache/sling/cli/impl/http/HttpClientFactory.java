@@ -82,15 +82,14 @@ public class HttpClientFactory {
 
     private BasicCredentialsProvider newCredentialsProvider() {
         Credentials asf = credentialsService.getAsfCredentials();
-        Credentials jira = credentialsService.getJiraCredentials();
-        
+
         BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
         credentialsProvider.setCredentials(new AuthScope(nexusHost, nexusPort),
                 new UsernamePasswordCredentials(asf.getUsername(), asf.getPassword()));
         credentialsProvider.setCredentials(new AuthScope("reporter.apache.org", 443), 
                 new UsernamePasswordCredentials(asf.getUsername(), asf.getPassword()));
         credentialsProvider.setCredentials(new AuthScope(jiraHost, jiraPort), 
-                new UsernamePasswordCredentials(jira.getUsername(), jira.getPassword()));
+                new UsernamePasswordCredentials(asf.getUsername(), asf.getPassword()));
         return credentialsProvider;
     }
     

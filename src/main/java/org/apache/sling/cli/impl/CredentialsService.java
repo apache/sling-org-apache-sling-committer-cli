@@ -29,24 +29,15 @@ public class CredentialsService {
     private static final ValueSource ASF_USER = new ValueSource("asf.username", "ASF_USERNAME", "ASF user information");
     private static final ValueSource ASF_PWD = new ValueSource("asf.password", "ASF_PASSWORD", "ASF password");
 
-    private static final ValueSource JIRA_USER = new ValueSource("jira.username", "JIRA_USERNAME", "Jira user information");
-    private static final ValueSource JIRA_PWD = new ValueSource("jira.password", "JIRA_PASSWORD", "Jira password");
-    
     private Credentials asfCredentials;
-    private Credentials jiraCredentials;
 
     @Activate
     protected void activate() {
         asfCredentials = new Credentials(ASF_USER.getValue(), ASF_PWD.getValue());
-        jiraCredentials = new Credentials(JIRA_USER.getValue(), JIRA_PWD.getValue());
     }
     
     public Credentials getAsfCredentials() {
         return asfCredentials;
-    }
-    
-    public Credentials getJiraCredentials() {
-        return jiraCredentials;
     }
 
     static class ValueSource {
