@@ -16,10 +16,16 @@
  */
 package org.apache.sling.cli.impl.http;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.http.HttpHost;
+import org.apache.http.HttpRequestInterceptor;
+import org.apache.http.HttpResponseInterceptor;
+import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.AuthCache;
+import org.apache.http.client.methods.HttpRequestWrapper;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.BasicAuthCache;
@@ -61,9 +67,18 @@ public class HttpClientFactory {
     }
 
     public CloseableHttpClient newClient() {
-        
+        final AtomicReference<String> url = new AtomicReference<>();
         return HttpClients.custom()
                 .setDefaultCredentialsProvider(newCredentialsProvider())
+                .addInterceptorFirst(
+                        (HttpRequestInterceptor) (request, context) ->
+                        url.set(((HttpRequestWrapper) request).getOriginal().getRequestLine().getUri())
+                )
+                .addInterceptorFirst((HttpResponseInterceptor) (response, context) -> {
+                    if (response.getStatusLine().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
+                        throw new IllegalStateException("Please check your authentication details for " + url.get());
+                    }
+                })
                 .build();
     }
 
