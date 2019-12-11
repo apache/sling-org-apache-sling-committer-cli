@@ -25,7 +25,7 @@ import java.util.Map;
 
 import org.apache.sling.cli.impl.CredentialsService;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
-import org.apache.sling.cli.impl.jira.SystemPropertiesRule;
+import org.apache.sling.cli.impl.junit.SystemPropertiesRule;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
 import org.junit.Before;
 import org.junit.Rule;

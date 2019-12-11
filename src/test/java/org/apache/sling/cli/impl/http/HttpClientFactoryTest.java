@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.sling.cli.impl.CredentialsService;
+import org.apache.sling.cli.impl.junit.SystemPropertiesRule;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
 import org.junit.After;
 import org.junit.Before;
@@ -40,27 +41,20 @@ import static org.junit.Assert.assertTrue;
 public class HttpClientFactoryTest {
 
     private HttpServer server;
-    private Map<String, String> replacedProperties;
-    private Map<String, String> testProperties;
+    private static final Map<String, String> SYSTEM_PROPS = new HashMap<>();
 
+    static {
+        SYSTEM_PROPS.put("asf.username", "asf-user");
+        SYSTEM_PROPS.put("asf.password", "asf-password");
+    }
     @Rule
     public OsgiContext osgiContext = new OsgiContext();
 
+    @Rule
+    public SystemPropertiesRule systemProperties = new SystemPropertiesRule(SYSTEM_PROPS);
+
     @Before
     public void before() throws Throwable {
-        replacedProperties = new HashMap<>();
-        testProperties = new HashMap<>();
-        testProperties.put("asf.username", "asf.username");
-        testProperties.put("asf.password", "asf.password");
-        testProperties.put("jira.username", "jira.username");
-        testProperties.put("jira.password", "jira.password");
-        for (Map.Entry<String, String> testProperty : testProperties.entrySet()) {
-            String originalValue = System.getProperty(testProperty.getKey());
-            if (originalValue != null) {
-                replacedProperties.put(testProperty.getKey(), originalValue);
-            }
-            System.setProperty(testProperty.getKey(), testProperty.getValue());
-        }
         server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
         HttpContext rootContext = server.createContext("/");
         rootContext.setHandler(ex -> {
@@ -93,11 +87,5 @@ public class HttpClientFactoryTest {
     @After
     public void after() {
         server.stop(0);
-        for (String testProperty : testProperties.keySet()) {
-            System.clearProperty(testProperty);
-        }
-        for (Map.Entry<String, String> replacedProperty : replacedProperties.entrySet()) {
-            System.setProperty(replacedProperty.getKey(), replacedProperty.getValue());
-        }
     }
 }
