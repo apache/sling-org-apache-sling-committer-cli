@@ -16,8 +16,6 @@
  */
 package org.apache.sling.cli.impl.http;
 
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.HttpResponseInterceptor;
@@ -67,16 +65,16 @@ public class HttpClientFactory {
     }
 
     public CloseableHttpClient newClient() {
-        final AtomicReference<String> url = new AtomicReference<>();
+        final String[] urlHolder = new String[1];
         return HttpClients.custom()
                 .setDefaultCredentialsProvider(newCredentialsProvider())
                 .addInterceptorFirst(
                         (HttpRequestInterceptor) (request, context) ->
-                        url.set(((HttpRequestWrapper) request).getOriginal().getRequestLine().getUri())
+                        urlHolder[0] = ((HttpRequestWrapper) request).getOriginal().getRequestLine().getUri()
                 )
                 .addInterceptorFirst((HttpResponseInterceptor) (response, context) -> {
                     if (response.getStatusLine().getStatusCode() == HttpStatus.SC_UNAUTHORIZED) {
-                        throw new IllegalStateException("Please check your authentication details for " + url.get());
+                        throw new IllegalStateException("Server returned a 401 status; please check your authentication details for " + urlHolder[0]);
                     }
                 })
                 .build();
