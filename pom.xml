@@ -200,6 +200,12 @@
         </dependency>
         <dependency>
             <groupId>org.osgi</groupId>
+            <artifactId>osgi.promise</artifactId>
+            <version>7.0.1</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.osgi</groupId>
             <artifactId>osgi.core</artifactId>
         </dependency>
         <dependency>

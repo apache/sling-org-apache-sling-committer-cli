@@ -16,18 +16,13 @@
  */
 package org.apache.sling.cli.impl.jira;
 
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
-import static org.junit.Assert.assertThat;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.sling.cli.impl.CredentialsService;
+import org.apache.sling.cli.impl.DateProvider;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.junit.SystemPropertiesRule;
 import org.apache.sling.cli.impl.release.Release;
@@ -35,6 +30,15 @@ import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 public class VersionClientTest {
 
@@ -52,15 +56,15 @@ public class VersionClientTest {
     
     @Rule
     public final MockJira mockJira = new MockJira();
-    
+
     private VersionClient versionClient;
     
     @Before
     public void prepareDependencies() {
-        
         context.registerInjectActivateService(new CredentialsService());
+        context.registerInjectActivateService(new DateProvider());
         context.registerInjectActivateService(new HttpClientFactory(), "jira.host", "localhost", "jira.port", mockJira.getBoundPort());
-        versionClient = context.registerInjectActivateService(new VersionClient(), "jira.url.prefix", "http://localhost:" + mockJira.getBoundPort() + "/jira/rest/api/2/");
+        versionClient = context.registerInjectActivateService(new VersionClient(), "jira.url", "http://localhost:" + mockJira.getBoundPort() + "/jira");
     }
     
     @Test
@@ -111,7 +115,9 @@ public class VersionClientTest {
         
         assertThat(issues, hasSize(2));
         assertThat(issues.get(0).getKey(), equalTo("SLING-8338"));
+        assertThat(issues.get(0).getStatus(), equalTo("Open"));
         assertThat(issues.get(1).getKey(), equalTo("SLING-8337"));
+        assertThat(issues.get(1).getStatus(), equalTo("Open"));
     }
 
     @Test
@@ -120,11 +126,51 @@ public class VersionClientTest {
 
         assertThat(issues, hasSize(7));
         assertThat(issues.get(0).getKey(), equalTo("SLING-8707"));
+        assertThat(issues.get(0).getStatus(), equalTo("Resolved"));
         assertThat(issues.get(1).getKey(), equalTo("SLING-8699"));
+        assertThat(issues.get(1).getStatus(), equalTo("Resolved"));
         assertThat(issues.get(2).getKey(), equalTo("SLING-8395"));
+        assertThat(issues.get(2).getStatus(), equalTo("Resolved"));
         assertThat(issues.get(3).getKey(), equalTo("SLING-8394"));
+        assertThat(issues.get(3).getStatus(), equalTo("Resolved"));
         assertThat(issues.get(4).getKey(), equalTo("SLING-8393"));
+        assertThat(issues.get(4).getStatus(), equalTo("Resolved"));
         assertThat(issues.get(5).getKey(), equalTo("SLING-8392"));
+        assertThat(issues.get(5).getStatus(), equalTo("Resolved"));
         assertThat(issues.get(6).getKey(), equalTo("SLING-8338"));
+        assertThat(issues.get(6).getStatus(), equalTo("Resolved"));
     }
+
+    @Test
+    public void releaseWithUnresolvedIssues() throws IOException {
+        Release release = Release.fromString("Committer CLI 1.0.0").get(0);
+        Exception exception = null;
+        try {
+            versionClient.release(release);
+        } catch (IllegalStateException e) {
+            exception = e;
+        }
+        assertNotNull("The VersionClient should not have allowed a release with unresolved issues.", exception);
+        assertTrue("SLING-8337 should have been reported as unresolved.", exception.getMessage().contains("SLING-8337"));
+        assertTrue("SLING-8338 should have been reported as unresolved.", exception.getMessage().contains("SLING-8338"));
+    }
+
+    @Test
+    public void release() throws IOException {
+        Release release = Release.fromString("Transitions 2.0.0").get(0);
+        versionClient.release(release);
+    }
+
+    @Test
+    public void releaseAlreadyReleasedVersion() {
+        Release release = Release.fromString("Transitions 0.1.0").get(0);
+        Throwable throwable = null;
+        try {
+            versionClient.release(release);
+        } catch (IOException e) {
+            throwable = e;
+        }
+        assertNull("Did not expect an error, since this case should be handled graciously.", throwable);
+    }
+
 }

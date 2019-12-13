@@ -1,0 +1,41 @@
+{
+    "expand"     : "transitions",
+    "transitions": [
+        {
+            "id"  : "701",
+            "name": "Close Issue",
+            "to"  : {
+                "self"          : "https://issues.apache.org/jira/rest/api/2/status/6",
+                "description"   : "The issue is considered finished, the resolution is correct. Issues which are not closed can be reopened.",
+                "iconUrl"       : "https://issues.apache.org/jira/images/icons/statuses/closed.png",
+                "name"          : "Closed",
+                "id"            : "6",
+                "statusCategory": {
+                    "self"     : "https://issues.apache.org/jira/rest/api/2/statuscategory/3",
+                    "id"       : 3,
+                    "key"      : "done",
+                    "colorName": "green",
+                    "name"     : "Done"
+                }
+            }
+        },
+        {
+            "id"  : "3",
+            "name": "Reopen Issue",
+            "to"  : {
+                "self"          : "https://issues.apache.org/jira/rest/api/2/status/4",
+                "description"   : "This issue was once resolved, but the resolution was deemed incorrect. From here issues are either marked assigned or resolved.",
+                "iconUrl"       : "https://issues.apache.org/jira/images/icons/statuses/reopened.png",
+                "name"          : "Reopened",
+                "id"            : "4",
+                "statusCategory": {
+                    "self"     : "https://issues.apache.org/jira/rest/api/2/statuscategory/2",
+                    "id"       : 2,
+                    "key"      : "new",
+                    "colorName": "blue-gray",
+                    "name"     : "To Do"
+                }
+            }
+        }
+    ]
+}

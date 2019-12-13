@@ -66,6 +66,10 @@
             "start-level": "3"
         },
         {
+            "id"         : "org.osgi:osgi.promise:7.0.1",
+            "start-level": "4"
+        },
+        {
             "id": "org.bouncycastle:bcpg-jdk15on:1.62"
         },
         {

@@ -2083,5 +2083,27 @@
     "releaseDate": "2010-12-13",
     "userReleaseDate": "13/Dec/10",
     "projectId": 12310710
+  },
+  {
+    "self": "https://issues.apache.org/jira/rest/api/2/version/0",
+    "id": "0",
+    "description": "Maintenance release",
+    "name": "Transitions 2.0.0",
+    "archived": false,
+    "released": false,
+    "releaseDate": null,
+    "userReleaseDate": null,
+    "projectId": 12310710
+  },
+  {
+    "self": "https://issues.apache.org/jira/rest/api/2/version/1",
+    "id": "1",
+    "description": "Maintenance release",
+    "name": "Transitions 0.1.0",
+    "archived": false,
+    "released": true,
+    "releaseDate": "2019-12-16",
+    "userReleaseDate": null,
+    "projectId": 12310710
   }
 ]
