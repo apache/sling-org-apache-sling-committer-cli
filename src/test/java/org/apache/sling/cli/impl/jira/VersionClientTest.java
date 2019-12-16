@@ -56,7 +56,7 @@ public class VersionClientTest {
     private VersionClient versionClient;
     
     @Before
-    public void prepareDependencies() throws ReflectiveOperationException {
+    public void prepareDependencies() {
         
         context.registerInjectActivateService(new CredentialsService());
         context.registerInjectActivateService(new HttpClientFactory(), "jira.host", "localhost", "jira.port", mockJira.getBoundPort());

@@ -303,6 +303,7 @@ public class VersionClient {
             return issuesFixedCount;
         }
 
+        @SuppressWarnings("unused")
         public void setIssuesFixedCount(int issuesFixedCount) {
             this.issuesFixedCount = issuesFixedCount;
         }

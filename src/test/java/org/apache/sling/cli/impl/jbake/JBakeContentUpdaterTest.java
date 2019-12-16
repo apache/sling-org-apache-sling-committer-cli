@@ -20,6 +20,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.contains;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -32,6 +33,7 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.eclipse.jgit.api.Git;
@@ -72,11 +74,11 @@ public class JBakeContentUpdaterTest {
         int changeCount = updater.updateDownloads(templatePath, newReleaseName, newReleaseVersion);
         assertThat("Unexpected count of changes", changeCount, equalTo(1));
 
-        String apiLine = Files.readAllLines(templatePath, StandardCharsets.UTF_8).stream()
+        Optional<String> apiLineHolder = Files.readAllLines(templatePath, StandardCharsets.UTF_8).stream()
             .filter( l -> l.trim().startsWith("\"" + newReleaseName + "|"))
-            .findFirst()
-            .get();
-        
+            .findFirst();
+        assertTrue(apiLineHolder.isPresent());
+        String apiLine = apiLineHolder.get();
         assertThat("Did not find modified version in the release line", apiLine, containsString(newReleaseVersion));
     }
 
@@ -94,7 +96,7 @@ public class JBakeContentUpdaterTest {
     
     @Test
     public void updateReleases_releaseInExistingMonth() throws IOException, GitAPIException {
-        updateReleases0(LocalDateTime.of(2019, 2, 27, 22, 00), 
+        updateReleases0(LocalDateTime.of(2019, 2, 27, 22, 0),
             Arrays.asList( 
                 " " ,  
                 " ## February 2019", 
@@ -149,7 +151,7 @@ public class JBakeContentUpdaterTest {
             List<String> ignoredPrefixes = Arrays.asList("diff", "index", "---", "+++", "@@");
             List<String> diffLines = Arrays.stream(new String(out.toByteArray(), StandardCharsets.UTF_8)
                 .split("\\n"))
-                .filter( l -> !ignoredPrefixes.stream().filter( p -> l.startsWith(p)).findAny().isPresent() )
+                .filter( l -> ignoredPrefixes.stream().noneMatch(l::startsWith))
                 .collect(Collectors.toList());
             
             assertThat(diffLines, contains(expectedLines.toArray(new String[0])));
@@ -158,12 +160,12 @@ public class JBakeContentUpdaterTest {
 
     @Test
     public void updateReleases_releaseAlreadyExists() throws IOException, GitAPIException {
-        updateReleases0(LocalDateTime.of(2019, 2, 18, 22, 00), Collections.emptyList(), "Scripting JSP Tag Library", "2.4.0");
+        updateReleases0(LocalDateTime.of(2019, 2, 18, 22, 0), Collections.emptyList(), "Scripting JSP Tag Library", "2.4.0");
     }
     
     @Test
     public void updateReleases_releaseInNewMonth() throws IOException, GitAPIException {
-        updateReleases0(LocalDateTime.of(2019, 3, 15, 22, 00), 
+        updateReleases0(LocalDateTime.of(2019, 3, 15, 22, 0),
             Arrays.asList( 
                " ~~~~~~",
                " This is a list of all our releases, available from our [downloads](/downloads.cgi) page.",
@@ -181,7 +183,7 @@ public class JBakeContentUpdaterTest {
 
     @Test
     public void updateReleases_releaseExistingMonthAndDay() throws IOException, GitAPIException {
-        updateReleases0(LocalDateTime.of(2019, 2, 26, 22, 00),
+        updateReleases0(LocalDateTime.of(2019, 2, 26, 22, 0),
             Arrays.asList(
                 " ", 
                 " ## February 2019", 

@@ -76,12 +76,11 @@ public class PGPSignatureValidatorTest {
     public void verifyInvalidPGPSignatures() {
         Throwable expected = null;
         try {
-            PGPSignatureValidator.ValidationResult result =
-                    pgpSignatureValidator.verify(Paths.get("src/test/resources/nexus/orgapachesling-0" +
-                                    "/org/apache/sling/adapter" +
-                                    "-annotations/1.0" +
-                                    ".0/adapter-annotations-1.0.0.pom"),
-                            Paths.get("src/test/resources/pgp/adapter-annotations-1.0.0.pom.invalid.asc"));
+            pgpSignatureValidator.verify(Paths.get("src/test/resources/nexus/orgapachesling-0" +
+                            "/org/apache/sling/adapter" +
+                            "-annotations/1.0" +
+                            ".0/adapter-annotations-1.0.0.pom"),
+                    Paths.get("src/test/resources/pgp/adapter-annotations-1.0.0.pom.invalid.asc"));
         } catch (Throwable e) {
             expected = e;
         }

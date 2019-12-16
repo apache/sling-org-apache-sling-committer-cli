@@ -64,7 +64,8 @@ public class CreateVersionJiraAction implements JiraAction {
         return true;
     }
 
-    static class VersionToCreate {
+    @SuppressWarnings("unused")
+    private static class VersionToCreate {
         private String name;
         private String project;
 
@@ -84,8 +85,9 @@ public class CreateVersionJiraAction implements JiraAction {
             this.project = project;
         }
     }
-    
-    static class CreatedVersion {
+
+    @SuppressWarnings("unused")
+    private static class CreatedVersion {
         private String name;
         private int id;
         private boolean archived;

@@ -25,15 +25,15 @@ import org.junit.rules.ExternalResource;
 
 public class SystemPropertiesRule extends ExternalResource {
 
-    private final Map<String, String> propsToRestore = new HashMap<String, String>();
+    private final Map<String, String> propsToRestore = new HashMap<>();
     private final Map<String, String> propsToOverride;
-    
+
     public SystemPropertiesRule(Map<String, String> propsToOverride) {
         this.propsToOverride = propsToOverride;
     }
     
     @Override
-    protected void before() throws Throwable {
+    protected void before() {
         for (Map.Entry<String, String> prop : propsToOverride.entrySet() )
             propsToRestore.put(prop.getKey(), set(prop));
     }
