@@ -142,12 +142,12 @@ public class VersionClientTest {
     }
 
     @Test
-    public void releaseWithUnresolvedIssues() throws IOException {
+    public void releaseWithUnresolvedIssues() {
         Release release = Release.fromString("Committer CLI 1.0.0").get(0);
         Exception exception = null;
         try {
             versionClient.release(release);
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             exception = e;
         }
         assertNotNull("The VersionClient should not have allowed a release with unresolved issues.", exception);
@@ -156,9 +156,15 @@ public class VersionClientTest {
     }
 
     @Test
-    public void release() throws IOException {
-        Release release = Release.fromString("Transitions 2.0.0").get(0);
-        versionClient.release(release);
+    public void release() {
+        Exception exception = null;
+        try {
+            Release release = Release.fromString("Transitions 2.0.0").get(0);
+            versionClient.release(release);
+        } catch (Exception e) {
+            exception = e;
+        }
+        assertNull("Marking Transitions 2.0.0 as released should have worked.", exception);
     }
 
     @Test
@@ -167,7 +173,7 @@ public class VersionClientTest {
         Throwable throwable = null;
         try {
             versionClient.release(release);
-        } catch (IOException e) {
+        } catch (Exception e) {
             throwable = e;
         }
         assertNull("Did not expect an error, since this case should be handled graciously.", throwable);

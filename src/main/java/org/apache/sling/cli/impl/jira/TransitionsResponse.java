@@ -20,7 +20,7 @@ package org.apache.sling.cli.impl.jira;
 
 import java.util.List;
 
-public class Transitions {
+public class TransitionsResponse {
 
     private List<Transition> transitions;
 

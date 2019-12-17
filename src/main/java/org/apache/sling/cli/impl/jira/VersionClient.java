@@ -206,7 +206,7 @@ public class VersionClient {
         return findIssues(release).stream().filter(issue -> issue.getResolution() != null).collect(Collectors.toList());
     }
 
-    private void closeIssues(List<Issue> issues) throws IOException {
+    private void closeIssues(List<Issue> issues) throws Exception {
         List<Promise<Issue>> closedIssues = new ArrayList<>();
         for (Issue issue : issues) {
             if (!"Closed".equals(issue.getStatus())) {
@@ -214,27 +214,22 @@ public class VersionClient {
             }
         }
         Promise<List<Issue>> closedFixedIssues = promiseFactory.all(closedIssues);
-        Throwable failed;
-        try {
-            failed = closedFixedIssues.getFailure();
-            if (failed != null) {
-                if (failed instanceof FailedPromisesException) {
-                    FailedPromisesException failedPromisesException = (FailedPromisesException) failed;
-                    StringBuilder failureMessages = new StringBuilder();
-                    for (Promise<?> promise : failedPromisesException.getFailedPromises()) {
-                        failureMessages.append(promise.getFailure().getMessage()).append("\n");
-                    }
-                    throw new IOException("Unable to close the following issues:\n" + failureMessages.toString());
-                } else {
-                    throw new IOException(failed);
+        Throwable failed = closedFixedIssues.getFailure();
+        if (failed != null) {
+            if (failed instanceof FailedPromisesException) {
+                FailedPromisesException failedPromisesException = (FailedPromisesException) failed;
+                StringBuilder failureMessages = new StringBuilder();
+                for (Promise<?> promise : failedPromisesException.getFailedPromises()) {
+                    failureMessages.append(promise.getFailure().getMessage()).append("\n");
                 }
+                throw new IOException("Unable to close the following issues:\n" + failureMessages.toString());
+            } else {
+                throw new Exception(failed);
             }
-        } catch (InterruptedException e) {
-            throw new IOException(e);
         }
     }
 
-    public void release(Release release) throws IOException {
+    public void release(Release release) throws Exception {
         List<Issue> issues = findIssues(release);
         List<Issue> unresolvedIssues = new ArrayList<>();
         issues.forEach(issue -> {
@@ -242,7 +237,7 @@ public class VersionClient {
                 unresolvedIssues.add(issue);
             }
         });
-        if (unresolvedIssues.size() == 0) {
+        if (unresolvedIssues.isEmpty()) {
             closeIssues(issues);
             Version version = find(release);
             if (!version.isReleased()) {
@@ -437,7 +432,7 @@ public class VersionClient {
                             throw newException(getResponse, getReader);
                         }
                         Gson gson = new Gson();
-                        List<Transition> transitions = gson.fromJson(getReader, Transitions.class).getTransitions();
+                        List<Transition> transitions = gson.fromJson(getReader, TransitionsResponse.class).getTransitions();
                         Optional<Transition> transition = transitions.stream().filter(t -> "Close Issue".equals(t.getName())).findFirst();
                         if (transition.isPresent()) {
                             return promiseFactory.resolved(transition.get());
