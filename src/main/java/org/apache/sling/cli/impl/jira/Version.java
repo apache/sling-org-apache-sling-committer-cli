@@ -16,10 +16,13 @@
  */
 package org.apache.sling.cli.impl.jira;
 
+@SuppressWarnings("unused")
 public class Version {
     private int id;
     private String name;
     private int issuesFixedCount;
+    private boolean released;
+    private String releaseDate;
 
     public int getId() {
         return id;
@@ -44,7 +47,23 @@ public class Version {
     public void setRelatedIssuesCount(int relatedIssuesCount) {
         this.issuesFixedCount = relatedIssuesCount;
     }
-    
+
+    public boolean isReleased() {
+        return released;
+    }
+
+    public void setReleased(boolean released) {
+        this.released = released;
+    }
+
+    public String getReleaseDate() {
+        return releaseDate;
+    }
+
+    public void setReleaseDate(String releaseDate) {
+        this.releaseDate = releaseDate;
+    }
+
     @Override
     public String toString() {
         

@@ -28,8 +28,10 @@ import com.sun.net.httpserver.HttpExchange;
 
 public class IssuesSearchJiraAction implements JiraAction {
     
-    private static final String UNRESOLVED_QUERY = "project = SLING AND resolution is empty AND fixVersion = \"Committer CLI 1.0.0\"";
-    private static final String FIXED_QUERY = "project = SLING AND resolution is not empty AND fixVersion = \"Committer CLI 1.0.0\"";
+    private static final String COMMITTER_CLI_1_0_0_QUERY = "project = SLING AND fixVersion = \"Committer CLI 1.0.0\"";
+    private static final String TRANSITIONS_0_1_0_QUERY = "project = SLING AND fixVersion = \"Transitions 0.1.0\"";
+    private static final String TRANSITIONS_1_0_0_QUERY = "project = SLING AND fixVersion = \"Transitions 1.0.0\"";
+    private static final String TRANSITIONS_2_0_0_QUERY = "project = SLING AND fixVersion = \"Transitions 2.0.0\"";
 
     @Override
     public boolean tryHandle(HttpExchange ex) throws IOException {
@@ -42,17 +44,23 @@ public class IssuesSearchJiraAction implements JiraAction {
         
         for ( NameValuePair pair : parsed ) {
             if ( "jql".equals(pair.getName())) {
-                if (UNRESOLVED_QUERY.equals(pair.getValue())) {
-                    serveFileFromClasspath(ex, "/jira/search/unresolved-committer-cli-1.0.0.json");
+                if (COMMITTER_CLI_1_0_0_QUERY.equals(pair.getValue())) {
+                    serveFileFromClasspath(ex, "/jira/search/committer-cli-1.0.0.json");
                     return true;
-                } else if (FIXED_QUERY.equals(pair.getValue())) {
-                    serveFileFromClasspath(ex, "/jira/search/fixed-committer-cli-1.0.0.json");
+                } else if (TRANSITIONS_0_1_0_QUERY.equals(pair.getValue())) {
+                    serveFileFromClasspath(ex, "/jira/search/transitions-0.1.0.json");
+                    return true;
+                } else if (TRANSITIONS_1_0_0_QUERY.equals(pair.getValue())) {
+                    serveFileFromClasspath(ex, "/jira/search/transitions-1.0.0.json");
+                    return true;
+                } else if (TRANSITIONS_2_0_0_QUERY.equals(pair.getValue())) {
+                    serveFileFromClasspath(ex, "/jira/search/transitions-2.0.0.json");
                     return true;
                 }
             }
         }
         error(ex, new Gson(), er -> er.getErrorMessages().add("Unable to run unknown JQL query, available ones are [" +
-                UNRESOLVED_QUERY + "," + FIXED_QUERY +"]"));
+                COMMITTER_CLI_1_0_0_QUERY + "," + TRANSITIONS_1_0_0_QUERY +"]"));
         
         return true;
     }

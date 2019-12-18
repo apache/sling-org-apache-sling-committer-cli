@@ -16,32 +16,26 @@
  ~ specific language governing permissions and limitations
  ~ under the License.
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
-package org.apache.sling.cli.impl.http;
+package org.apache.sling.cli.impl.jira;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+public class Transition {
 
-import org.apache.commons.io.IOUtils;
+    private int id;
+    private String name;
 
-import com.sun.net.httpserver.HttpExchange;
-
-public interface HttpExchangeHandler {
-
-    default void serveFileFromClasspath(HttpExchange ex, String classpathLocation) throws IOException {
-        try (InputStream in = getClass().getResourceAsStream(classpathLocation)) {
-            if (in == null) {
-                ex.sendResponseHeaders(404, -1);
-                return;
-            }
-
-            ex.sendResponseHeaders(200, 0);
-            try (OutputStream out = ex.getResponseBody()) {
-                IOUtils.copy(in, out);
-            }
-        }
+    public int getId() {
+        return id;
     }
 
-    boolean tryHandle(HttpExchange ex) throws IOException;
+    public void setId(int id) {
+        this.id = id;
+    }
 
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
 }

@@ -33,9 +33,33 @@ public class Issue {
     public String getSummary() {
         return fields.summary;
     }
+
+    public String getStatus() {
+        if (fields.status != null) {
+            return fields.status.name;
+        }
+        return null;
+    }
+
+    public String getResolution() {
+        if (fields.resolution != null) {
+            return fields.resolution.name;
+        }
+        return null;
+    }
     
     static class Fields {
-        private String summary;    
+        private String summary;
+        private Status status;
+        private Resolution resolution;
+
+        static class Status {
+            private String name;
+        }
+
+        static class Resolution {
+            private String name;
+        }
     }
 
     @Override

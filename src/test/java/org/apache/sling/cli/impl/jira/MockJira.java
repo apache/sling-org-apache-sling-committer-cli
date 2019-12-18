@@ -19,6 +19,8 @@ package org.apache.sling.cli.impl.jira;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.apache.sling.cli.impl.http.HttpExchangeHandler;
 import org.junit.rules.ExternalResource;
@@ -34,6 +36,7 @@ public class MockJira extends ExternalResource {
     
     static final String AUTH_USER = "asf-user";
     static final String AUTH_PWD = "asf-password";
+    private static final Set<Pattern> GET_PATHS_REQUIRING_AUTH = Set.of(Pattern.compile("/jira/rest/api/2/issue/\\d+/transitions"));
     
     public static void main(String[] args) throws Throwable {
         
@@ -57,9 +60,14 @@ public class MockJira extends ExternalResource {
             
             @Override
             public Result authenticate(HttpExchange t) {
-                // get requests are never authenticated
-                if ( t.getRequestMethod().contentEquals("GET") )
+                if ("GET".equals(t.getRequestMethod())) {
+                    for (Pattern pathPattern : GET_PATHS_REQUIRING_AUTH) {
+                        if (pathPattern.matcher(t.getRequestURI().getPath()).matches()) {
+                            return super.authenticate(t);
+                        }
+                    }
                     return new Authenticator.Success(new HttpPrincipal("anonymous", getClass().getSimpleName()));
+                }
                 return super.authenticate(t);
             }
         });
@@ -69,7 +77,9 @@ public class MockJira extends ExternalResource {
         actions.add(new GetRelatedIssueCountsForVersionsJiraAction());
         actions.add(new CreateVersionJiraAction());
         actions.add(new IssuesSearchJiraAction());
-        
+        actions.add(new TransitionsJiraAction());
+        actions.add(new EditVersionJiraAction());
+
         // fallback, always executed
         actions.add(ex -> {
             ex.sendResponseHeaders(400, -1);

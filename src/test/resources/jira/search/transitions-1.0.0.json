@@ -1,0 +1,53 @@
+{
+    "expand": "schema,names",
+    "startAt": 0,
+    "maxResults": 50,
+    "total": 3,
+    "issues": [
+        {
+            "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+            "id": "1",
+            "self": "https://issues.apache.org/jira/rest/api/2/issue/1",
+            "key": "SLING-0001",
+            "fields": {
+                "summary": "Test Transitions 1",
+                "status": {
+                    "name": "Resolved"
+                },
+                "resolution": {
+                    "name": "Fixed"
+                }
+            }
+        },
+        {
+            "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+            "id": "2",
+            "self": "https://issues.apache.org/jira/rest/api/2/issue/2",
+            "key": "SLING-0002",
+            "fields": {
+                "summary": "Test Transitions 2",
+                "status": {
+                    "name": "Resolved"
+                },
+                "resolution": {
+                    "name": "Fixed"
+                }
+            }
+        },
+        {
+            "expand": "operations,versionedRepresentations,editmeta,changelog,renderedFields",
+            "id": "3",
+            "self": "https://issues.apache.org/jira/rest/api/2/issue/3",
+            "key": "SLING-0003",
+            "fields": {
+                "summary": "Test Transitions 3",
+                "status": {
+                    "name": "Resolved"
+                },
+                "resolution": {
+                    "name": "Fixed"
+                }
+            }
+        }
+    ]
+}

@@ -27,14 +27,20 @@ import org.osgi.service.component.annotations.Component;
 public class DateProvider {
 
     private static final DateTimeFormatter emailDateHeader = DateTimeFormatter.ofPattern("EEE, d MMM yyyy HH:mm:ss Z");
+    private static final DateTimeFormatter jiraReleaseDate = DateTimeFormatter.ofPattern("yyyy-MM-d");
 
     public OffsetDateTime getCurrentDate() {
         return OffsetDateTime.now();
     }
 
     public String getCurrentDateForEmailHeader() {
-        OffsetDateTime offsetDateTime = OffsetDateTime.now();
+        OffsetDateTime offsetDateTime = getCurrentDate();
         return offsetDateTime.format(emailDateHeader);
+    }
+
+    public String getCurrentDateForJiraRelease() {
+        OffsetDateTime offsetDateTime = getCurrentDate();
+        return offsetDateTime.format(jiraReleaseDate);
     }
 
 }
