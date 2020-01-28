@@ -32,6 +32,8 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.sling.cli.impl.CredentialsService;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -114,11 +116,11 @@ public class MembersFinder {
         return null;
     }
 
-    public Member findByNameOrEmail(String name, String email) {
+    public Member findByNameOrEmail(@Nullable String name, @NotNull String email) {
         Collator collator = Collator.getInstance(Locale.US);
         collator.setDecomposition(Collator.NO_DECOMPOSITION);
         for (Member member : findMembers()) {
-            if (email.equals(member.getEmail()) || collator.compare(name, member.getName()) == 0) {
+            if (email.equals(member.getEmail()) || (name != null && collator.compare(name, member.getName()) == 0)) {
                 return member;
             }
         }
