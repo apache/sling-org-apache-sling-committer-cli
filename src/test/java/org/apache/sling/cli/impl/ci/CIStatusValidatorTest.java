@@ -43,7 +43,7 @@ public class CIStatusValidatorTest {
             InputStreamReader reader = null;
             if ("https://api.github.com/repos/apache/sling-repo-pom/commits/repo-pom-1.0/status".equals(ciEndpoint)) {
                 reader = new InputStreamReader(CIStatusValidatorTest.class.getResourceAsStream("/ci/failure.json"));
-            } else if ("https://api.github.com/repos/apache/sling-repo-pom/commits/successful-pom-1.0/status"
+            } else if ("https://api.github.com/repos/apache/sling-repo-pom/commits/repo-pom-1.1/status"
                     .equals(ciEndpoint)) {
                 reader = new InputStreamReader(CIStatusValidatorTest.class.getResourceAsStream("/ci/success.json"));
             }
@@ -60,16 +60,17 @@ public class CIStatusValidatorTest {
     private static Artifact NON_REPO_POM_ARTIFACT = new Artifact(REPOSITORY, "org.apache.sling", "no-repo-pom", "1.0", "", "pom");
     private static Path NON_REPO_POM_FILE;
     private static Artifact POM_ARTIFACT = new Artifact(REPOSITORY, "org.apache.sling", "repo-pom", "1.0", "", "pom");
-    private static Artifact SUCCESSFUL_POM_ARTIFACT = new Artifact(REPOSITORY, "org.apache.sling", "successful-pom", "1.0", "",
-            "pom");
     private static Path POM_FILE;
+    private static Path SUCCESSFUL_POM_FILE;
 
     static {
         try {
             URI nonrepo = CIStatusValidatorTest.class.getResource("/ci/no-repo.pom").toURI();
             NON_REPO_POM_FILE = Path.of(nonrepo);
-            URI repo = CIStatusValidatorTest.class.getResource("/ci/repo.pom").toURI();
+            URI repo = CIStatusValidatorTest.class.getResource("/ci/repo-1.0.pom").toURI();
+            URI successfulRepo = CIStatusValidatorTest.class.getResource("/ci/repo-1.1.pom").toURI();
             POM_FILE = Path.of(repo);
+            SUCCESSFUL_POM_FILE = Path.of(successfulRepo);
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
@@ -85,16 +86,16 @@ public class CIStatusValidatorTest {
     @Test
     public void getCIEndpoint() {
         assertEquals("https://api.github.com/repos/apache/sling-repo-pom/commits/repo-pom-1.0/status",
-                validator.getCIEndpoint(POM_ARTIFACT, POM_FILE));
+                validator.getCIEndpoint(POM_FILE));
     }
 
     @Test
     public void isValid() {
-        ValidationResult invalid = validator.isValid(POM_ARTIFACT, POM_FILE);
+        ValidationResult invalid = validator.isValid(POM_FILE);
         assertFalse(invalid.isValid());
         assertNotNull(invalid.getMessage());
 
-        ValidationResult valid = validator.isValid(SUCCESSFUL_POM_ARTIFACT, POM_FILE);
+        ValidationResult valid = validator.isValid(SUCCESSFUL_POM_FILE);
         assertTrue(valid.isValid());
         assertNotNull(valid.getMessage());
     }

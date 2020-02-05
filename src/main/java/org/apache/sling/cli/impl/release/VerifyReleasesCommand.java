@@ -75,7 +75,13 @@ public class VerifyReleasesCommand implements Command {
         try {
             LocalRepository repository = repositoryService.download(repositoryService.find(repositoryId));
             Path repositoryRootPath = repository.getRootFolder();
+            Artifact pom = null;
+            Path pomPath = null;
             for (Artifact artifact : repository.getArtifacts()) {
+                if ("pom".equals(artifact.getType())) {
+                    pom = artifact;
+                    pomPath = repositoryRootPath.resolve(artifact.getRepositoryRelativePath());
+                }
                 Path artifactFilePath = repositoryRootPath.resolve(artifact.getRepositoryRelativePath());
                 Path artifactSignaturePath = repositoryRootPath.resolve(artifact.getRepositoryRelativeSignaturePath());
                 PGPSignatureValidator.ValidationResult validationResult = pgpSignatureValidator.verify(artifactFilePath,
@@ -111,11 +117,11 @@ public class VerifyReleasesCommand implements Command {
                         md5validationResult.isValid() ? String.format("VALID (%s)", md5validationResult.getActualHash())
                                 : String.format("INVALID (expected %s, got %s)", md5validationResult.getExpectedHash(),
                                         md5validationResult.getActualHash()));
-
-                if (ciStatusValidator.shouldCheck(artifact, artifactFilePath)) {
-                    CIStatusValidator.ValidationResult ciValidationResult = ciStatusValidator.isValid(artifact,
-                            artifactFilePath);
-                    LOGGER.info("CI Status: {}",
+            }
+            if (pom != null && pomPath != null) {
+                if (ciStatusValidator.shouldCheck(pom, pomPath)) {
+                    CIStatusValidator.ValidationResult ciValidationResult = ciStatusValidator.isValid(pomPath);
+                    LOGGER.info("\nCI Status: {}",
                             ciValidationResult.isValid() ? String.format("VALID: %n%s", ciValidationResult.getMessage())
                                     : String.format("INVALID: %n%s", ciValidationResult.getMessage()));
                     checksRun++;

@@ -94,35 +94,42 @@ public class CIStatusValidator {
         }
     }
 
-    String getCIEndpoint(Artifact artifact, Path artifactFilePath) {
+    String getCIEndpoint(Path artifactFilePath) {
         log.trace("getCIEndpoint");
         String ciEndpoint = null;
         try {
             DocumentBuilder builder = builderFactory.newDocumentBuilder();
             Document xmlDocument = builder.parse(artifactFilePath.toFile());
             XPath xPath = xPathFactory.newXPath();
-            String url = (String) xPath.compile("/project/scm/url/text()").evaluate(xmlDocument, XPathConstants.STRING);
-            if (url != null && url.trim().length() > 0) {
+            String repositoryName = (String) xPath.compile("/project/scm/url/text()").evaluate(xmlDocument, XPathConstants.STRING);
+            String tagName = (String) xPath.compile("/project/scm/tag/text()").evaluate(xmlDocument, XPathConstants.STRING);
+            if (!tagName.isEmpty()) {
+                tagName = tagName.trim();
+                log.debug("Extracted TAG: {}", tagName);
+            }
+            if (repositoryName != null && repositoryName.trim().length() > 0) {
 
-                url = url.substring(url.indexOf("?p=") + 3);
-                url = url.substring(0, url.indexOf(".git"));
-                log.debug("Extracted REPO: {}", url);
-
-                ciEndpoint = String.format("https://api.github.com/repos/apache/%s/commits/%s-%s/status", url,
-                        artifact.getArtifactId(), artifact.getVersion());
+                repositoryName = repositoryName.substring(repositoryName.indexOf("?p=") + 3);
+                repositoryName = repositoryName.substring(0, repositoryName.indexOf(".git"));
+                log.debug("Extracted REPO: {}", repositoryName);
+            }
+            if (repositoryName != null && !repositoryName.isEmpty() && !tagName.isEmpty() && !tagName.equalsIgnoreCase("HEAD")) {
+                ciEndpoint = String.format("https://api.github.com/repos/apache/%s/commits/%s/status", repositoryName, tagName);
                 log.debug("Loaded CI Endpoint: {}", ciEndpoint);
             }
-            log.debug("Retrieved SCM URL: {}", url);
         } catch (XPathExpressionException | SAXException | IOException | ParserConfigurationException e) {
             log.debug("Failed to extract SCM URL", e);
         }
         return ciEndpoint;
     }
 
-    public ValidationResult isValid(Artifact artifact, Path artifactFilePath) {
+    public ValidationResult isValid(Path artifactFilePath) {
         log.trace("isValid");
 
-        String ciEndpoint = getCIEndpoint(artifact, artifactFilePath);
+        String ciEndpoint = getCIEndpoint(artifactFilePath);
+        if (ciEndpoint == null) {
+            return new ValidationResult(false, "Cannot extract a CI endpoint from " + artifactFilePath.getFileName());
+        }
         try {
             JsonObject status = fetchCIStatus(ciEndpoint);
             List<String> messageEntries = new ArrayList<>();
@@ -149,6 +156,6 @@ public class CIStatusValidator {
 
     public boolean shouldCheck(Artifact artifact, Path artifactFilePath) {
         log.trace("shouldCheck");
-        return "pom".equals(artifact.getType()) && getCIEndpoint(artifact, artifactFilePath) != null;
+        return "pom".equals(artifact.getType()) && getCIEndpoint(artifactFilePath) != null;
     }
 }
