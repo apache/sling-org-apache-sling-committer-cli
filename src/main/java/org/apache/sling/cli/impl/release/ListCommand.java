@@ -40,6 +40,10 @@ public class ListCommand implements Command {
     static final String NAME = "list";
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
+    
+    private static String cleanupNewlines(String input) {
+        return input.replace('\n', ' ');
+    }
 
     @Reference
     private RepositoryService repositoryService;
@@ -47,10 +51,9 @@ public class ListCommand implements Command {
     @Override
     public void run() {
         try {
-            repositoryService.list().forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), r.getDescription()));
+            repositoryService.list().forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), cleanupNewlines(r.getDescription())));
         } catch (IOException e) {
             logger.warn("Failed executing command", e);
         }
     }
-
 }
