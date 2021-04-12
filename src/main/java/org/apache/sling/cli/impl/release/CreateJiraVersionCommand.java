@@ -67,7 +67,7 @@ public class CreateJiraVersionCommand implements Command {
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Override
-        public Integer call() {
+    public Integer call() {
         try {
             StagingRepository repo = repositoryService.find(repositoryId);
             for (Release release : repositoryService.getReleases(repo)) {

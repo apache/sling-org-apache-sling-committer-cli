@@ -69,7 +69,7 @@ public class ReleaseJiraVersionCommand implements Command {
     private ReusableCLIOptions reusableCLIOptions;
 
     @Override
-        public Integer call() {
+    public Integer call() {
         try {
             StagingRepository repo = repositoryService.find(repositoryId);
             Set<Release> releases = repositoryService.getReleases(repo);

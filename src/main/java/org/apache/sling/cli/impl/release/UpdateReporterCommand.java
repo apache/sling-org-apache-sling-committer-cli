@@ -76,7 +76,7 @@ public class UpdateReporterCommand implements Command {
     private ReusableCLIOptions reusableCLIOptions;
 
     @Override
-        public Integer call() {
+    public Integer call() {
         try {
             StagingRepository repository = repositoryService.find(repositoryId);
             Set<Release> releases = repositoryService.getReleases(repository);

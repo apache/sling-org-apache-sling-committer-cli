@@ -49,7 +49,7 @@ public class ListCommand implements Command {
     private RepositoryService repositoryService;
 
     @Override
-        public Integer call() {
+    public Integer call() {
         try {
             repositoryService.list().forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), cleanupNewlines(r.getDescription())));
             return 0;
