@@ -62,7 +62,7 @@ public class UpdateLocalSiteCommand implements Command {
     private Integer repositoryId;
 
     @Override
-    public Integer call() throws Exception {
+        public Integer call() {
         try {
             ensureRepo();
             try ( Git git = Git.open(new File(GIT_CHECKOUT)) ) {

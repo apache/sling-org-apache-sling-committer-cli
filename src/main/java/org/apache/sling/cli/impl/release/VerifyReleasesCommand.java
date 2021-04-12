@@ -69,7 +69,7 @@ public class VerifyReleasesCommand implements Command {
     private ReusableCLIOptions reusableCLIOptions;
 
     @Override
-    public Integer call() throws Exception {
+        public Integer call() {
         int checksRun = 0;
         int failedChecks = 0;
         try {

@@ -96,7 +96,7 @@ public class TallyVotesCommand implements Command {
     }
 
     @Override
-    public Integer call() throws Exception {
+        public Integer call() {
         try {
             StagingRepository repository = repositoryService.find(repositoryId);
             Set<Release> releases = repositoryService.getReleases(repository);
