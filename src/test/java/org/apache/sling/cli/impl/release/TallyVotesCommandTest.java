@@ -51,6 +51,8 @@ import org.powermock.reflect.Whitebox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import picocli.CommandLine;
+
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -101,7 +103,7 @@ public class TallyVotesCommandTest {
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        assertEquals(0, (int)command.call());
+        assertEquals(CommandLine.ExitCode.OK, (int)command.call());
         verify(logger).info(
                 "From: John Doe <johndoe@apache.org>\n" +
                 "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
@@ -146,7 +148,7 @@ public class TallyVotesCommandTest {
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        assertEquals(2, (int)command.call());
+        assertEquals(CommandLine.ExitCode.USAGE, (int)command.call());
         verify(logger).info(
                 "Release {} does not have at least 3 binding votes.",
                 "Apache Sling CLI Test 1.0.0"
@@ -175,7 +177,7 @@ public class TallyVotesCommandTest {
         ServiceReference<?> reference =
                 osgiContext.bundleContext().getServiceReference(Command.class.getName());
         Command command = (Command) osgiContext.bundleContext().getService(reference);
-        assertEquals(0, (int)command.call());
+        assertEquals(CommandLine.ExitCode.OK, (int)command.call());
         verify(mailer).send(
                 "From: John Doe <johndoe@apache.org>\n" +
                         "To: \"Sling Developers List\" <dev@sling.apache.org>\n" +
