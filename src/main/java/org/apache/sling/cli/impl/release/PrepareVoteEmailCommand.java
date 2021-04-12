@@ -171,8 +171,8 @@ public class PrepareVoteEmailCommand implements Command {
             }
         } catch (IOException e) {
             LOGGER.warn("Failed executing command", e);
-            return 1;
+            return CommandLine.ExitCode.SOFTWARE;
         }
-        return 0;
+        return CommandLine.ExitCode.OK;
     }
 }

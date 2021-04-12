@@ -52,10 +52,10 @@ public class ListCommand implements Command {
     public Integer call() {
         try {
             repositoryService.list().forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), cleanupNewlines(r.getDescription())));
-            return 0;
+            return CommandLine.ExitCode.OK;
         } catch (IOException e) {
             logger.warn("Failed executing command", e);
-            return 1;
+            return CommandLine.ExitCode.SOFTWARE;
         }
     }
 }

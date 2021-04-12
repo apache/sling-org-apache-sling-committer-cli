@@ -133,15 +133,15 @@ public class VerifyReleasesCommand implements Command {
 
         } catch (IOException e) {
             LOGGER.error("Command execution failed.", e);
-            return 1;
+            return CommandLine.ExitCode.SOFTWARE;
         }
         LOGGER.info("\n\nRelease Summary: {}\n\n");
         if(failedChecks == 0){
             LOGGER.info(String.format("VALID (%d checks executed)", checksRun));
-            return 0;
+            return CommandLine.ExitCode.OK;
         } else {
             LOGGER.info(String.format("INVALID (%d of %d checks failed)", failedChecks, checksRun));
-            return 2;
+            return CommandLine.ExitCode.USAGE;
         }
     }
 

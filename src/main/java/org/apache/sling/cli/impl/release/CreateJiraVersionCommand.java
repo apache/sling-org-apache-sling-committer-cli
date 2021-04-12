@@ -122,8 +122,8 @@ public class CreateJiraVersionCommand implements Command {
             }
         } catch (IOException e) {
             logger.warn("Failed executing command", e);
-            return 1;
+            return CommandLine.ExitCode.SOFTWARE;
         }
-        return 0;
+        return CommandLine.ExitCode.OK;
     }
 }

@@ -108,9 +108,9 @@ public class UpdateReporterCommand implements Command {
 
         } catch (IOException e) {
             LOGGER.error(String.format("Unable to update reporter service; passed command: %s.", repositoryId), e);
-            return 1;
+            return CommandLine.ExitCode.SOFTWARE;
         }
-        return 0;
+        return CommandLine.ExitCode.OK;
 
     }
 

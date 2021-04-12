@@ -167,15 +167,15 @@ public class TallyVotesCommand implements Command {
                 } else {
                     LOGGER.info("Release {} does not have at least 3 binding votes.", releaseFullName);
                     LOGGER.info("Binding votes: {}.", bindingVoters.isEmpty() ? "none" : String.join(", ", bindingVoters));
-                    return 2;
+                    return CommandLine.ExitCode.USAGE;
                 }
             }
             
         } catch (IOException e) {
             LOGGER.warn("Command execution failed", e);
-            return 1;
+            return CommandLine.ExitCode.SOFTWARE;
         }
-        return 0;
+        return CommandLine.ExitCode.OK;
     }
 
     // TODO - better detection of '+1' votes
