@@ -68,8 +68,8 @@ public class VerifyReleasesCommand implements Command {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
-    @Override
-    public void run() {
+	@Override
+	public Integer call() throws Exception {
         int checksRun = 0;
         int failedChecks = 0;
         try {
@@ -133,15 +133,21 @@ public class VerifyReleasesCommand implements Command {
 
         } catch (IOException e) {
             LOGGER.error("Command execution failed.", e);
+            return 1;
         }
-
-        LOGGER.info("\n\nRelease Summary: {}\n\n",
-                failedChecks == 0 ? String.format("VALID (%d checks executed)", checksRun)
-                        : String.format("INVALID (%d of %d checks failed)", failedChecks, checksRun));
+        LOGGER.info("\n\nRelease Summary: {}\n\n");
+        if(failedChecks == 0){
+            LOGGER.info(String.format("VALID (%d checks executed)", checksRun));
+            return 0;
+        } else {
+            LOGGER.info(String.format("INVALID (%d of %d checks failed)", failedChecks, checksRun));
+            return 2;
+        }
     }
 
     private String getKeyUserId(PGPPublicKey key) {
         Iterator<String> iterator = key.getUserIDs();
         return iterator.hasNext() ? iterator.next() : "unknown";
     }
+
 }

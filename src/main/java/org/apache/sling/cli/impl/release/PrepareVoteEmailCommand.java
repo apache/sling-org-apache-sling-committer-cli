@@ -104,7 +104,7 @@ public class PrepareVoteEmailCommand implements Command {
             "https://issues.apache.org/jira/browse/SLING/fixforversion/##VERSION_ID##";
 
     @Override
-    public void run() {
+    public Integer call() throws Exception {
         try {
             CommandLine commandLine = spec.commandLine();
             if (commandLine.isUsageHelpRequested()) {
@@ -171,6 +171,8 @@ public class PrepareVoteEmailCommand implements Command {
             }
         } catch (IOException e) {
             LOGGER.warn("Failed executing command", e);
+            return 1;
         }
+        return 0;
     }
 }

@@ -48,12 +48,14 @@ public class ListCommand implements Command {
     @Reference
     private RepositoryService repositoryService;
 
-    @Override
-    public void run() {
+	@Override
+	public Integer call() throws Exception {
         try {
             repositoryService.list().forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), cleanupNewlines(r.getDescription())));
+            return 0;
         } catch (IOException e) {
             logger.warn("Failed executing command", e);
+            return 1;
         }
     }
 }

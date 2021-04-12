@@ -95,8 +95,8 @@ public class TallyVotesCommand implements Command {
         }
     }
 
-    @Override
-    public void run() {
+	@Override
+	public Integer call() throws Exception {
         try {
             StagingRepository repository = repositoryService.find(repositoryId);
             Set<Release> releases = repositoryService.getReleases(repository);
@@ -167,12 +167,15 @@ public class TallyVotesCommand implements Command {
                 } else {
                     LOGGER.info("Release {} does not have at least 3 binding votes.", releaseFullName);
                     LOGGER.info("Binding votes: {}.", bindingVoters.isEmpty() ? "none" : String.join(", ", bindingVoters));
+                    return 2;
                 }
             }
             
         } catch (IOException e) {
             LOGGER.warn("Command execution failed", e);
+            return 1;
         }
+        return 0;
     }
 
     // TODO - better detection of '+1' votes

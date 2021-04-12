@@ -75,8 +75,8 @@ public class UpdateReporterCommand implements Command {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
-    @Override
-    public void run() {
+	@Override
+	public Integer call() throws Exception {
         try {
             StagingRepository repository = repositoryService.find(repositoryId);
             Set<Release> releases = repositoryService.getReleases(repository);
@@ -108,7 +108,9 @@ public class UpdateReporterCommand implements Command {
 
         } catch (IOException e) {
             LOGGER.error(String.format("Unable to update reporter service; passed command: %s.", repositoryId), e);
+            return 1;
         }
+        return 0;
 
     }
 

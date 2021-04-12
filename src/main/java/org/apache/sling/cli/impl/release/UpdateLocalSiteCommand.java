@@ -61,8 +61,8 @@ public class UpdateLocalSiteCommand implements Command {
     @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
     private Integer repositoryId;
 
-    @Override
-    public void run() {
+	@Override
+	public Integer call() throws Exception {
         try {
             ensureRepo();
             try ( Git git = Git.open(new File(GIT_CHECKOUT)) ) {
@@ -86,7 +86,9 @@ public class UpdateLocalSiteCommand implements Command {
             }
         } catch (GitAPIException | IOException e) {
             logger.warn("Failed executing command", e);
+            return 1;
         }
+        return 0;
             
     }
 

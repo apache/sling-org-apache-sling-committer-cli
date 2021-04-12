@@ -68,8 +68,8 @@ public class ReleaseJiraVersionCommand implements Command {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
-    @Override
-    public void run() {
+	@Override
+	public Integer call() throws Exception {
         try {
             StagingRepository repo = repositoryService.find(repositoryId);
             Set<Release> releases = repositoryService.getReleases(repo);
@@ -100,6 +100,8 @@ public class ReleaseJiraVersionCommand implements Command {
             }
         } catch (Exception e) {
             LOGGER.warn("Failed executing command.", e);
+            return 1;
         }
+        return 0;
     }
 }
