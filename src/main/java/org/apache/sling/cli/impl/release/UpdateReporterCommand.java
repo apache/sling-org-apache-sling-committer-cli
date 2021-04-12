@@ -75,8 +75,8 @@ public class UpdateReporterCommand implements Command {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
-	@Override
-	public Integer call() throws Exception {
+    @Override
+    public Integer call() throws Exception {
         try {
             StagingRepository repository = repositoryService.find(repositoryId);
             Set<Release> releases = repositoryService.getReleases(repository);

@@ -68,8 +68,8 @@ public class VerifyReleasesCommand implements Command {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
-	@Override
-	public Integer call() throws Exception {
+    @Override
+    public Integer call() throws Exception {
         int checksRun = 0;
         int failedChecks = 0;
         try {

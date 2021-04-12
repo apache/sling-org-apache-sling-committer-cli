@@ -48,8 +48,8 @@ public class ListCommand implements Command {
     @Reference
     private RepositoryService repositoryService;
 
-	@Override
-	public Integer call() throws Exception {
+    @Override
+    public Integer call() throws Exception {
         try {
             repositoryService.list().forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), cleanupNewlines(r.getDescription())));
             return 0;
