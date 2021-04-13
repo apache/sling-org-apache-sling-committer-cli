@@ -20,6 +20,9 @@ import java.util.concurrent.Callable;
 
 /**
  * Marker interface for {@code Commands} supported by the Apache Sling Committer CLI.
+ * The {@code call} method is expected to return on of the exit codes found in {@code CommandLine.ExitCode}
+ * 
+ * @see picocli.CommandLine.ExitCode
  */
 public interface Command extends Callable<Integer> {
     
