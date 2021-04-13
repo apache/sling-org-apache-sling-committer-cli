@@ -16,10 +16,12 @@
  */
 package org.apache.sling.cli.impl;
 
+import java.util.concurrent.Callable;
+
 /**
  * Marker interface for {@code Commands} supported by the Apache Sling Committer CLI.
  */
-public interface Command extends Runnable {
+public interface Command extends Callable<Integer> {
     
     String PROPERTY_NAME_COMMAND_GROUP = "command.group";
     String PROPERTY_NAME_COMMAND_NAME = "command.name";

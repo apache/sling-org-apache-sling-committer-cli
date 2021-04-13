@@ -44,6 +44,7 @@ import org.powermock.reflect.Whitebox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -87,7 +88,7 @@ public class UpdateReporterCommandTest {
 
     @Test
     @PrepareForTest({LoggerFactory.class})
-    public void testDryRun() {
+    public void testDryRun() throws Exception {
         mockStatic(LoggerFactory.class);
         Logger logger = mock(Logger.class);
         when(LoggerFactory.getLogger(UpdateReporterCommand.class)).thenReturn(logger);
@@ -100,7 +101,7 @@ public class UpdateReporterCommandTest {
         Command updateReporter = osgiContext.getService(Command.class);
         assertTrue("Expected to retrieve the UpdateReporterCommand from the mocked OSGi environment.",
                 updateReporter instanceof UpdateReporterCommand);
-        updateReporter.run();
+        assertEquals(0, (int)updateReporter.call());
         verify(logger).info("The following {} would be added to the Apache Reporter System:", "releases");
         verify(logger).info("  - {}", "Apache Sling CLI 1");
         verify(logger).info("  - {}", "Apache Sling CLI 2");
@@ -128,7 +129,7 @@ public class UpdateReporterCommandTest {
         when(response.getStatusLine()).thenReturn(statusLine);
         when(statusLine.getStatusCode()).thenReturn(200);
         when(client.execute(any())).thenReturn(response);
-        updateReporter.run();
+        assertEquals(0, (int)updateReporter.call());
         verify(client, times(2)).execute(any());
     }
 
@@ -148,7 +149,7 @@ public class UpdateReporterCommandTest {
         when(response.getStatusLine()).thenReturn(statusLine);
         when(statusLine.getStatusCode()).thenReturn(200);
         when(client.execute(any())).thenReturn(response);
-        updateReporter.run();
+        assertEquals(0, (int)updateReporter.call());
         verify(client, times(2)).execute(any());
     }
 

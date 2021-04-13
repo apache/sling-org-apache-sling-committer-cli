@@ -62,7 +62,7 @@ public class UpdateLocalSiteCommand implements Command {
     private Integer repositoryId;
 
     @Override
-    public void run() {
+    public Integer call() {
         try {
             ensureRepo();
             try ( Git git = Git.open(new File(GIT_CHECKOUT)) ) {
@@ -86,7 +86,9 @@ public class UpdateLocalSiteCommand implements Command {
             }
         } catch (GitAPIException | IOException e) {
             logger.warn("Failed executing command", e);
+            return CommandLine.ExitCode.SOFTWARE;
         }
+        return CommandLine.ExitCode.OK;
             
     }
 

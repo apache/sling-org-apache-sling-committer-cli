@@ -49,11 +49,13 @@ public class ListCommand implements Command {
     private RepositoryService repositoryService;
 
     @Override
-    public void run() {
+    public Integer call() {
         try {
             repositoryService.list().forEach( r -> logger.info("{}\t{}", r.getRepositoryId(), cleanupNewlines(r.getDescription())));
+            return CommandLine.ExitCode.OK;
         } catch (IOException e) {
             logger.warn("Failed executing command", e);
+            return CommandLine.ExitCode.SOFTWARE;
         }
     }
 }
