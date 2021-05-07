@@ -26,6 +26,7 @@ import javax.mail.MessagingException;
 import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.MimeMessage;
+import javax.net.ssl.SSLContext;
 
 import org.apache.sling.cli.impl.Credentials;
 import org.apache.sling.cli.impl.CredentialsService;
@@ -43,11 +44,18 @@ public class Mailer {
 
     private static final Properties SMTP_PROPERTIES = new Properties();
     static {
-        SMTP_PROPERTIES.put("mail.smtp.host", "mail-relay.apache.org");
-        SMTP_PROPERTIES.put("mail.smtp.port", "465");
-        SMTP_PROPERTIES.put("mail.smtp.auth", "true");
-        SMTP_PROPERTIES.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
-        SMTP_PROPERTIES.put("mail.smtp.socketFactory.fallback", "false");
+        try {
+            SMTP_PROPERTIES.put("mail.smtp.host", "mail-relay.apache.org");
+            SMTP_PROPERTIES.put("mail.smtp.port", "465");
+            SMTP_PROPERTIES.put("mail.smtp.auth", "true");
+            SMTP_PROPERTIES.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
+            SMTP_PROPERTIES.put("mail.smtp.socketFactory.fallback", "false");
+            SMTP_PROPERTIES.put("mail.smtp.ssl.protocols",
+                    String.join(" ", SSLContext.getDefault().getSupportedSSLParameters().getProtocols())
+            );
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Reference

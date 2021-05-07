@@ -65,7 +65,8 @@ import static org.powermock.api.mockito.PowerMockito.mockStatic;
                          // https://github.com/powermock/powermock/issues/864
                          "com.sun.org.apache.xerces.*",
                          "javax.xml.*",
-                         "org.w3c.dom.*"
+                         "org.w3c.dom.*",
+                         "javax.net.ssl.*"
                  })
 public class TallyVotesCommandTest {
 
