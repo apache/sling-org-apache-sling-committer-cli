@@ -18,6 +18,10 @@
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
 package org.apache.sling.cli.impl.pgp;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -30,10 +34,6 @@ import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 public class PGPSignatureValidatorTest {
 
@@ -72,20 +72,20 @@ public class PGPSignatureValidatorTest {
         assertTrue(foundId);
     }
 
-    @Test
+    @Test(expected = IllegalStateException.class)
     public void verifyInvalidPGPSignatures() {
-        Throwable expected = null;
-        try {
-            pgpSignatureValidator.verify(Paths.get("src/test/resources/nexus/orgapachesling-0" +
-                            "/org/apache/sling/adapter" +
-                            "-annotations/1.0" +
-                            ".0/adapter-annotations-1.0.0.pom"),
-                    Paths.get("src/test/resources/pgp/adapter-annotations-1.0.0.pom.invalid.asc"));
-        } catch (Throwable e) {
-            expected = e;
-        }
-        assertNotNull(expected);
-        assertTrue(expected instanceof IllegalStateException);
+        pgpSignatureValidator.verify(Paths.get("src/test/resources/nexus/orgapachesling-0" +
+                        "/org/apache/sling/adapter" +
+                        "-annotations/1.0" +
+                        ".0/adapter-annotations-1.0.0.pom"),
+                Paths.get("src/test/resources/pgp/adapter-annotations-1.0.0.pom.invalid.asc"));
+    }
+
+    @Test
+    public void testDownload(){
+        pgpSignatureValidator = context.registerInjectActivateService(new PGPSignatureValidator(), "sling.keys", "target/downloaded.asc");
+        assertNotNull(pgpSignatureValidator.getKeyRingCollection());
+        assertTrue(pgpSignatureValidator.getKeyRingCollection().iterator().hasNext());
     }
 
     @Test

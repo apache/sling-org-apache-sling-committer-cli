@@ -21,6 +21,7 @@ package org.apache.sling.cli.impl.pgp;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -59,7 +60,15 @@ public class PGPSignatureValidator {
     private HttpClientFactory httpClientFactory;
 
     private static final String KEYS_FILE = "/tmp/sling-keys.asc";
+    private static final String KEYS_URL = "https://downloads.apache.org/sling/KEYS";
     private PGPPublicKeyRingCollection keyRingCollection;
+
+    /**
+     * @return the keyRingCollection
+     */
+    public PGPPublicKeyRingCollection getKeyRingCollection() {
+        return keyRingCollection;
+    }
 
     public ValidationResult verify(Path artifact, Path signature) {
         try (InputStream fileStream = Files.newInputStream(artifact);
@@ -94,10 +103,15 @@ public class PGPSignatureValidator {
         if (Files.notExists(keysFilePath)) {
             try {
                 try (CloseableHttpClient client = httpClientFactory.newClient()) {
-                    HttpGet get = new HttpGet("https://people.apache.org/keys/group/sling.asc");
+                    HttpGet get = new HttpGet(KEYS_URL);
                     try (CloseableHttpResponse response = client.execute(get)) {
-                        try (InputStream content = response.getEntity().getContent()) {
-                            IOUtils.copy(content, new FileOutputStream(keysFilePath.toFile()));
+                        if (response.getStatusLine().getStatusCode() != 200) {
+                            throw new IllegalStateException("Invalid response '" + response.getStatusLine()
+                                    + "' downloading Sling key file from " + KEYS_URL);
+                        }
+                        try (InputStream content = response.getEntity().getContent();
+                                OutputStream fileout = new FileOutputStream(keysFilePath.toFile())) {
+                            IOUtils.copy(content, fileout);
                         }
                     }
                 }
@@ -123,7 +137,8 @@ public class PGPSignatureValidator {
                 if (!keyRings.isEmpty()) {
                     keyRingCollection = new PGPPublicKeyRingCollection(keyRings);
                 } else {
-                    throw new IllegalStateException(String.format("Sling keys file from %s does not contain any keys.", keysFile));
+                    throw new IllegalStateException(
+                            String.format("Sling keys file from %s does not contain any keys.", keysFile));
                 }
             }
         } catch (IOException | PGPException e) {
