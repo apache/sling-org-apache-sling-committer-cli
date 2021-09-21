@@ -55,6 +55,8 @@ import org.osgi.service.component.annotations.Reference;
 @Component(service = PGPSignatureValidator.class)
 public class PGPSignatureValidator {
 
+    private static final String KEYS_FILE_URL = "https://downloads.apache.org/sling/KEYS";
+
     @Reference
     private HttpClientFactory httpClientFactory;
 
@@ -94,7 +96,7 @@ public class PGPSignatureValidator {
         if (Files.notExists(keysFilePath)) {
             try {
                 try (CloseableHttpClient client = httpClientFactory.newClient()) {
-                    HttpGet get = new HttpGet("https://people.apache.org/keys/group/sling.asc");
+                    HttpGet get = new HttpGet(KEYS_FILE_URL);
                     try (CloseableHttpResponse response = client.execute(get)) {
                         try (InputStream content = response.getEntity().getContent()) {
                             IOUtils.copy(content, new FileOutputStream(keysFilePath.toFile()));
@@ -103,7 +105,7 @@ public class PGPSignatureValidator {
                 }
             } catch (IOException e) {
                 throw new IllegalStateException(
-                        "Cannot download Sling key file from https://people.apache.org/keys/group/sling.asc", e);
+                        "Cannot download Sling key file from " + KEYS_FILE_URL, e);
             }
         }
         try (InputStream in = Files.newInputStream(keysFilePath)) {
