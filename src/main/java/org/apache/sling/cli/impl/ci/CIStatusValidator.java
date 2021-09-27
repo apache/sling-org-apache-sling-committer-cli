@@ -108,9 +108,15 @@ public class CIStatusValidator {
                 log.debug("Extracted TAG: {}", tagName);
             }
             if (repositoryName != null && repositoryName.trim().length() > 0) {
-
-                repositoryName = repositoryName.substring(repositoryName.indexOf("?p=") + 3);
-                repositoryName = repositoryName.substring(0, repositoryName.indexOf(".git"));
+                if (repositoryName.startsWith("https://gitbox.apache.org/repos/asf?p=")) {
+                    repositoryName = repositoryName.substring(repositoryName.indexOf("?p=") + 3);
+                    repositoryName = repositoryName.substring(0, repositoryName.indexOf(".git"));
+                } else if (repositoryName.startsWith("https://github.com/apache/sling-")) {
+                    repositoryName = repositoryName.substring(26);
+                    if (repositoryName.contains("/")) {
+                        repositoryName = repositoryName.substring(0, repositoryName.indexOf('/'));
+                    }
+                }
                 log.debug("Extracted REPO: {}", repositoryName);
             }
             if (repositoryName != null && !repositoryName.isEmpty() && !tagName.isEmpty() && !tagName.equalsIgnoreCase("HEAD")) {
