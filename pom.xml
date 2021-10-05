@@ -140,9 +140,9 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>com.spotify</groupId>
-                <artifactId>dockerfile-maven-plugin</artifactId>
-                <version>1.4.10</version>
+                <groupId>io.fabric8</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <version>0.37.0</version>
                 <executions>
                     <execution>
                         <id>default</id>
@@ -152,11 +152,18 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <skipDockerInfo>true</skipDockerInfo> <!-- does not contain legal files -->
-                    <repository>apache/sling-cli</repository>
-                    <buildArgs>
-                        <FEATURE_FILE>target/artifacts/org/apache/sling/${project.artifactId}/${project.version}/${project.artifactId}-${project.version}-app.slingfeature</FEATURE_FILE>
-                    </buildArgs>
+                    <images>
+                        <image>
+                            <name>apache/sling-cli</name>
+                            <build>
+                                <contextDir>${project.basedir}</contextDir>
+                                <args>
+                                    <FEATURE_FILE>target/artifacts/org/apache/sling/${project.artifactId}/${project.version}/${project.artifactId}-${project.version}-app.slingfeature</FEATURE_FILE>
+                                </args>
+                            </build>
+                        </image>
+                    </images>
+                    <cleanup>try</cleanup>
                 </configuration>
             </plugin>
             <plugin>
