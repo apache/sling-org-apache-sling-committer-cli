@@ -18,11 +18,11 @@
             "start-level": "1"
         },
         {
-            "id"         : "ch.qos.logback:logback-classic:1.2.3",
+            "id"         : "ch.qos.logback:logback-classic:1.2.8",
             "start-level": "1"
         },
         {
-            "id"         : "ch.qos.logback:logback-core:1.2.3",
+            "id"         : "ch.qos.logback:logback-core:1.2.8",
             "start-level": "1"
         },
         {
