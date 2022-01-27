@@ -117,7 +117,7 @@ public class PGPSignatureValidator {
                 }
             } catch (IOException e) {
                 throw new IllegalStateException(
-                        "Cannot download Sling key file from https://people.apache.org/keys/group/sling.asc", e);
+                        "Cannot download Sling key file from " + KEYS_URL, e);
             }
         }
         try (InputStream in = Files.newInputStream(keysFilePath)) {
