@@ -1,0 +1,123 @@
+{
+    "sha": "4d051750e93d473d9918c8498233cd42f0f991e6",
+    "node_id": "C_kwDOBmdW59oAKDRkMDUxNzUwZTkzZDQ3M2Q5OTE4Yzg0OTgyMzNjZDQyZjBmOTkxZTY",
+    "commit": {
+      "author": {
+        "name": "Konrad Windszus",
+        "email": "konrad_w@gmx.de",
+        "date": "2022-01-18T18:26:54Z"
+      },
+      "committer": {
+        "name": "Konrad Windszus",
+        "email": "konrad_w@gmx.de",
+        "date": "2022-01-18T18:26:54Z"
+      },
+      "message": "[maven-release-plugin] prepare release sling-parent-reactor-47",
+      "tree": {
+        "sha": "ddf912d902094067f593d5b006921f0898ee6d70",
+        "url": "https://api.github.com/repos/apache/sling-parent/git/trees/ddf912d902094067f593d5b006921f0898ee6d70"
+      },
+      "url": "https://api.github.com/repos/apache/sling-parent/git/commits/4d051750e93d473d9918c8498233cd42f0f991e6",
+      "comment_count": 0,
+      "verification": {
+        "verified": false,
+        "reason": "unsigned",
+        "signature": null,
+        "payload": null
+      }
+    },
+    "url": "https://api.github.com/repos/apache/sling-parent/commits/4d051750e93d473d9918c8498233cd42f0f991e6",
+    "html_url": "https://github.com/apache/sling-parent/commit/4d051750e93d473d9918c8498233cd42f0f991e6",
+    "comments_url": "https://api.github.com/repos/apache/sling-parent/commits/4d051750e93d473d9918c8498233cd42f0f991e6/comments",
+    "author": {
+      "login": "kwin",
+      "id": 185025,
+      "node_id": "MDQ6VXNlcjE4NTAyNQ==",
+      "avatar_url": "https://avatars.githubusercontent.com/u/185025?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/kwin",
+      "html_url": "https://github.com/kwin",
+      "followers_url": "https://api.github.com/users/kwin/followers",
+      "following_url": "https://api.github.com/users/kwin/following{/other_user}",
+      "gists_url": "https://api.github.com/users/kwin/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/kwin/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/kwin/subscriptions",
+      "organizations_url": "https://api.github.com/users/kwin/orgs",
+      "repos_url": "https://api.github.com/users/kwin/repos",
+      "events_url": "https://api.github.com/users/kwin/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/kwin/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "committer": {
+      "login": "kwin",
+      "id": 185025,
+      "node_id": "MDQ6VXNlcjE4NTAyNQ==",
+      "avatar_url": "https://avatars.githubusercontent.com/u/185025?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/kwin",
+      "html_url": "https://github.com/kwin",
+      "followers_url": "https://api.github.com/users/kwin/followers",
+      "following_url": "https://api.github.com/users/kwin/following{/other_user}",
+      "gists_url": "https://api.github.com/users/kwin/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/kwin/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/kwin/subscriptions",
+      "organizations_url": "https://api.github.com/users/kwin/orgs",
+      "repos_url": "https://api.github.com/users/kwin/repos",
+      "events_url": "https://api.github.com/users/kwin/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/kwin/received_events",
+      "type": "User",
+      "site_admin": false
+    },
+    "parents": [
+      {
+        "sha": "aa817336d9929371240adac084ec439ad6d185da",
+        "url": "https://api.github.com/repos/apache/sling-parent/commits/aa817336d9929371240adac084ec439ad6d185da",
+        "html_url": "https://github.com/apache/sling-parent/commit/aa817336d9929371240adac084ec439ad6d185da"
+      }
+    ],
+    "stats": {
+      "total": 12,
+      "additions": 6,
+      "deletions": 6
+    },
+    "files": [
+      {
+        "sha": "5ebb45f95ba197d59ab33bd764b967d9b1d7262c",
+        "filename": "pom.xml",
+        "status": "modified",
+        "additions": 2,
+        "deletions": 2,
+        "changes": 4,
+        "blob_url": "https://github.com/apache/sling-parent/blob/4d051750e93d473d9918c8498233cd42f0f991e6/pom.xml",
+        "raw_url": "https://github.com/apache/sling-parent/raw/4d051750e93d473d9918c8498233cd42f0f991e6/pom.xml",
+        "contents_url": "https://api.github.com/repos/apache/sling-parent/contents/pom.xml?ref=4d051750e93d473d9918c8498233cd42f0f991e6",
+        "patch": "@@ -21,7 +21,7 @@\n     <groupId>org.apache.sling</groupId>\n     <artifactId>sling-parent-reactor</artifactId>\n     <packaging>pom</packaging>\n-    <version>47-SNAPSHOT</version>\n+    <version>47</version>\n \n     <!-- the ASF parent is necessary to trigger the right release profile -->\n     <parent>\n@@ -38,7 +38,7 @@\n         <connection>scm:git:https://gitbox.apache.org/repos/asf/sling-parent.git</connection>\n         <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/sling-parent.git</developerConnection>\n         <url>https://gitbox.apache.org/repos/asf?p=sling-parent.git</url>\n-        <tag>HEAD</tag>\n+        <tag>sling-parent-reactor-47</tag>\n     </scm>\n \n     <modules>"
+      },
+      {
+        "sha": "2ce4839d0d0f70c7b90e8f28b27894c0470da8b4",
+        "filename": "sling-bundle-parent/pom.xml",
+        "status": "modified",
+        "additions": 2,
+        "deletions": 2,
+        "changes": 4,
+        "blob_url": "https://github.com/apache/sling-parent/blob/4d051750e93d473d9918c8498233cd42f0f991e6/sling-bundle-parent/pom.xml",
+        "raw_url": "https://github.com/apache/sling-parent/raw/4d051750e93d473d9918c8498233cd42f0f991e6/sling-bundle-parent/pom.xml",
+        "contents_url": "https://api.github.com/repos/apache/sling-parent/contents/sling-bundle-parent/pom.xml?ref=4d051750e93d473d9918c8498233cd42f0f991e6",
+        "patch": "@@ -21,7 +21,7 @@\n     <parent>\n         <groupId>org.apache.sling</groupId>\n         <artifactId>sling</artifactId>\n-        <version>47-SNAPSHOT</version>\n+        <version>47</version>\n         <relativePath>../sling-parent</relativePath>\n     </parent>\n \n@@ -36,7 +36,7 @@\n         <connection>scm:git:https://gitbox.apache.org/repos/asf/sling-parent.git</connection>\n         <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/sling-parent.git</developerConnection>\n         <url>https://gitbox.apache.org/repos/asf?p=sling-parent.git</url>\n-        <tag>HEAD</tag>\n+        <tag>sling-parent-reactor-47</tag>\n     </scm>\n \n     <properties>"
+      },
+      {
+        "sha": "d94f94c75b8388abea9660f0c427fddb16112f57",
+        "filename": "sling-parent/pom.xml",
+        "status": "modified",
+        "additions": 2,
+        "deletions": 2,
+        "changes": 4,
+        "blob_url": "https://github.com/apache/sling-parent/blob/4d051750e93d473d9918c8498233cd42f0f991e6/sling-parent/pom.xml",
+        "raw_url": "https://github.com/apache/sling-parent/raw/4d051750e93d473d9918c8498233cd42f0f991e6/sling-parent/pom.xml",
+        "contents_url": "https://api.github.com/repos/apache/sling-parent/contents/sling-parent/pom.xml?ref=4d051750e93d473d9918c8498233cd42f0f991e6",
+        "patch": "@@ -28,7 +28,7 @@\n     <groupId>org.apache.sling</groupId>\n     <artifactId>sling</artifactId>\n     <packaging>pom</packaging>\n-    <version>47-SNAPSHOT</version>\n+    <version>47</version>\n \n     <name>Apache Sling (Parent)</name>\n     <description>The parent project for Apache Sling</description>\n@@ -72,7 +72,7 @@\n         <connection>scm:git:https://gitbox.apache.org/repos/asf/sling-parent.git</connection>\n         <developerConnection>scm:git:https://gitbox.apache.org/repos/asf/sling-parent.git</developerConnection>\n         <url>https://gitbox.apache.org/repos/asf?p=sling-parent.git</url>\n-        <tag>HEAD</tag>\n+        <tag>sling-parent-reactor-47</tag>\n     </scm>\n \n     <reporting>"
+      }
+    ]
+  }
+  

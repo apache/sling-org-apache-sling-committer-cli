@@ -33,6 +33,9 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -46,13 +49,11 @@ import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
 @Component(service = CIStatusValidator.class)
 public class CIStatusValidator {
+
+    private static final String PN_STATE = "state";
+    private static final String PN_PARENTS = "parents";
 
     public static class ValidationResult {
         private final String message;
@@ -80,9 +81,9 @@ public class CIStatusValidator {
 
     private XPathFactory xPathFactory = XPathFactory.newInstance();
 
-    protected JsonObject fetchCIStatus(String ciEndpoint) throws IOException {
+    protected JsonObject fetchJson(String endpoint) throws IOException {
         try (CloseableHttpClient client = httpClientFactory.newClient()) {
-            HttpGet get = new HttpGet(ciEndpoint);
+            HttpGet get = new HttpGet(endpoint);
             get.addHeader(HttpHeaders.ACCEPT, "application/json");
             try (CloseableHttpResponse response = client.execute(get)) {
                 try (InputStream content = response.getEntity().getContent()) {
@@ -94,11 +95,13 @@ public class CIStatusValidator {
         }
     }
 
-    String getCIEndpoint(Path artifactFilePath) {
-        log.trace("getCIEndpoint");
+    String getCIStatusEndpoint(Path artifactFilePath) {
+        log.trace("getCIStatusEndpoint");
         String ciEndpoint = null;
         try {
+            builderFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             DocumentBuilder builder = builderFactory.newDocumentBuilder();
+
             Document xmlDocument = builder.parse(artifactFilePath.toFile());
             XPath xPath = xPathFactory.newXPath();
             String repositoryName = (String) xPath.compile("/project/scm/url/text()").evaluate(xmlDocument, XPathConstants.STRING);
@@ -132,27 +135,41 @@ public class CIStatusValidator {
     public ValidationResult isValid(Path artifactFilePath) {
         log.trace("isValid");
 
-        String ciEndpoint = getCIEndpoint(artifactFilePath);
+        String ciEndpoint = getCIStatusEndpoint(artifactFilePath);
         if (ciEndpoint == null) {
             return new ValidationResult(false, "Cannot extract a CI endpoint from " + artifactFilePath.getFileName());
         }
         try {
-            JsonObject status = fetchCIStatus(ciEndpoint);
-            List<String> messageEntries = new ArrayList<>();
+            JsonObject status = fetchJson(ciEndpoint);
 
-            JsonArray statuses = status.get("statuses").getAsJsonArray();
-            for (JsonElement it : statuses) {
+            if ("pending".equals(status.get(PN_STATE).getAsString())
+                    && status.get("statuses").getAsJsonArray().size() == 0) {
+                log.debug("No build found for tag");
+                if (status.has("commit_url")) {
+                    ciEndpoint = status.get("commit_url").getAsString();
+                    log.debug("Getting parent from commit url: {}", ciEndpoint);
+                    JsonObject commit = fetchJson(ciEndpoint);
+                    if (commit.has(PN_PARENTS) && commit.get(PN_PARENTS).getAsJsonArray().size() > 0) {
+                        log.debug("Loading commit status: {}", ciEndpoint);
+                        ciEndpoint = commit.get(PN_PARENTS).getAsJsonArray().get(0).getAsJsonObject().get("url")
+                                .getAsString() + "/status";
+                        status = fetchJson(ciEndpoint);
+                    }
+                }
+            }
+
+            List<String> messageEntries = new ArrayList<>();
+            status.get("statuses").getAsJsonArray().forEach(it -> {
                 JsonObject item = it.getAsJsonObject();
                 messageEntries.add("\t" + item.get("context").getAsString());
-                messageEntries.add("\t\tState: " + item.get("state").getAsString());
+                messageEntries.add("\t\tState: " + item.get(PN_STATE).getAsString());
                 messageEntries.add("\t\tDescription: " + item.get("description").getAsString());
                 messageEntries.add("\t\tSee: " + item.get("target_url").getAsString());
-            }
+            });
             String message = String.join("\n", messageEntries);
-            if ("success".equals(status.get("state").getAsString())) {
+            if ("success".equals(status.get(PN_STATE).getAsString())) {
                 return new ValidationResult(true, message);
             } else {
-
                 return new ValidationResult(false, message);
             }
         } catch (UnsupportedOperationException | IOException e) {
@@ -162,6 +179,6 @@ public class CIStatusValidator {
 
     public boolean shouldCheck(Artifact artifact, Path artifactFilePath) {
         log.trace("shouldCheck");
-        return "pom".equals(artifact.getType()) && getCIEndpoint(artifactFilePath) != null;
+        return "pom".equals(artifact.getType()) && getCIStatusEndpoint(artifactFilePath) != null;
     }
 }
