@@ -9,10 +9,8 @@
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
 # ----------------------------------------------------------------------------------------
-FROM azul/zulu-openjdk-alpine:11 as builder
-MAINTAINER dev@sling.apache.org
-RUN /usr/lib/jvm/zulu11-ca/bin/jlink --add-modules java.logging,java.naming,java.xml,java.security.jgss,java.sql,jdk.crypto.ec,java.desktop \
-          --output /opt/jre --strip-debug --compress=2 --no-header-files --no-man-pages
+FROM eclipse-temurin:11-alpine as builder
+RUN $JAVA_HOME/bin/jlink --add-modules java.logging,java.naming,java.xml,java.security.jgss,java.sql,jdk.crypto.ec  --output /opt/jre --strip-debug --compress=2 --no-header-files --no-man-pages
 
 FROM alpine
 COPY --from=builder /opt/jre /opt/jre
