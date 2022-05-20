@@ -10,7 +10,7 @@
 # and limitations under the License.
 # ----------------------------------------------------------------------------------------
 FROM eclipse-temurin:11-alpine as builder
-RUN $JAVA_HOME/bin/jlink --add-modules java.logging,java.naming,java.xml,java.security.jgss,java.sql,jdk.crypto.ec  --output /opt/jre --strip-debug --compress=2 --no-header-files --no-man-pages
+RUN $JAVA_HOME/bin/jlink --add-modules java.logging,java.naming,java.xml,java.security.jgss,java.sql,jdk.crypto.ec,java.desktop  --output /opt/jre --strip-debug --compress=2 --no-header-files --no-man-pages
 
 FROM alpine
 
