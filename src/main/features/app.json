@@ -1,5 +1,10 @@
 {
     "id"     : "${project.groupId}:${project.artifactId}:slingfeature:app:${project.version}",
+    "execution-environment:JSON|false":{
+        "framework":{
+          "id":"org.apache.felix:org.apache.felix.framework:7.0.5"
+        }
+    },
     "bundles": [
         {
             "id"         : "${project.groupId}:${project.artifactId}:${project.version}",

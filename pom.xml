@@ -94,7 +94,30 @@
                             <overWriteReleases>false</overWriteReleases>
                             <includeScope>runtime</includeScope>
                             <outputDirectory>${project.build.directory}/lib</outputDirectory>
-                            <stripVersion>true</stripVersion>
+                            <excludeTransitive>true</excludeTransitive>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>unpack-feature-launcher</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.apache.sling</groupId>
+                                    <artifactId>org.apache.sling.feature.launcher</artifactId>
+                                    <type>zip</type>
+                                    <outputDirectory>${project.build.directory}/lib/feature-launcher</outputDirectory>
+                                    <fileMappers>
+                                        <org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
+                                            <pattern>^org\.apache\.sling\.feature\.launcher-[0-9\.]+(-SNAPSHOT)?/</pattern>
+                                            <replacement>./</replacement>
+                                        </org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
+                                    </fileMappers>
+                                </artifactItem>
+                            </artifactItems>
                         </configuration>
                     </execution>
                 </executions>
@@ -113,30 +136,6 @@
                         <goals>
                             <goal>repository</goal>
                         </goals>
-                    </execution>
-                    <execution>
-                        <id>extra-dependencies</id>
-                        <goals>
-                            <goal>repository</goal>
-                        </goals>
-                        <configuration>
-                            <repositories>
-                                <repository>
-                                    <embedArtifacts>
-                                        <embedArtifact>
-                                            <groupId>org.apache.felix</groupId>
-                                            <artifactId>org.apache.felix.framework</artifactId>
-                                            <version>6.0.2</version>
-                                        </embedArtifact>
-                                        <embedArtifact>
-                                            <groupId>org.apache.sling</groupId>
-                                            <artifactId>org.apache.sling.launchpad.api</artifactId>
-                                            <version>1.2.0</version>
-                                        </embedArtifact>
-                                    </embedArtifacts>
-                                </repository>
-                            </repositories>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
@@ -223,7 +222,8 @@
         <dependency>
             <groupId>org.apache.sling</groupId>
             <artifactId>org.apache.sling.feature.launcher</artifactId>
-            <version>0.8.0</version>
+            <version>1.2.0</version>
+            <type>zip</type>
             <scope>runtime</scope>
         </dependency>
         <dependency>

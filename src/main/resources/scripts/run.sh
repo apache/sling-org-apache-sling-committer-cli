@@ -18,15 +18,16 @@
 ARGS_PROP="exec.args=$@"
 
 # Use exec to become pid 1, see https://docs.docker.com/develop/develop-images/dockerfile_best-practices/
-exec /opt/jre/bin/java \
+export JAVA_HOME=/opt/jre
+export JAVA_OPTS="\
+    -Dorg.slf4j.simpleLogger.logFile=/dev/null \
+    -Dlogback.configurationFile=file:/usr/share/sling-cli/conf/logback-default.xml \
     --add-opens=java.base/java.lang=ALL-UNNAMED \
     --add-opens=java.base/jdk.internal.loader=ALL-UNNAMED \
     --add-opens=java.base/java.net=ALL-UNNAMED \
     --add-opens=java.base/java.security=ALL-UNNAMED \
-    -Xshare:on \
-    -Dorg.slf4j.simpleLogger.logFile=/dev/null \
-    -Dlogback.configurationFile=file:/usr/share/sling-cli/conf/logback-default.xml \
-    -jar /usr/share/sling-cli/launcher/org.apache.sling.feature.launcher.jar \
+    -Xshare:on"
+exec /usr/share/sling-cli/launcher/bin/launcher \
     -f /usr/share/sling-cli/sling-cli.feature \
     -c /usr/share/sling-cli/artifacts \
     -D "$ARGS_PROP" \
