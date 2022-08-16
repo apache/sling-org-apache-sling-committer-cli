@@ -26,18 +26,19 @@ COPY --from=builder /opt/jre /opt/jre
 RUN /opt/jre/bin/java -Xshare:dump
 
 # escaping required to properly handle arguments with spaces
-ENTRYPOINT ["/usr/share/sling-cli/bin/launcher.sh"]
+ENTRYPOINT ["/usr/share/sling-cli/bin/run.sh"]
+CMD ["help"]
 
 # Add feature launcher
-ADD target/lib /usr/share/sling-cli/launcher
+COPY target/lib/feature-launcher /usr/share/sling-cli/launcher
 # Add launcher script
-ADD target/classes/scripts /usr/share/sling-cli/bin
+COPY target/classes/scripts/run.sh /usr/share/sling-cli/bin/run.sh
 # workaround for MRESOURCES-236
 RUN chmod a+x /usr/share/sling-cli/bin/*
 # Add config files
-ADD target/classes/conf /usr/share/sling-cli/conf
+COPY target/classes/conf /usr/share/sling-cli/conf
 # Add all bundles
-ADD target/artifacts /usr/share/sling-cli/artifacts
+COPY target/artifacts /usr/share/sling-cli/artifacts
 # Add the service itself
 ARG FEATURE_FILE
-ADD ${FEATURE_FILE} /usr/share/sling-cli/sling-cli.feature
+COPY ${FEATURE_FILE} /usr/share/sling-cli/sling-cli.feature
