@@ -42,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.ibm.icu.text.Transliterator;
 
 @Component(service = MembersFinder.class)
 public class MembersFinder {
@@ -50,6 +51,7 @@ public class MembersFinder {
     private static final String PEOPLE_ENDPOINT = "https://whimsy.apache.org/public/public_ldap_people.json";
     private static final String PROJECTS_ENDPOINT = "https://whimsy.apache.org/public/public_ldap_projects.json";
     private static final int STALENESS_IN_HOURS = 3;
+    private static final Transliterator TRANSLITERATOR = Transliterator.getInstance("de-ASCII");
     private Set<Member> members = Collections.emptySet();
     private long lastCheck = 0;
 
@@ -120,7 +122,8 @@ public class MembersFinder {
         Collator collator = Collator.getInstance(Locale.US);
         collator.setDecomposition(Collator.NO_DECOMPOSITION);
         for (Member member : findMembers()) {
-            if (email.equals(member.getEmail()) || (name != null && collator.compare(name, member.getName()) == 0)) {
+            if (email.equals(member.getEmail()) || (name != null && collator.compare(TRANSLITERATOR.transliterate(name),
+                    TRANSLITERATOR.transliterate(member.getName())) == 0)) {
                 return member;
             }
         }
