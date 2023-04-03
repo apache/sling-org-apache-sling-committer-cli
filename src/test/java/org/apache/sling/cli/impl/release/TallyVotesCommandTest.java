@@ -93,6 +93,7 @@ public class TallyVotesCommandTest {
             add(mockEmail("charlie@apache.org", "Charlie"));
             add(mockEmail("daniel@apache.org", "Daniel"));
             add(mockEmail("johndoe@apache.org", "John Doe"));
+            add(mockEmail("jhoh228@googlemail.com.INVALID", "Jörg Hoh"));
         }};
         prepareExecution(mock(Mailer.class), thread);
         TallyVotesCommand tallyVotesCommand = spy(new TallyVotesCommand());
@@ -116,7 +117,7 @@ public class TallyVotesCommandTest {
                 "\n" +
                 "The vote has passed with the following result:\n" +
                 "\n" +
-                "+1 (binding): Alice, Bob, Charlie, John Doe\n" +
+                "+1 (binding): Alice, Bob, Charlie, John Doe, Joerg Hoh\n" +
                 "+1 (non-binding): Daniel\n" +
                 "\n" +
                 "I will copy this release to the Sling dist directory and\n" +
@@ -219,6 +220,7 @@ public class TallyVotesCommandTest {
             add(new Member("bob", "Bob", true));
             add(new Member("charlie", "Charlie", true));
             add(new Member("daniel", "Daniel", false));
+            add(new Member("joerghoh", "Joerg Hoh", true));
         }};
         Whitebox.setInternalState(membersFinder, "members", members);
         Whitebox.setInternalState(membersFinder, "lastCheck", System.currentTimeMillis());

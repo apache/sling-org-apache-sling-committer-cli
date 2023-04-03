@@ -91,6 +91,9 @@
         },
         {
             "id": "commons-io:commons-io:2.6"
+        },
+        {
+            "id": "com.ibm.icu:icu4j:72.1"
         }
     ]
 }
