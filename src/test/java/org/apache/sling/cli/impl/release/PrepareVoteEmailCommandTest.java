@@ -89,7 +89,7 @@ public class PrepareVoteEmailCommandTest {
                         "https://repository.apache.org/content/repositories/orgapachesling-123/\n" +
                         "\n" +
                         "You can use this UNIX script to download the release and verify the signatures:\n" +
-                        "https://gitbox.apache.org/repos/asf?p=sling-tooling-release.git;a=blob;f=check_staged_release.sh;hb=HEAD\n" +
+                        "https://raw.githubusercontent.com/apache/sling-tooling-release/master/check_staged_release.sh\n" +
                         "\n" +
                         "Usage:\n" +
                         "sh check_staged_release.sh 123 /tmp/sling-staging\n" +
