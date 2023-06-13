@@ -83,7 +83,7 @@ public class PrepareVoteEmailCommandTest {
                         "Hi,\n" +
                         "\n" +
                         "We solved 42 issues in this release:\n" +
-                        "https://issues.apache.org/jira/browse/SLING/fixforversion/1\n" +
+                        "https://issues.apache.org/jira/secure/ReleaseNote.jspa?projectId=12310710&version=1&styleName=Text\n" +
                         "\n" +
                         "Staging repository:\n" +
                         "https://repository.apache.org/content/repositories/orgapachesling-123/\n" +

@@ -100,8 +100,8 @@ public class PrepareVoteEmailCommand implements Command {
         }
     }
 
-    private static final String RELEASE_TEMPLATE =
-            "https://issues.apache.org/jira/browse/SLING/fixforversion/##VERSION_ID##";
+    private static final String RELEASE_NOTES_LINK_TEMPLATE =
+            "https://issues.apache.org/jira/secure/ReleaseNote.jspa?projectId=12310710&version=##VERSION_ID##&styleName=Text";
 
     @Override
     public Integer call() {
@@ -129,8 +129,8 @@ public class PrepareVoteEmailCommand implements Command {
                 String releaseOrReleases = versions.size() > 1 ?
                         "these releases" : "this release";
 
-                String releaseJiraLinks = versions.stream()
-                        .map(v -> RELEASE_TEMPLATE.replace("##VERSION_ID##", String.valueOf(v.getId())))
+                String releaseNotesLinks = versions.stream()
+                        .map(v -> RELEASE_NOTES_LINK_TEMPLATE.replace("##VERSION_ID##", String.valueOf(v.getId())))
                         .collect(Collectors.joining("\n"));
 
                 Member currentMember = membersFinder.getCurrentMember();
@@ -140,7 +140,7 @@ public class PrepareVoteEmailCommand implements Command {
                         .replace("##RELEASE_NAME##", releaseName)
                         .replace("##RELEASE_ID##", String.valueOf(repositoryId))
                         .replace("##RELEASE_OR_RELEASES##", releaseOrReleases)
-                        .replace("##RELEASE_JIRA_LINKS##", releaseJiraLinks)
+                        .replace("##RELEASE_JIRA_LINKS##", releaseNotesLinks)
                         .replace("##FIXED_ISSUES_COUNT##", String.valueOf(fixedIssuesCount))
                         .replace("##ISSUE_OR_ISSUES##", issueOrIssues)
                         .replace("##USER_NAME##", currentMember.getName());
