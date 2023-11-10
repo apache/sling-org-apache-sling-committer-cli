@@ -106,7 +106,7 @@ public final class Release {
     }
 
     /**
-     * Returns the component, e.g. <tt>Foo</tt>
+     * Returns the component, e.g. <code>Foo</code>
      * 
      * @return the component
      */
@@ -115,7 +115,7 @@ public final class Release {
     }
     
     /**
-     * Returns the comment, e.g. <tt>(Java 11)</tt>
+     * Returns the comment, e.g. <code>(Java 11)</code>
      * @return the comment
      */
     public String getComment() {
@@ -125,10 +125,10 @@ public final class Release {
     /**
      * Creates a new Release object that corresponds to the next release name
      * 
-     * <p>The next object is identical to <tt>this</tt> object, except the fact that the
+     * <p>The next object is identical to <code>this</code> object, except the fact that the
      * micro component of the version is increased by two.</P>
      * 
-     * <p>For instance, the next version of <tt>Apache Sling Foo 1.0.2</tt> is <tt>Apache Sling Foo 1.0.4</tt>.</p>
+     * <p>For instance, the next version of <code>Apache Sling Foo 1.0.2</code> is <code>Apache Sling Foo 1.0.4</code>.</p>
      * 
      * @return the next release
      */
