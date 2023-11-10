@@ -32,9 +32,10 @@ public final class Release {
         Group 2: Release component
         Group 3: Release version
         Group 4: RC status (optional)
+        Group 5: Additional comment, e.g. (Java 11) (optional)
      */
     private static final Pattern RELEASE_PATTERN = Pattern.compile("^\\h*(Apache Sling\\h*)?([()a-zA-Z0-9\\-.\\h]+)\\h([0-9\\-.]+)" +
-            "\\h?(RC[0-9.]*)?\\h*$");
+            "\\h?(RC[0-9.]*)?\\h*(\\([a-zA-Z0-9\\s]+\\))?\\h*$");
     
     public static List<Release> fromString(String repositoryDescription) {
 
@@ -52,6 +53,9 @@ public final class Release {
                     fullName.append(matcher.group(1).trim()).append(" ");
                 }
                 fullName.append(rel.name);
+                if ( matcher.group(5) != null ) {
+                    fullName.append(' ').append(matcher.group(5));
+                }
                 rel.fullName = fullName.toString();
                 
                 releases.add(rel);
@@ -68,6 +72,7 @@ public final class Release {
     private String name;
     private String component;
     private String version;
+    private String comment;
 
     private Release() {
         
@@ -107,6 +112,14 @@ public final class Release {
      */
     public String getComponent() {
         return component;
+    }
+    
+    /**
+     * Returns the comment, e.g. <tt>(Java 11)</tt>
+     * @return the comment
+     */
+    public String getComment() {
+        return comment;
     }
 
     /**

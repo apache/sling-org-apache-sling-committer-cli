@@ -16,16 +16,16 @@
  */
 package org.apache.sling.cli.impl.release;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import org.junit.Test;
 
@@ -104,6 +104,15 @@ public class ReleaseTest {
         Release next = release.next();
         
         assertEquals("Apache Sling Bar 3", next.getFullName());
+    }
+    
+    @Test
+    public void releaseWithJavaInfo() {
+        List<Release> releases = Release.fromString("Parent 60 (Java 11)");
+        
+        assertEquals("releases.size", 1, releases.size());
+        assertEquals("release.fullName", "Parent 60 (Java 11)", releases.get(0).getFullName());
+        
     }
 
 }
