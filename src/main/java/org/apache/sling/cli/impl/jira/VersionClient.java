@@ -110,7 +110,7 @@ public class VersionClient {
 
     /**
      * Finds a version that is the successor of the version of the specified
-     * <tt>release</tt>
+     * <code>release</code>
      * 
      * <p>
      * A successor has the same base name but a higher version. For instance, the
