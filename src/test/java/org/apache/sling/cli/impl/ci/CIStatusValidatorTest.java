@@ -146,4 +146,10 @@ public class CIStatusValidatorTest {
         assertNotNull(valid.getMessage());
     }
 
+    @Test
+    public void supportsGitHubUrls() throws URISyntaxException {
+        ValidationResult valid = validator.isValid(getResourcePath("/ci/gh-repo-1.0.pom"));
+        assertTrue(valid.isValid());
+        assertNotNull(valid.getMessage());
+    }
 }

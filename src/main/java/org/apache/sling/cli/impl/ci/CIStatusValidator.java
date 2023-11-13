@@ -120,6 +120,10 @@ public class CIStatusValidator {
                         repositoryName = repositoryName.substring(0, repositoryName.indexOf('/'));
                     }
                 }
+                // strip off the .git suffix from the repo name if it exists
+                if(repositoryName.endsWith(".git")) {
+                    repositoryName = repositoryName.substring(0, repositoryName.length() - 4);
+                }
                 log.debug("Extracted REPO: {}", repositoryName);
             }
             if (repositoryName != null && !repositoryName.isEmpty() && !tagName.isEmpty() && !tagName.equalsIgnoreCase("HEAD")) {
@@ -139,8 +143,9 @@ public class CIStatusValidator {
         if (ciEndpoint == null) {
             return new ValidationResult(false, "Cannot extract a CI endpoint from " + artifactFilePath.getFileName());
         }
+        JsonObject status = null;
         try {
-            JsonObject status = fetchJson(ciEndpoint);
+            status = fetchJson(ciEndpoint);
 
             if ("pending".equals(status.get(PN_STATE).getAsString())
                     && status.get("statuses").getAsJsonArray().size() == 0) {
@@ -172,8 +177,9 @@ public class CIStatusValidator {
             } else {
                 return new ValidationResult(false, message);
             }
-        } catch (UnsupportedOperationException | IOException e) {
-            return new ValidationResult(false, "Failed to get CI Status: " + e.toString());
+        } catch (Exception e) {
+            return new ValidationResult(false,
+                    "Failed to get CI Status: " + e.toString() + "\nCI Status Url: " + ciEndpoint + "\nCI Status Body: " + status);
         }
     }
 
