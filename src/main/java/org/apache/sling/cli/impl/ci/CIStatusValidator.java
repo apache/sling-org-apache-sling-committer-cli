@@ -120,6 +120,10 @@ public class CIStatusValidator {
                         repositoryName = repositoryName.substring(0, repositoryName.indexOf('/'));
                     }
                 }
+                // strip off the .git suffix from the repo name if it exists
+                if(repositoryName.endsWith(".git")) {
+                    repositoryName = repositoryName.substring(0, repositoryName.length() - 4);
+                }
                 log.debug("Extracted REPO: {}", repositoryName);
             }
             if (repositoryName != null && !repositoryName.isEmpty() && !tagName.isEmpty() && !tagName.equalsIgnoreCase("HEAD")) {
