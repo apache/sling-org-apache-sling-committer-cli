@@ -139,8 +139,9 @@ public class CIStatusValidator {
         if (ciEndpoint == null) {
             return new ValidationResult(false, "Cannot extract a CI endpoint from " + artifactFilePath.getFileName());
         }
+        JsonObject status = null;
         try {
-            JsonObject status = fetchJson(ciEndpoint);
+            status = fetchJson(ciEndpoint);
 
             if ("pending".equals(status.get(PN_STATE).getAsString())
                     && status.get("statuses").getAsJsonArray().size() == 0) {
@@ -173,7 +174,8 @@ public class CIStatusValidator {
                 return new ValidationResult(false, message);
             }
         } catch (UnsupportedOperationException | IOException e) {
-            return new ValidationResult(false, "Failed to get CI Status: " + e.toString());
+            return new ValidationResult(false,
+                    "Failed to get CI Status: " + e.toString() + "\nUrl: " + ciEndpoint + "\nStatus Body: " + status);
         }
     }
 
