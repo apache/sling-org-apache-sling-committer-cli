@@ -173,7 +173,7 @@ public class CIStatusValidator {
             } else {
                 return new ValidationResult(false, message);
             }
-        } catch (UnsupportedOperationException | IOException e) {
+        } catch (Exception e) {
             return new ValidationResult(false,
                     "Failed to get CI Status: " + e.toString() + "\nUrl: " + ciEndpoint + "\nStatus Body: " + status);
         }
