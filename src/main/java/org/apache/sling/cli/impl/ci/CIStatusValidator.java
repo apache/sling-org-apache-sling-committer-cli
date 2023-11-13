@@ -179,7 +179,7 @@ public class CIStatusValidator {
             }
         } catch (Exception e) {
             return new ValidationResult(false,
-                    "Failed to get CI Status: " + e.toString() + "\nUrl: " + ciEndpoint + "\nStatus Body: " + status);
+                    "Failed to get CI Status: " + e.toString() + "\nCI Status Url: " + ciEndpoint + "\nCI Status Body: " + status);
         }
     }
 
