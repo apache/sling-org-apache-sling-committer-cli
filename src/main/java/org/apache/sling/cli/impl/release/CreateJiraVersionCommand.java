@@ -17,6 +17,7 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 
 import org.apache.sling.cli.impl.Command;
@@ -26,8 +27,8 @@ import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
-import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
+import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -61,6 +62,9 @@ public class CreateJiraVersionCommand implements Command {
     @Reference
     private VersionClient versionClient;
 
+    @CommandLine.Option(names = {"--version-name"}, description = "Jira version name to use", required = false)
+    private String jiraVersionName;
+
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
@@ -69,8 +73,7 @@ public class CreateJiraVersionCommand implements Command {
     @Override
     public Integer call() {
         try {
-            StagingRepository repo = repositoryService.find(repositoryId);
-            for (Release release : repositoryService.getReleases(repo)) {
+            for (Release release : releases()) {
                 Version version = versionClient.find(release);
                 logger.info("Found {}.", version);
                 Version successorVersion = versionClient.findSuccessorVersion(release);
@@ -125,5 +128,13 @@ public class CreateJiraVersionCommand implements Command {
             return CommandLine.ExitCode.SOFTWARE;
         }
         return CommandLine.ExitCode.OK;
+    }
+
+    private Collection<Release> releases() throws IOException {
+        if ( jiraVersionName != null )
+            return Release.fromString(jiraVersionName);
+        
+        StagingRepository repo = repositoryService.find(repositoryId);
+        return repositoryService.getReleases(repo);
     }
 }

@@ -18,6 +18,7 @@ package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -34,8 +35,8 @@ import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.mail.Mailer;
-import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
+import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
 import org.osgi.service.component.annotations.Component;
@@ -81,6 +82,9 @@ public class PrepareVoteEmailCommand implements Command {
     @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
     private Integer repositoryId;
 
+    @CommandLine.Option(names = {"--version-name"}, description = "Jira version name to use", required = false)
+    private String jiraVersionName;
+
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
@@ -111,7 +115,12 @@ public class PrepareVoteEmailCommand implements Command {
                 commandLine.usage(commandLine.getOut());
             } else {
                 StagingRepository repo = repositoryService.find(repositoryId);
-                Set<Release> releases = repositoryService.getReleases(repo);
+                final Collection<Release> releases;
+                if ( jiraVersionName != null )
+                     releases = Release.fromString(jiraVersionName);
+                else 
+                    releases = repositoryService.getReleases(repo);
+                
                 List<Version> versions = releases.stream()
                         .map(r -> versionClient.find(r))
                         .collect(Collectors.toList());

@@ -42,3 +42,5 @@ COPY target/artifacts /usr/share/sling-cli/artifacts
 # Add the service itself
 ARG FEATURE_FILE
 COPY ${FEATURE_FILE} /usr/share/sling-cli/sling-cli.feature
+
+RUN mkdir /usr/share/sling-cli/secrets
