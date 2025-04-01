@@ -16,6 +16,9 @@
  */
 package org.apache.sling.cli.impl;
 
+import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIPLE;
+import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -23,6 +26,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.sling.cli.impl.CommandProcessor.Config;
 import org.apache.sling.cli.impl.release.ReleaseCLIGroup;
 import org.jetbrains.annotations.NotNull;
 import org.osgi.framework.BundleContext;
@@ -32,24 +36,32 @@ import org.osgi.framework.launch.Framework;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.metatype.annotations.AttributeDefinition;
+import org.osgi.service.metatype.annotations.Designate;
+import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import picocli.CommandLine;
 
-import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIPLE;
-import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
-
 @CommandLine.Command(
         name = "docker run -it --env-file=./docker-env apache/sling-cli",
         description = "Apache Sling Committers CLI"
 )
+@Designate(ocd = Config.class)
 @Component(service = CommandProcessor.class)
 public class CommandProcessor {
 
+    @ObjectClassDefinition
+    @interface Config {
+        @AttributeDefinition
+        String cliSpec() default "";
+    }
+
     private final Logger logger = LoggerFactory.getLogger(getClass());
-    private static final String EXEC_ARGS = "exec.args";
+
     private BundleContext ctx;
+    private Config cfg;
 
     private static final Map<String, Class> CLI_GROUPS;
 
@@ -61,8 +73,9 @@ public class CommandProcessor {
     private Map<String, TreeSet<CommandWithProps>> commands = new ConcurrentHashMap<>();
 
     @Activate
-    private void activate(BundleContext ctx) {
+    private void activate(BundleContext ctx, Config cfg) {
         this.ctx = ctx;
+        this.cfg = cfg;
     }
 
     @Reference(service = Command.class, cardinality = MULTIPLE, policy = DYNAMIC)
@@ -106,7 +119,7 @@ public class CommandProcessor {
         }
         int commandExitCode;
         try {
-            String[] arguments = arguments(ctx.getProperty(EXEC_ARGS));
+            String[] arguments = getArgLine().split("\\n");
             commandExitCode = commandLine.execute(arguments);
         } catch (CommandLine.ParameterException e) {
             commandLine.getErr().println(e.getMessage());
@@ -118,21 +131,29 @@ public class CommandProcessor {
             logger.warn("Failed running command.", e);
             commandExitCode = 1;
         } finally {
-            try {
-                ctx.getBundle(Constants.SYSTEM_BUNDLE_LOCATION).adapt(Framework.class).stop();
-            } catch (BundleException e) {
-                logger.error("Failed shutting down framework, forcing exit", e);
-                System.exit(1);
-            }
+            stopFramework();
         }
+        terminateExecution(commandExitCode);
+    }
+
+    // visible for testing
+    protected String getArgLine() {
+        return cfg.cliSpec();
+    }
+
+    // visible for testing
+    protected void terminateExecution(int commandExitCode) {
         System.exit(commandExitCode);
     }
 
-    private String[] arguments(String cliSpec) {
-        if (cliSpec == null) {
-            return new String[0];
+    // visible for testing
+    protected void stopFramework() {
+        try {
+            ctx.getBundle(Constants.SYSTEM_BUNDLE_LOCATION).adapt(Framework.class).stop();
+        } catch (BundleException e) {
+            logger.error("Failed shutting down framework, forcing exit", e);
+            System.exit(1);
         }
-        return cliSpec.split(" ");
     }
 
     static class CommandWithProps implements Comparable<CommandWithProps> {
