@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.DateProvider;
 import org.apache.sling.cli.impl.ExecutionMode;
@@ -38,7 +39,6 @@ import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
 import org.junit.Rule;
 import org.junit.Test;
 import org.osgi.framework.ServiceReference;
-import org.powermock.reflect.Whitebox;
 
 import picocli.CommandLine;
 
@@ -63,10 +63,10 @@ public class PrepareVoteEmailCommandTest {
         CommandLine commandLine = mock(CommandLine.class);
         when(commandSpec.commandLine()).thenReturn(commandLine);
         when(commandLine.isUsageHelpRequested()).thenReturn(false);
-        Whitebox.setInternalState(prepareVoteEmailCommand, "spec", commandSpec);
-        Whitebox.setInternalState(reusableCLIOptions, "executionMode", ExecutionMode.AUTO);
-        Whitebox.setInternalState(prepareVoteEmailCommand, "reusableCLIOptions", reusableCLIOptions);
-        Whitebox.setInternalState(prepareVoteEmailCommand, "repositoryId", 123);
+        FieldUtils.writeField(prepareVoteEmailCommand, "spec", commandSpec, true);
+        FieldUtils.writeField(reusableCLIOptions, "executionMode", ExecutionMode.AUTO, true);
+        FieldUtils.writeField(prepareVoteEmailCommand, "reusableCLIOptions", reusableCLIOptions, true);
+        FieldUtils.writeField(prepareVoteEmailCommand, "repositoryId", 123, true);
         osgiContext.registerInjectActivateService(prepareVoteEmailCommand);
 
         ServiceReference<?> reference =
