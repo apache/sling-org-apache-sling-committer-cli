@@ -1,18 +1,20 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 package org.apache.sling.cli.impl.release;
 
@@ -28,20 +30,21 @@ import java.util.regex.Pattern;
 public final class Release {
 
     /*
-        Group 1: Apache Sling and any trailing whitespace (optional)
-        Group 2: Release component
-        Group 3: Release version
-        Group 4: RC status (optional)
-        Group 5: Additional comment, e.g. (Java 11) (optional)
-     */
-    private static final Pattern RELEASE_PATTERN = Pattern.compile("^\\h*(Apache Sling\\h*)?([()a-zA-Z0-9\\-.\\h]+)\\h([0-9\\-.]+)" +
-            "\\h?(RC[0-9.]*)?\\h*(\\([a-zA-Z0-9\\s]+\\))?\\h*$");
-    
+       Group 1: Apache Sling and any trailing whitespace (optional)
+       Group 2: Release component
+       Group 3: Release version
+       Group 4: RC status (optional)
+       Group 5: Additional comment, e.g. (Java 11) (optional)
+    */
+    private static final Pattern RELEASE_PATTERN =
+            Pattern.compile("^\\h*(Apache Sling\\h*)?([()a-zA-Z0-9\\-.\\h]+)\\h([0-9\\-.]+)"
+                    + "\\h?(RC[0-9.]*)?\\h*(\\([a-zA-Z0-9\\s]+\\))?\\h*$");
+
     public static List<Release> fromString(String repositoryDescription) {
 
         List<Release> releases = new ArrayList<>();
-        for (String item  : repositoryDescription.split(",") ) {
-            
+        for (String item : repositoryDescription.split(",")) {
+
             Matcher matcher = RELEASE_PATTERN.matcher(item);
             if (matcher.matches()) {
                 Release rel = new Release();
@@ -53,53 +56,51 @@ public final class Release {
                     fullName.append(matcher.group(1).trim()).append(" ");
                 }
                 fullName.append(rel.name);
-                if ( matcher.group(5) != null ) {
+                if (matcher.group(5) != null) {
                     fullName.append(' ').append(matcher.group(5));
                 }
                 rel.fullName = fullName.toString();
-                
+
                 releases.add(rel);
             }
         }
-        
-        if ( releases.isEmpty() )
+
+        if (releases.isEmpty())
             throw new IllegalArgumentException("No releases found in '" + repositoryDescription + "'");
-        
+
         return releases;
     }
-    
+
     private String fullName;
     private String name;
     private String component;
     private String version;
     private String comment;
 
-    private Release() {
-        
-    }
-    
+    private Release() {}
+
     /**
      * Returns the full name, e.g. <em>Apache Sling Foo 1.0.2</em>
-     * 
+     *
      * @return the full name
      */
     public String getFullName() {
         return fullName;
     }
-    
+
     /**
      * Returns the name, e.g. <em>Foo 1.0.2</em>
-     * 
+     *
      * @return the name
      */
     public String getName() {
         return name;
     }
-    
+
     /**
      * Returns the version, e.g. <em>1.0.2</em>
-     * 
-     * @return the version 
+     *
+     * @return the version
      */
     public String getVersion() {
         return version;
@@ -107,13 +108,13 @@ public final class Release {
 
     /**
      * Returns the component, e.g. <code>Foo</code>
-     * 
+     *
      * @return the component
      */
     public String getComponent() {
         return component;
     }
-    
+
     /**
      * Returns the comment, e.g. <code>(Java 11)</code>
      * @return the comment
@@ -124,31 +125,32 @@ public final class Release {
 
     /**
      * Creates a new Release object that corresponds to the next release name
-     * 
+     *
      * <p>The next object is identical to <code>this</code> object, except the fact that the
      * micro component of the version is increased by two.</P>
-     * 
+     *
      * <p>For instance, the next version of <code>Apache Sling Foo 1.0.2</code> is <code>Apache Sling Foo 1.0.4</code>.</p>
-     * 
+     *
      * @return the next release
      */
     public Release next() {
-        
+
         // assumption is that the release object is well-formed
         int lastSeparator = fullName.lastIndexOf('.'); // Apache Sling Foo 1.0.2 -> 1.0.4
         int increment = 2;
-        if ( lastSeparator == -1 ) {
+        if (lastSeparator == -1) {
             lastSeparator = fullName.lastIndexOf(' '); // Apache Sling Bar 2 -> 3
             increment = 1;
         }
-        
+
         int componentToIncrement = Integer.parseInt(fullName.substring(lastSeparator + 1));
-        
+
         String unchangedPart = fullName.substring(0, lastSeparator + 1);
-        
-        return Release.fromString(unchangedPart + ( componentToIncrement + increment )).get(0);
+
+        return Release.fromString(unchangedPart + (componentToIncrement + increment))
+                .get(0);
     }
-    
+
     @Override
     public int hashCode() {
         return fullName.hashCode();

@@ -1,28 +1,22 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 package org.apache.sling.cli.impl.ci;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -46,12 +40,20 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 public class CIStatusValidatorTest {
 
     private static final StagingRepository REPOSITORY = mock(StagingRepository.class);
     private static Artifact JAR = new Artifact(REPOSITORY, "org.apache.sling", "sample-artifact", "1.0", "", "jar");
-    private static Artifact NON_REPO_POM_ARTIFACT = new Artifact(REPOSITORY, "org.apache.sling", "no-repo-pom", "1.0",
-            "", "pom");
+    private static Artifact NON_REPO_POM_ARTIFACT =
+            new Artifact(REPOSITORY, "org.apache.sling", "no-repo-pom", "1.0", "", "pom");
     private static Artifact POM_ARTIFACT = new Artifact(REPOSITORY, "org.apache.sling", "repo-pom", "1.0", "", "pom");
     private static final Map<String, String> SYSTEM_PROPS = new HashMap<>();
 
@@ -82,8 +84,9 @@ public class CIStatusValidatorTest {
             CloseableHttpResponse response = mock(CloseableHttpResponse.class);
             if (urlResourceMap.containsKey(get.getURI().toString())) {
                 HttpEntity entity = mock(HttpEntity.class);
-                when(entity.getContent()).thenReturn(
-                        CIStatusValidatorTest.class.getResourceAsStream(urlResourceMap.get(get.getURI().toString())));
+                when(entity.getContent())
+                        .thenReturn(CIStatusValidatorTest.class.getResourceAsStream(
+                                urlResourceMap.get(get.getURI().toString())));
                 when(response.getEntity()).thenReturn(entity);
             } else {
                 throw new IOException("Failed to call URL: " + get.getURI());
@@ -92,11 +95,12 @@ public class CIStatusValidatorTest {
         });
         when(clientFactory.newClient()).thenReturn(httpClient);
 
-        urlResourceMap.put("https://api.github.com/repos/apache/sling-repo-pom/commits/repo-pom-1.0/status",
-                "/ci/failure.json");
-        urlResourceMap.put("https://api.github.com/repos/apache/sling-repo-pom/commits/repo-pom-1.1/status",
-                "/ci/success.json");
-        urlResourceMap.put("https://api.github.com/repos/apache/sling-parent/commits/sling-parent-reactor-47/status",
+        urlResourceMap.put(
+                "https://api.github.com/repos/apache/sling-repo-pom/commits/repo-pom-1.0/status", "/ci/failure.json");
+        urlResourceMap.put(
+                "https://api.github.com/repos/apache/sling-repo-pom/commits/repo-pom-1.1/status", "/ci/success.json");
+        urlResourceMap.put(
+                "https://api.github.com/repos/apache/sling-parent/commits/sling-parent-reactor-47/status",
                 "/ci/tag-status.json");
         urlResourceMap.put(
                 "https://api.github.com/repos/apache/sling-parent/commits/4d051750e93d473d9918c8498233cd42f0f991e6",
@@ -123,15 +127,15 @@ public class CIStatusValidatorTest {
 
     @Test
     public void shouldGetParentCommitForTag() throws URISyntaxException {
-        ValidationResult valid = validator
-                .isValid(getResourcePath("/ci/tag-test.pom"));
+        ValidationResult valid = validator.isValid(getResourcePath("/ci/tag-test.pom"));
         assertTrue(valid.isValid());
         assertNotNull(valid.getMessage());
     }
 
     @Test
     public void getCIStatusEndpoint() throws URISyntaxException {
-        assertEquals("https://api.github.com/repos/apache/sling-repo-pom/commits/repo-pom-1.0/status",
+        assertEquals(
+                "https://api.github.com/repos/apache/sling-repo-pom/commits/repo-pom-1.0/status",
                 validator.getCIStatusEndpoint(getResourcePath("/ci/repo-1.0.pom")));
     }
 

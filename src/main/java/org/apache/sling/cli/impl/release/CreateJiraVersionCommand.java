@@ -1,18 +1,20 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 package org.apache.sling.cli.impl.release;
 
@@ -33,36 +35,41 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import picocli.CommandLine;
 
-@Component(service = Command.class,
-           property = {
-                   Command.PROPERTY_NAME_COMMAND_GROUP + "=" + CreateJiraVersionCommand.GROUP,
-                   Command.PROPERTY_NAME_COMMAND_NAME + "=" + CreateJiraVersionCommand.NAME
-           }
-)
+@Component(
+        service = Command.class,
+        property = {
+            Command.PROPERTY_NAME_COMMAND_GROUP + "=" + CreateJiraVersionCommand.GROUP,
+            Command.PROPERTY_NAME_COMMAND_NAME + "=" + CreateJiraVersionCommand.NAME
+        })
 @CommandLine.Command(
         name = CreateJiraVersionCommand.NAME,
-        description = "Creates a new Jira version, if needed, and transitions any unresolved issues from the version being released to " +
-                "the next one",
-        subcommands = CommandLine.HelpCommand.class
-)
+        description =
+                "Creates a new Jira version, if needed, and transitions any unresolved issues from the version being released to "
+                        + "the next one",
+        subcommands = CommandLine.HelpCommand.class)
 public class CreateJiraVersionCommand implements Command {
 
     static final String GROUP = "release";
     static final String NAME = "create-new-jira-version";
 
-    @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
+    @CommandLine.Option(
+            names = {"-r", "--repository"},
+            description = "Nexus repository id",
+            required = true)
     private Integer repositoryId;
 
     @Reference
     private RepositoryService repositoryService;
-    
+
     @Reference
     private VersionClient versionClient;
 
-    @CommandLine.Option(names = {"--version-name"}, description = "Jira version name to use", required = false)
+    @CommandLine.Option(
+            names = {"--version-name"},
+            description = "Jira version name to use",
+            required = false)
     private String jiraVersionName;
 
     @CommandLine.Mixin
@@ -78,13 +85,13 @@ public class CreateJiraVersionCommand implements Command {
                 logger.info("Found {}.", version);
                 Version successorVersion = versionClient.findSuccessorVersion(release);
                 boolean createNextRelease = false;
-                if ( successorVersion == null ) {
+                if (successorVersion == null) {
                     Release next = release.next();
                     if (reusableCLIOptions.executionMode == ExecutionMode.DRY_RUN) {
                         logger.info("Version {} would be created.", next.getName());
                     } else if (reusableCLIOptions.executionMode == ExecutionMode.INTERACTIVE) {
-                        InputOption answer = UserInput.yesNo(String.format("Should version %s be created?", next.getName()),
-                                InputOption.YES);
+                        InputOption answer = UserInput.yesNo(
+                                String.format("Should version %s be created?", next.getName()), InputOption.YES);
                         createNextRelease = (answer == InputOption.YES);
                     } else if (reusableCLIOptions.executionMode == ExecutionMode.AUTO) {
                         createNextRelease = true;
@@ -102,21 +109,28 @@ public class CreateJiraVersionCommand implements Command {
                     if (!unresolvedIssues.isEmpty()) {
                         boolean moveIssues = false;
                         if (reusableCLIOptions.executionMode == ExecutionMode.DRY_RUN) {
-                            logger.info("{} unresolved issues would be moved from version {} to version {} :",
-                                    unresolvedIssues.size(), version.getName(), successorVersion.getName());
+                            logger.info(
+                                    "{} unresolved issues would be moved from version {} to version {} :",
+                                    unresolvedIssues.size(),
+                                    version.getName(),
+                                    successorVersion.getName());
                         } else if (reusableCLIOptions.executionMode == ExecutionMode.INTERACTIVE) {
-                            InputOption answer = UserInput.yesNo(String.format("Should the %s unresolved issue(s) from version %s be " +
-                                            "moved " +
-                                    "to version %s?", unresolvedIssues.size(), version.getName(), successorVersion.getName()),
+                            InputOption answer = UserInput.yesNo(
+                                    String.format(
+                                            "Should the %s unresolved issue(s) from version %s be " + "moved "
+                                                    + "to version %s?",
+                                            unresolvedIssues.size(), version.getName(), successorVersion.getName()),
                                     InputOption.YES);
                             moveIssues = (answer == InputOption.YES);
                         } else if (reusableCLIOptions.executionMode == ExecutionMode.AUTO) {
                             moveIssues = true;
                         }
                         if (moveIssues) {
-                            logger.info("Moving the following issues from {} to {}.", version.getName(), successorVersion.getName());
-                            unresolvedIssues
-                                    .forEach(i -> logger.info("- {} : {}", i.getKey(), i.getSummary()));
+                            logger.info(
+                                    "Moving the following issues from {} to {}.",
+                                    version.getName(),
+                                    successorVersion.getName());
+                            unresolvedIssues.forEach(i -> logger.info("- {} : {}", i.getKey(), i.getSummary()));
                             versionClient.moveIssuesToNewVersion(version, successorVersion, unresolvedIssues);
                             logger.info("Done.");
                         }
@@ -131,9 +145,8 @@ public class CreateJiraVersionCommand implements Command {
     }
 
     private Collection<Release> releases() throws IOException {
-        if ( jiraVersionName != null )
-            return Release.fromString(jiraVersionName);
-        
+        if (jiraVersionName != null) return Release.fromString(jiraVersionName);
+
         StagingRepository repo = repositoryService.find(repositoryId);
         return repositoryService.getReleases(repo);
     }

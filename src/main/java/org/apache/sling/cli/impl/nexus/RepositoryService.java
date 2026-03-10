@@ -1,20 +1,30 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 package org.apache.sling.cli.impl.nexus;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,14 +41,11 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathExpressionException;
-import javax.xml.xpath.XPathFactory;
-
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -58,12 +65,6 @@ import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
 @Component(service = RepositoryService.class)
 public class RepositoryService {
 
@@ -79,6 +80,7 @@ public class RepositoryService {
 
     @Reference
     private HttpClientFactory httpClientFactory;
+
     private String nexusUrlPrefix;
 
     @Activate
@@ -105,7 +107,8 @@ public class RepositoryService {
                     .filter(r -> r.getRepositoryId().startsWith(REPOSITORY_PREFIX))
                     .filter(r -> r.getRepositoryId().endsWith("-" + stagingRepositoryId))
                     .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("No repository found with id " + stagingRepositoryId));
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("No repository found with id " + stagingRepositoryId));
         });
     }
 
@@ -114,7 +117,7 @@ public class RepositoryService {
             HttpGet get = newGet("/service/local/staging/profile_repositories");
             try (CloseableHttpResponse response = client.execute(get)) {
                 try (InputStream content = response.getEntity().getContent();
-                     InputStreamReader reader = new InputStreamReader(content)) {
+                        InputStreamReader reader = new InputStreamReader(content)) {
                     if (response.getStatusLine().getStatusCode() != 200) {
                         throw new IOException("Status line : " + response.getStatusLine());
                     }
@@ -138,15 +141,22 @@ public class RepositoryService {
                     try (CloseableHttpClient client = httpClientFactory.newClient()) {
                         for (Artifact artifact : artifacts) {
                             String fileRelativePath = artifact.getRepositoryRelativePath();
-                            String relativeFolderPath = fileRelativePath.substring(0, fileRelativePath.lastIndexOf('/'));
+                            String relativeFolderPath =
+                                    fileRelativePath.substring(0, fileRelativePath.lastIndexOf('/'));
                             Path artifactFolderPath = Files.createDirectories(rootFolder.resolve(relativeFolderPath));
                             downloadFileFromRepository(repository, client, artifactFolderPath, fileRelativePath);
-                            downloadFileFromRepository(repository, client, artifactFolderPath,
+                            downloadFileFromRepository(
+                                    repository,
+                                    client,
+                                    artifactFolderPath,
                                     artifact.getRepositoryRelativeSignaturePath());
-                            downloadFileFromRepository(repository, client, artifactFolderPath,
+                            downloadFileFromRepository(
+                                    repository,
+                                    client,
+                                    artifactFolderPath,
                                     artifact.getRepositoryRelativeSha1SumPath());
-                            downloadFileFromRepository(repository, client, artifactFolderPath,
-                                    artifact.getRepositoryRelativeMd5SumPath());
+                            downloadFileFromRepository(
+                                    repository, client, artifactFolderPath, artifact.getRepositoryRelativeMd5SumPath());
                         }
                     }
                     localRepository = new LocalRepository(repository, artifacts, rootFolder);
@@ -170,12 +180,11 @@ public class RepositoryService {
     public Set<Artifact> getArtifacts(StagingRepository repository) throws IOException {
         Set<Artifact> artifacts = new HashSet<>();
         try (CloseableHttpClient client = httpClientFactory.newClient()) {
-            HttpGet get =
-                    newGet("/service/local/lucene/search?g=org.apache.sling&repositoryId=" +
-                            repository.getRepositoryId());
+            HttpGet get = newGet(
+                    "/service/local/lucene/search?g=org.apache.sling&repositoryId=" + repository.getRepositoryId());
             try (CloseableHttpResponse response = client.execute(get)) {
                 try (InputStream content = response.getEntity().getContent();
-                     InputStreamReader reader = new InputStreamReader(content)) {
+                        InputStreamReader reader = new InputStreamReader(content)) {
                     JsonParser parser = new JsonParser();
                     JsonObject json = parser.parse(reader).getAsJsonObject();
                     JsonArray data = json.get("data").getAsJsonArray();
@@ -185,9 +194,13 @@ public class RepositoryService {
                         String groupId = dataElementJson.get("groupId").getAsString();
                         String artifactId = dataElementJson.get("artifactId").getAsString();
                         String version = dataElementJson.get("version").getAsString();
-                        JsonArray artifactLinksArray =
-                                dataElementJson.get("artifactHits").getAsJsonArray().get(0).getAsJsonObject().get("artifactLinks")
-                                        .getAsJsonArray();
+                        JsonArray artifactLinksArray = dataElementJson
+                                .get("artifactHits")
+                                .getAsJsonArray()
+                                .get(0)
+                                .getAsJsonObject()
+                                .get("artifactLinks")
+                                .getAsJsonArray();
                         for (JsonElement artifactLinkElement : artifactLinksArray) {
                             JsonObject artifactLinkJson = artifactLinkElement.getAsJsonObject();
                             String type = artifactLinkJson.get("extension").getAsString();
@@ -210,7 +223,8 @@ public class RepositoryService {
             try (CloseableHttpResponse response = client.execute(get)) {
                 int statusCode = response.getStatusLine().getStatusCode();
                 if (statusCode != 200) {
-                    throw new IOException(String.format("Got %d instead of 200 when retrieving %s.", statusCode, get.getURI()));
+                    throw new IOException(
+                            String.format("Got %d instead of 200 when retrieving %s.", statusCode, get.getURI()));
                 }
                 consumer.accept(response.getEntity().getContent());
             }
@@ -219,33 +233,47 @@ public class RepositoryService {
 
     public Set<Release> getReleases(StagingRepository stagingRepository) throws IOException {
         Set<Release> releases = new HashSet<>();
-        getArtifacts(stagingRepository).stream().filter(artifact -> "pom".equals(artifact.getType())).forEach(pom -> {
-            try {
-                XPath xPath = xPathFactory.newXPath();
-                processArtifactStream(pom, stream -> {
+        getArtifacts(stagingRepository).stream()
+                .filter(artifact -> "pom".equals(artifact.getType()))
+                .forEach(pom -> {
                     try {
-                        DocumentBuilder builder = builderFactory.newDocumentBuilder();
-                        Document xmlDocument = builder.parse(stream);
-                        String name = (String) xPath.compile("/project/name/text()").evaluate(xmlDocument, XPathConstants.STRING);
-                        String version = (String) xPath.compile("/project/version/text()").evaluate(xmlDocument, XPathConstants.STRING);
-                        try {
-                            releases.addAll(Release.fromString(name + " " + version));
-                        } catch (IllegalArgumentException e) {
-                            LOGGER.error(String.format("Unable to determine a valid release from '%s %s'", name, version), e);
-                        }
-                    } catch (ParserConfigurationException | SAXException | XPathExpressionException | IOException e) {
+                        XPath xPath = xPathFactory.newXPath();
+                        processArtifactStream(pom, stream -> {
+                            try {
+                                DocumentBuilder builder = builderFactory.newDocumentBuilder();
+                                Document xmlDocument = builder.parse(stream);
+                                String name = (String) xPath.compile("/project/name/text()")
+                                        .evaluate(xmlDocument, XPathConstants.STRING);
+                                String version = (String) xPath.compile("/project/version/text()")
+                                        .evaluate(xmlDocument, XPathConstants.STRING);
+                                try {
+                                    releases.addAll(Release.fromString(name + " " + version));
+                                } catch (IllegalArgumentException e) {
+                                    LOGGER.error(
+                                            String.format(
+                                                    "Unable to determine a valid release from '%s %s'", name, version),
+                                            e);
+                                }
+                            } catch (ParserConfigurationException
+                                    | SAXException
+                                    | XPathExpressionException
+                                    | IOException e) {
+                                LOGGER.error(String.format("Unable to process artifact %s.", pom), e);
+                            }
+                        });
+                    } catch (IOException e) {
                         LOGGER.error(String.format("Unable to process artifact %s.", pom), e);
                     }
                 });
-            } catch (IOException e) {
-                LOGGER.error(String.format("Unable to process artifact %s.", pom), e);
-            }
-        });
         return Set.copyOf(releases);
     }
 
-    private void downloadFileFromRepository(@NotNull StagingRepository repository, @NotNull CloseableHttpClient client,
-                                            @NotNull Path artifactFolderPath, @NotNull String relativeFilePath) throws IOException {
+    private void downloadFileFromRepository(
+            @NotNull StagingRepository repository,
+            @NotNull CloseableHttpClient client,
+            @NotNull Path artifactFolderPath,
+            @NotNull String relativeFilePath)
+            throws IOException {
         String fileName = relativeFilePath.substring(relativeFilePath.lastIndexOf('/') + 1);
         Path filePath = Files.createFile(artifactFolderPath.resolve(fileName));
         HttpGet get = new HttpGet(repository.getRepositoryURI() + "/" + relativeFilePath);
@@ -264,5 +292,4 @@ public class RepositoryService {
         get.addHeader(HttpHeaders.ACCEPT, CONTENT_TYPE_JSON);
         return get;
     }
-
 }
