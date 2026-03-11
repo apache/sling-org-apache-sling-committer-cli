@@ -1,21 +1,21 @@
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- ~ Licensed to the Apache Software Foundation (ASF) under one
- ~ or more contributor license agreements.  See the NOTICE file
- ~ distributed with this work for additional information
- ~ regarding copyright ownership.  The ASF licenses this file
- ~ to you under the Apache License, Version 2.0 (the
- ~ "License"); you may not use this file except in compliance
- ~ with the License.  You may obtain a copy of the License at
- ~
- ~   http://www.apache.org/licenses/LICENSE-2.0
- ~
- ~ Unless required by applicable law or agreed to in writing,
- ~ software distributed under the License is distributed on an
- ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- ~ KIND, either express or implied.  See the License for the
- ~ specific language governing permissions and limitations
- ~ under the License.
- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
@@ -42,20 +42,18 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import picocli.CommandLine;
 
-@Component(service = Command.class,
-           property = {
-                   Command.PROPERTY_NAME_COMMAND_GROUP + "=" + UpdateReporterCommand.GROUP,
-                   Command.PROPERTY_NAME_COMMAND_NAME + "=" + UpdateReporterCommand.NAME,
-           }
-)
+@Component(
+        service = Command.class,
+        property = {
+            Command.PROPERTY_NAME_COMMAND_GROUP + "=" + UpdateReporterCommand.GROUP,
+            Command.PROPERTY_NAME_COMMAND_NAME + "=" + UpdateReporterCommand.NAME,
+        })
 @CommandLine.Command(
         name = UpdateReporterCommand.NAME,
         description = "Updates the Apache Reporter System with the new release information",
-        subcommands = CommandLine.HelpCommand.class
-)
+        subcommands = CommandLine.HelpCommand.class)
 public class UpdateReporterCommand implements Command {
 
     static final String GROUP = "release";
@@ -69,7 +67,10 @@ public class UpdateReporterCommand implements Command {
     @Reference
     private HttpClientFactory httpClientFactory;
 
-    @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
+    @CommandLine.Option(
+            names = {"-r", "--repository"},
+            description = "Nexus repository id",
+            required = true)
     private Integer repositoryId;
 
     @CommandLine.Mixin
@@ -87,9 +88,13 @@ public class UpdateReporterCommand implements Command {
                     releases.forEach(release -> LOGGER.info("  - {}", release.getFullName()));
                     break;
                 case INTERACTIVE:
-                    StringBuilder question = new StringBuilder(String.format("Should the following %s be added to the Apache Reporter " +
-                            "System?", releaseReleases)).append("\n");
-                    releases.forEach(release -> question.append("  - ").append(release.getFullName()).append("\n"));
+                    StringBuilder question = new StringBuilder(String.format(
+                                    "Should the following %s be added to the Apache Reporter " + "System?",
+                                    releaseReleases))
+                            .append("\n");
+                    releases.forEach(release -> question.append("  - ")
+                            .append(release.getFullName())
+                            .append("\n"));
                     InputOption answer = UserInput.yesNo(question.toString(), InputOption.YES);
                     if (InputOption.YES.equals(answer)) {
                         LOGGER.info("Updating the Apache Reporter System...");
@@ -111,7 +116,6 @@ public class UpdateReporterCommand implements Command {
             return CommandLine.ExitCode.SOFTWARE;
         }
         return CommandLine.ExitCode.OK;
-
     }
 
     private void updateReporter(Set<Release> releases) throws IOException {
@@ -128,8 +132,10 @@ public class UpdateReporterCommand implements Command {
                 post.setEntity(new UrlEncodedFormEntity(parameters, StandardCharsets.UTF_8));
                 try (CloseableHttpResponse response = client.execute(post)) {
                     if (response.getStatusLine().getStatusCode() != 200) {
-                        throw new IOException(String.format("The Apache Reporter System update failed for release %s. Got response code " +
-                                "%s instead of 200.", release.getFullName(), response.getStatusLine().getStatusCode()));
+                        throw new IOException(String.format(
+                                "The Apache Reporter System update failed for release %s. Got response code "
+                                        + "%s instead of 200.",
+                                release.getFullName(), response.getStatusLine().getStatusCode()));
                     }
                 }
             }

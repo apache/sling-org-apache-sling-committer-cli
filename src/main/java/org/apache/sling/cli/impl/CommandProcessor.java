@@ -1,23 +1,22 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 package org.apache.sling.cli.impl;
-
-import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIPLE;
-import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -41,13 +40,14 @@ import org.osgi.service.metatype.annotations.Designate;
 import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import picocli.CommandLine;
+
+import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIPLE;
+import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
 
 @CommandLine.Command(
         name = "docker run -it --env-file=./docker-env apache/sling-cli",
-        description = "Apache Sling Committers CLI"
-)
+        description = "Apache Sling Committers CLI")
 @Designate(ocd = Config.class)
 @Component(service = CommandProcessor.class)
 public class CommandProcessor {
@@ -94,7 +94,6 @@ public class CommandProcessor {
                 commands.remove(commandWithProps.group);
             }
         }
-
     }
 
     void runCommand() {
@@ -149,7 +148,9 @@ public class CommandProcessor {
     // visible for testing
     protected void stopFramework() {
         try {
-            ctx.getBundle(Constants.SYSTEM_BUNDLE_LOCATION).adapt(Framework.class).stop();
+            ctx.getBundle(Constants.SYSTEM_BUNDLE_LOCATION)
+                    .adapt(Framework.class)
+                    .stop();
         } catch (BundleException e) {
             logger.error("Failed shutting down framework, forcing exit", e);
             System.exit(1);
@@ -162,11 +163,8 @@ public class CommandProcessor {
         private final Command cmd;
 
         static CommandWithProps of(Command cmd, Map<String, ?> props) {
-            return new CommandWithProps(
-                    cmd,
-                    (String) props.get(Command.PROPERTY_NAME_COMMAND_GROUP),
-                    (String) props.get(Command.PROPERTY_NAME_COMMAND_NAME)
-            );
+            return new CommandWithProps(cmd, (String) props.get(Command.PROPERTY_NAME_COMMAND_GROUP), (String)
+                    props.get(Command.PROPERTY_NAME_COMMAND_NAME));
         }
 
         CommandWithProps(Command cmd, String group, String name) {

@@ -1,21 +1,21 @@
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- ~ Licensed to the Apache Software Foundation (ASF) under one
- ~ or more contributor license agreements.  See the NOTICE file
- ~ distributed with this work for additional information
- ~ regarding copyright ownership.  The ASF licenses this file
- ~ to you under the Apache License, Version 2.0 (the
- ~ "License"); you may not use this file except in compliance
- ~ with the License.  You may obtain a copy of the License at
- ~
- ~   http://www.apache.org/licenses/LICENSE-2.0
- ~
- ~ Unless required by applicable law or agreed to in writing,
- ~ software distributed under the License is distributed on an
- ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- ~ KIND, either express or implied.  See the License for the
- ~ specific language governing permissions and limitations
- ~ under the License.
- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.sling.cli.impl.nexus;
 
 import java.io.IOException;
@@ -75,9 +75,10 @@ public class RepositoryServiceTest {
     @Before
     public void prepareDependencies() {
         context.registerInjectActivateService(new CredentialsService());
-        context.registerInjectActivateService(new HttpClientFactory(), "nexus.host", "localhost", "nexus.port", nexus.getBoundPort());
-        repositoryService = context.registerInjectActivateService(new RepositoryService(), "nexus.url.prefix",
-                "http://localhost:" + nexus.getBoundPort());
+        context.registerInjectActivateService(
+                new HttpClientFactory(), "nexus.host", "localhost", "nexus.port", nexus.getBoundPort());
+        repositoryService = context.registerInjectActivateService(
+                new RepositoryService(), "nexus.url.prefix", "http://localhost:" + nexus.getBoundPort());
     }
 
     @Test
@@ -98,7 +99,9 @@ public class RepositoryServiceTest {
         assertEquals(2, stagingRepositories.size());
         Set<String> repositoriesIds = new HashSet<>(Set.of("orgapachesling-0", "orgapachesling-1"));
         for (StagingRepository repository : stagingRepositories) {
-            assertEquals("http://localhost:" + nexus.getBoundPort() + "/content/repositories/" + repository.getRepositoryId(),
+            assertEquals(
+                    "http://localhost:" + nexus.getBoundPort() + "/content/repositories/"
+                            + repository.getRepositoryId(),
                     repository.repositoryURI);
             repositoriesIds.remove(repository.getRepositoryId());
         }
@@ -114,8 +117,11 @@ public class RepositoryServiceTest {
             if ("pom".equals(artifact.getType())) {
                 repositoryService.processArtifactStream(artifact, inputStream -> {
                     try (InputStream stream = inputStream) {
-                        assertEquals(IOUtils.resourceToString("/nexus/orgapachesling-0/org/apache/sling/adapter-annotations/1.0" +
-                                        ".0/adapter-annotations-1.0.0.pom", StandardCharsets.UTF_8),
+                        assertEquals(
+                                IOUtils.resourceToString(
+                                        "/nexus/orgapachesling-0/org/apache/sling/adapter-annotations/1.0"
+                                                + ".0/adapter-annotations-1.0.0.pom",
+                                        StandardCharsets.UTF_8),
                                 IOUtils.toString(stream, StandardCharsets.UTF_8));
                         processed.set(true);
                     } catch (IOException e) {
@@ -135,15 +141,17 @@ public class RepositoryServiceTest {
         for (Artifact artifact : localRepository.getArtifacts()) {
             assertTrue(Files.exists(localRepository.getRootFolder().resolve(artifact.getRepositoryRelativePath())));
         }
-        List<Path> artifactFiles =
-                Files.walk(localRepository.getRootFolder()).filter(path -> path.toFile().isFile()).collect(Collectors.toList());
+        List<Path> artifactFiles = Files.walk(localRepository.getRootFolder())
+                .filter(path -> path.toFile().isFile())
+                .collect(Collectors.toList());
         LOGGER.debug("Cleaning {}.", localRepository.getRootFolder());
         for (Path artifactFile : artifactFiles) {
             LOGGER.debug("Deleting file {}.", artifactFile.toString());
             Files.delete(artifactFile);
         }
-        List<Path> emptyDirectories =
-                Files.walk(localRepository.getRootFolder()).filter(path -> path.toFile().isDirectory()).collect(Collectors.toList());
+        List<Path> emptyDirectories = Files.walk(localRepository.getRootFolder())
+                .filter(path -> path.toFile().isDirectory())
+                .collect(Collectors.toList());
         Collections.reverse(emptyDirectories);
         for (Path directory : emptyDirectories) {
             LOGGER.debug("Deleting empty folder {}.", directory.toString());
@@ -160,11 +168,11 @@ public class RepositoryServiceTest {
         assertEquals("Sling Adapter Annotations 1.0.0", release.getFullName());
     }
 
-
     private StagingRepository getStagingRepository() {
         StagingRepository stagingRepository = new StagingRepository();
         stagingRepository.setRepositoryId("orgapachesling-0");
-        stagingRepository.setRepositoryURI("http://localhost:" + nexus.getBoundPort() + "/content/repositories/orgapachesling-0");
+        stagingRepository.setRepositoryURI(
+                "http://localhost:" + nexus.getBoundPort() + "/content/repositories/orgapachesling-0");
         return stagingRepository;
     }
 }
