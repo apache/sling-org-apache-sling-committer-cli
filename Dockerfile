@@ -22,6 +22,9 @@ LABEL org.opencontainers.image.licenses="Apache-2.0"
 
 COPY --from=builder /opt/jre /opt/jre
 
+# subversion provides svn and svnmucc, used by release update-dist (PMC members only)
+RUN apk add --no-cache subversion
+
 # Generate class data sharing
 RUN /opt/jre/bin/java -Xshare:dump
 
