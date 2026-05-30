@@ -33,6 +33,7 @@ public class StagingRepository {
     protected String repositoryId;
     protected String repositoryURI;
     protected Status type;
+    protected String userId;
 
     public String getDescription() {
         return description;
@@ -40,6 +41,19 @@ public class StagingRepository {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    /**
+     * Returns the id of the committer who staged this repository, as reported by Nexus.
+     *
+     * @return the staging user id
+     */
+    public String getUserId() {
+        return userId;
+    }
+
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public String getRepositoryId() {

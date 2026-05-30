@@ -57,7 +57,12 @@ public class ListCommand implements Command {
         try {
             repositoryService
                     .list()
-                    .forEach(r -> logger.info("{}\t{}", r.getRepositoryId(), cleanupNewlines(r.getDescription())));
+                    .forEach(r -> logger.info(
+                            "{}\t[{}]\t{}\t{}",
+                            r.getRepositoryId(),
+                            r.getType(),
+                            r.getUserId(),
+                            cleanupNewlines(r.getDescription())));
             return CommandLine.ExitCode.OK;
         } catch (IOException e) {
             logger.warn("Failed executing command", e);

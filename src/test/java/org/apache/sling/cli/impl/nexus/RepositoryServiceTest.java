@@ -96,8 +96,10 @@ public class RepositoryServiceTest {
     @Test
     public void testRepositoryList() throws IOException {
         List<StagingRepository> stagingRepositories = repositoryService.list();
-        assertEquals(2, stagingRepositories.size());
-        Set<String> repositoriesIds = new HashSet<>(Set.of("orgapachesling-0", "orgapachesling-1"));
+        // Includes both closed repositories and the open (not yet closed) one, so that newly
+        // staged repositories show up before they have been closed for voting.
+        assertEquals(3, stagingRepositories.size());
+        Set<String> repositoriesIds = new HashSet<>(Set.of("orgapachesling-0", "orgapachesling-1", "orgapachesling-2"));
         for (StagingRepository repository : stagingRepositories) {
             assertEquals(
                     "http://localhost:" + nexus.getBoundPort() + "/content/repositories/"

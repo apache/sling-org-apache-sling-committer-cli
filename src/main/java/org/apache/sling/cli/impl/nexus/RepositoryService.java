@@ -93,7 +93,6 @@ public class RepositoryService {
         return this.withStagingRepositories(reader -> {
             Gson gson = new Gson();
             return gson.fromJson(reader, StagingRepositories.class).getData().stream()
-                    .filter(r -> r.getType() == Status.closed)
                     .filter(r -> r.getRepositoryId().startsWith(REPOSITORY_PREFIX))
                     .collect(Collectors.toList());
         });
