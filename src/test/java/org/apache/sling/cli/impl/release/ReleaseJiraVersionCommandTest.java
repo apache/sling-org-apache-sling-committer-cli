@@ -40,6 +40,7 @@ import picocli.CommandLine;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -111,9 +112,33 @@ public class ReleaseJiraVersionCommandTest {
         verify(versionClient, times(1)).release(any());
     }
 
+    @Test
+    public void testReleaseByName() throws Exception {
+        // the release is resolved from --release, so the command works without the (now-gone) staging repo
+        prepare();
+        Command command = createCommandByName("Apache Sling CLI Test 1.0.0", ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+        verify(versionClient, times(1)).release(any());
+        verify(repositoryService, never()).find(anyInt());
+    }
+
     private Command createCommand(int repositoryId, ExecutionMode executionMode) throws Exception {
         ReleaseJiraVersionCommand releaseJiraVersionCommand = spy(new ReleaseJiraVersionCommand());
         FieldUtils.writeField(releaseJiraVersionCommand, "repositoryId", repositoryId, true);
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        FieldUtils.writeField(reusableCLIOptions, "executionMode", executionMode, true);
+        FieldUtils.writeField(releaseJiraVersionCommand, "reusableCLIOptions", reusableCLIOptions, true);
+        osgiContext.registerInjectActivateService(releaseJiraVersionCommand);
+        Command result = osgiContext.getService(Command.class);
+        assertTrue(
+                "Expected to retrieve the ReleaseJiraVersionCommand from the mocked OSGi environment.",
+                result instanceof ReleaseJiraVersionCommand);
+        return result;
+    }
+
+    private Command createCommandByName(String releaseName, ExecutionMode executionMode) throws Exception {
+        ReleaseJiraVersionCommand releaseJiraVersionCommand = spy(new ReleaseJiraVersionCommand());
+        FieldUtils.writeField(releaseJiraVersionCommand, "releaseName", releaseName, true);
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
         FieldUtils.writeField(reusableCLIOptions, "executionMode", executionMode, true);
         FieldUtils.writeField(releaseJiraVersionCommand, "reusableCLIOptions", reusableCLIOptions, true);

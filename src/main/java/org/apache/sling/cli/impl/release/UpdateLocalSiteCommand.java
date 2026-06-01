@@ -28,7 +28,6 @@ import java.util.Set;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.jbake.JBakeContentUpdater;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
-import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ResetCommand.ResetType;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -63,9 +62,25 @@ public class UpdateLocalSiteCommand implements Command {
 
     @CommandLine.Option(
             names = {"-r", "--repository"},
-            description = "Nexus repository id",
-            required = true)
+            description = "Nexus staging repository id to derive the release(s) from")
     private Integer repositoryId;
+
+    @CommandLine.Option(
+            names = {"--release"},
+            description = "Release name(s) to act on, e.g. \"Apache Sling Foo 1.2.0\" (comma-separated for multiple)."
+                    + " Use instead of --repository when the staging repository no longer exists,"
+                    + " e.g. after the release has been promoted.")
+    private String releaseName;
+
+    private Set<Release> resolveReleases() throws IOException {
+        if (releaseName != null && !releaseName.isBlank()) {
+            return Set.copyOf(Release.fromString(releaseName));
+        }
+        if (repositoryId == null) {
+            return null;
+        }
+        return repositoryService.getReleases(repositoryService.find(repositoryId));
+    }
 
     @Override
     public Integer call() {
@@ -73,8 +88,11 @@ public class UpdateLocalSiteCommand implements Command {
             ensureRepo();
             try (Git git = Git.open(new File(GIT_CHECKOUT))) {
 
-                StagingRepository repository = repositoryService.find(repositoryId);
-                Set<Release> releases = repositoryService.getReleases(repository);
+                Set<Release> releases = resolveReleases();
+                if (releases == null) {
+                    logger.error("Provide either --repository or --release.");
+                    return CommandLine.ExitCode.USAGE;
+                }
 
                 JBakeContentUpdater updater = new JBakeContentUpdater();
 

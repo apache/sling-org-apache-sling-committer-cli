@@ -18,6 +18,7 @@
  */
 package org.apache.sling.cli.impl.release;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
@@ -28,7 +29,6 @@ import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
-import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -58,9 +58,15 @@ public class ReleaseJiraVersionCommand implements Command {
 
     @CommandLine.Option(
             names = {"-r", "--repository"},
-            description = "Nexus repository id",
-            required = true)
+            description = "Nexus staging repository id to derive the release(s) from")
     private Integer repositoryId;
+
+    @CommandLine.Option(
+            names = {"--release"},
+            description = "Release name(s) to act on, e.g. \"Apache Sling Foo 1.2.0\" (comma-separated for multiple)."
+                    + " Use instead of --repository when the staging repository no longer exists,"
+                    + " e.g. after the release has been promoted.")
+    private String releaseName;
 
     @Reference
     private RepositoryService repositoryService;
@@ -71,11 +77,24 @@ public class ReleaseJiraVersionCommand implements Command {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
+    private Set<Release> resolveReleases() throws IOException {
+        if (releaseName != null && !releaseName.isBlank()) {
+            return Set.copyOf(Release.fromString(releaseName));
+        }
+        if (repositoryId == null) {
+            return null;
+        }
+        return repositoryService.getReleases(repositoryService.find(repositoryId));
+    }
+
     @Override
     public Integer call() {
         try {
-            StagingRepository repo = repositoryService.find(repositoryId);
-            Set<Release> releases = repositoryService.getReleases(repo);
+            Set<Release> releases = resolveReleases();
+            if (releases == null) {
+                LOGGER.error("Provide either --repository or --release.");
+                return CommandLine.ExitCode.USAGE;
+            }
             ExecutionMode executionMode = reusableCLIOptions.executionMode;
             LOGGER.info(
                     "The following Jira versions {} be released:{}",
