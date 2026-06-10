@@ -50,6 +50,12 @@ Generating a release vote email
 Generating a release vote result email
 
     docker run --env-file=./docker-env apache/sling-cli release tally-votes --repository=$STAGING_REPOSITORY_ID
+
+By default the generated `[RESULT]` email replies to the original `[VOTE]` thread.
+
+To generate a standalone result email instead:
+
+    docker run --env-file=./docker-env apache/sling-cli release tally-votes --repository=$STAGING_REPOSITORY_ID --no-reply-to-vote-email
     
 Generating the website update (only diff for now)
 

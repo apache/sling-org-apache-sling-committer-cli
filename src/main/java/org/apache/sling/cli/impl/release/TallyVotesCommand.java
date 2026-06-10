@@ -86,6 +86,11 @@ public class TallyVotesCommand implements Command {
             required = true)
     private Integer repositoryId;
 
+    @CommandLine.Option(
+            names = {"--no-reply-to-vote-email"},
+            description = "Do not add reply headers referencing the original [VOTE] email")
+    private boolean noReplyToVoteEmail;
+
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
@@ -112,9 +117,9 @@ public class TallyVotesCommand implements Command {
             Set<String> nonBindingVoters = new LinkedHashSet<>();
             Collator collator = Collator.getInstance(Locale.US);
             collator.setDecomposition(Collator.NO_DECOMPOSITION);
-            List<Email> emailThread = voteThreadFinder.findVoteThread(releaseName);
+            List<Email> emailThread = voteThreadFinder.findVoteThread(releaseFullName);
             if (emailThread.isEmpty()) {
-                LOGGER.error("Could not find a corresponding email voting thread for release \"{}\".", releaseName);
+                LOGGER.error("Could not find a corresponding email voting thread for release \"{}\".", releaseFullName);
             } else {
                 emailThread.stream().skip(1).filter(this::isPositiveVote).forEachOrdered(email -> {
                     String from = email.getFrom().getAddress();
@@ -131,12 +136,20 @@ public class TallyVotesCommand implements Command {
                     }
                 });
                 Member currentMember = membersFinder.getCurrentMember();
+                String replyHeaders = "";
+                if (!noReplyToVoteEmail) {
+                    String messageId = emailThread.get(0).getMessageId();
+                    if (messageId != null && !messageId.isEmpty()) {
+                        replyHeaders = "In-Reply-To: " + messageId + "\n" + "References: " + messageId + "\n";
+                    }
+                }
                 String email = EMAIL_TEMPLATE
                         .replace(
                                 "##FROM##",
                                 new InternetAddress(currentMember.getEmail(), currentMember.getName())
                                         .toUnicodeString())
                         .replace("##DATE##", dateProvider.getCurrentDateForEmailHeader())
+                        .replace("##REPLY_HEADERS##", replyHeaders)
                         .replace("##RELEASE_NAME##", releaseFullName)
                         .replace("##BINDING_VOTERS##", String.join(", ", bindingVoters))
                         .replace(

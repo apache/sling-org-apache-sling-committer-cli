@@ -44,6 +44,7 @@ import org.apache.http.impl.client.HttpClients;
 public class Email {
 
     private String id;
+    private String messageId;
     private InternetAddress from;
     private String subject;
     private String body;
@@ -61,6 +62,7 @@ public class Email {
                         throw new IOException("Status line : " + response.getStatusLine());
                     }
                     MimeMessage message = new MimeMessage(Session.getDefaultInstance(new Properties()), content);
+                    messageId = message.getHeader("Message-ID", null);
                     subject = message.getSubject();
                     Address[] who = message.getFrom();
                     if (who.length > 0) {
@@ -76,6 +78,10 @@ public class Email {
 
     public String getId() {
         return id;
+    }
+
+    public String getMessageId() {
+        return messageId;
     }
 
     public InternetAddress getFrom() {
