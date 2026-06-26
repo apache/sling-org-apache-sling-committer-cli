@@ -171,6 +171,54 @@ public class FinalizeCommandTest {
         }
     }
 
+    @Test
+    public void testReporterFailureReturnsSoftware() throws Exception {
+        prepare(false);
+        // the reporter POST now returns a non-200 status, which must surface as a SOFTWARE exit code
+        StatusLine statusLine = mock(StatusLine.class);
+        when(statusLine.getStatusCode()).thenReturn(500);
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        when(response.getStatusLine()).thenReturn(statusLine);
+        when(client.execute(any())).thenReturn(response);
+
+        Command command = createCommand(123, ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.SOFTWARE, (int) command.call());
+        assertTrue(logCapture.containsMessage("Failed executing command"));
+    }
+
+    @Test
+    public void testAutoCreatesNextJiraVersionAndMovesIssues() throws Exception {
+        prepare(false);
+        // no successor exists yet -> the next version is created; after creation a successor is found
+        org.apache.sling.cli.impl.jira.Version successor = mock(org.apache.sling.cli.impl.jira.Version.class);
+        when(successor.getName()).thenReturn("CLI Test 1.0.2");
+        when(versionClient.findSuccessorVersion(any())).thenReturn(null, successor);
+        org.apache.sling.cli.impl.jira.Issue issue = mock(org.apache.sling.cli.impl.jira.Issue.class);
+        when(versionClient.findUnresolvedIssues(any())).thenReturn(List.of(issue));
+
+        Command command = createCommand(123, ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+        verify(versionClient).create(any());
+        verify(versionClient).moveIssuesToNewVersion(any(), any(), any());
+    }
+
+    @Test
+    public void testDryRunDescribesNextJiraVersionAndIssues() throws Exception {
+        prepare(false);
+        when(versionClient.findSuccessorVersion(any())).thenReturn(null);
+        org.apache.sling.cli.impl.jira.Issue issue = mock(org.apache.sling.cli.impl.jira.Issue.class);
+        when(versionClient.findUnresolvedIssues(any())).thenReturn(List.of(issue));
+
+        Command command = createCommand(123, ExecutionMode.DRY_RUN);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+        // dry-run must not actually create versions or move issues
+        verify(versionClient, never()).create(any());
+        verify(versionClient, never()).moveIssuesToNewVersion(any(), any(), any());
+        assertTrue(logCapture.containsMessage("Would create JIRA version CLI Test 1.0.2"));
+    }
+
     private Command createCommand(int repositoryId, ExecutionMode executionMode) throws IllegalAccessException {
         FinalizeCommand finalizeCommand = spy(new FinalizeCommand());
         FieldUtils.writeField(finalizeCommand, "repositoryId", repositoryId, true);

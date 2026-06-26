@@ -65,7 +65,17 @@ public class MockNexus extends ExternalResource {
         List<HttpExchangeHandler> handlers = new ArrayList<>();
         handlers.add(new QueryLuceneIndexHandler());
         handlers.add(new StagingRepositoriesHandler());
+        handlers.add(new RepositoryContentListingHandler());
         handlers.add(new RepositoryContentHandler());
+        // staging bulk actions (close/promote/delete) are POSTs answered with HTTP 201
+        handlers.add(ex -> {
+            if ("POST".equals(ex.getRequestMethod())
+                    && ex.getRequestURI().getPath().startsWith("/service/local/staging/bulk/")) {
+                ex.sendResponseHeaders(201, -1);
+                return true;
+            }
+            return false;
+        });
         handlers.add(ex -> {
             ex.sendResponseHeaders(400, -1);
             return true;

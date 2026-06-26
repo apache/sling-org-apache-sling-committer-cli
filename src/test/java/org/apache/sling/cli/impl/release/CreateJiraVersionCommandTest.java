@@ -23,6 +23,8 @@ import java.util.List;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.ExecutionMode;
+import org.apache.sling.cli.impl.InputOption;
+import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
@@ -31,6 +33,7 @@ import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
 import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.MockedStatic;
 import picocli.CommandLine;
 
 import static org.junit.Assert.assertEquals;
@@ -38,10 +41,12 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 public class CreateJiraVersionCommandTest {
@@ -96,6 +101,15 @@ public class CreateJiraVersionCommandTest {
     }
 
     @Test
+    public void testNoRepositoryNoReleaseReturnsUsage() throws Exception {
+        prepare();
+        Command command = createCommandWithoutRepository(ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.USAGE, (int) command.call());
+        assertTrue(logCapture.containsMessage("Provide either --repository or --release."));
+        verifyNoInteractions(versionClient);
+    }
+
+    @Test
     public void testAutoMovesUnresolvedIssues() throws Exception {
         prepare();
         Version version = mock(Version.class);
@@ -114,6 +128,76 @@ public class CreateJiraVersionCommandTest {
 
         verify(versionClient, never()).create(anyString());
         verify(versionClient, times(1)).moveIssuesToNewVersion(any(), any(), any());
+    }
+
+    @Test
+    public void testInteractiveCreatesAndMovesOnYes() throws Exception {
+        prepare();
+        Version version = mock(Version.class);
+        when(version.getName()).thenReturn("1.0.0");
+        Version successor = mock(Version.class);
+        when(successor.getName()).thenReturn("1.0.2");
+        Issue issue = mock(Issue.class);
+        when(issue.getKey()).thenReturn("SLING-123");
+        when(issue.getSummary()).thenReturn("Some bug");
+        when(versionClient.find(any())).thenReturn(version);
+        when(versionClient.findSuccessorVersion(any())).thenReturn(null, successor);
+        when(versionClient.findUnresolvedIssues(any())).thenReturn(List.of(issue));
+
+        try (MockedStatic<UserInput> userInput = mockStatic(UserInput.class)) {
+            userInput.when(() -> UserInput.yesNo(anyString(), any())).thenReturn(InputOption.YES);
+            Command command = createCommand(ExecutionMode.INTERACTIVE, VERSION_NAME);
+            assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+            verify(versionClient, times(1)).create(anyString());
+            verify(versionClient, times(1)).moveIssuesToNewVersion(any(), any(), any());
+        }
+    }
+
+    @Test
+    public void testInteractiveSkipsOnNo() throws Exception {
+        prepare();
+        Version version = mock(Version.class);
+        when(version.getName()).thenReturn("1.0.0");
+        Version successor = mock(Version.class);
+        when(successor.getName()).thenReturn("1.0.2");
+        Issue issue = mock(Issue.class);
+        when(versionClient.find(any())).thenReturn(version);
+        when(versionClient.findSuccessorVersion(any())).thenReturn(successor);
+        when(versionClient.findUnresolvedIssues(any())).thenReturn(List.of(issue));
+
+        try (MockedStatic<UserInput> userInput = mockStatic(UserInput.class)) {
+            userInput.when(() -> UserInput.yesNo(anyString(), any())).thenReturn(InputOption.NO);
+            Command command = createCommand(ExecutionMode.INTERACTIVE, VERSION_NAME);
+            assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+            verify(versionClient, never()).moveIssuesToNewVersion(any(), any(), any());
+        }
+    }
+
+    @Test
+    public void testIOExceptionReturnsSoftware() throws Exception {
+        // releases() resolves from the staging repository; an IOException there surfaces as SOFTWARE
+        versionClient = mock(VersionClient.class);
+        osgiContext.registerService(VersionClient.class, versionClient);
+        RepositoryService repositoryService = mock(RepositoryService.class);
+        when(repositoryService.find(123)).thenThrow(new java.io.IOException("nexus down"));
+        osgiContext.registerService(RepositoryService.class, repositoryService);
+
+        Command command = createCommand(ExecutionMode.AUTO, null);
+        assertEquals(CommandLine.ExitCode.SOFTWARE, (int) command.call());
+        assertTrue(logCapture.containsMessage("Failed executing command"));
+    }
+
+    private Command createCommandWithoutRepository(ExecutionMode executionMode) throws IllegalAccessException {
+        CreateJiraVersionCommand createJiraVersionCommand = spy(new CreateJiraVersionCommand());
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        FieldUtils.writeField(reusableCLIOptions, "executionMode", executionMode, true);
+        FieldUtils.writeField(createJiraVersionCommand, "reusableCLIOptions", reusableCLIOptions, true);
+        osgiContext.registerInjectActivateService(createJiraVersionCommand);
+        Command result = osgiContext.getService(Command.class);
+        assertTrue(
+                "Expected to retrieve the CreateJiraVersionCommand from the mocked OSGi environment.",
+                result instanceof CreateJiraVersionCommand);
+        return result;
     }
 
     private Command createCommand(ExecutionMode executionMode, String jiraVersionName) throws IllegalAccessException {

@@ -128,28 +128,29 @@ public class TallyVotesCommandTest {
         Command command = createCommand(123, ExecutionMode.DRY_RUN);
         assertEquals(CommandLine.ExitCode.OK, (int) command.call());
         verifyNoInteractions(mailer);
-        assertTrue(logCapture.containsMessage(
-                "From: Daniel <daniel@apache.org>\n" + "To: \"Sling Developers List\" <dev@sling.apache.org>\n"
-                        + "Reply-To: \"Sling Developers List\" <dev@sling.apache.org>\n"
-                        + "Date: Thu, 1 Jan 1970 01:00:00 +0100\n"
-                        + "Subject: [RESULT] [VOTE] Release Apache Sling CLI Test 1.0.0\n"
-                        + "\n"
-                        + "Hi,\n"
-                        + "\n"
-                        + "The vote has passed with the following result:\n"
-                        + "\n"
-                        + "+1 (binding): Alice, Bob, Charlie\n"
-                        + "+1 (non-binding): none\n"
-                        + "\n"
-                        + "I will promote the artifacts to the central Maven repository.\n"
-                        + "\n"
-                        + "As I am not a PMC member, I cannot copy the release to the dist directory myself.\n"
-                        + "\n"
-                        + "ACTION NEEDED: can a PMC member please copy Apache Sling CLI Test 1.0.0 to the"
-                        + " Sling dist directory (https://dist.apache.org/repos/dist/release/sling/)?\n"
-                        + "\n"
-                        + "Regards,\n"
-                        + "Daniel\n"));
+        assertTrue(logCapture.containsMessage("""
+                From: Daniel <daniel@apache.org>
+                To: "Sling Developers List" <dev@sling.apache.org>
+                Reply-To: "Sling Developers List" <dev@sling.apache.org>
+                Date: Thu, 1 Jan 1970 01:00:00 +0100
+                Subject: [RESULT] [VOTE] Release Apache Sling CLI Test 1.0.0
+
+                Hi,
+
+                The vote has passed with the following result:
+
+                +1 (binding): Alice, Bob, Charlie
+                +1 (non-binding): none
+
+                I will promote the artifacts to the central Maven repository.
+
+                As I am not a PMC member, I cannot copy the release to the dist directory myself.
+
+                ACTION NEEDED: can a PMC member please copy Apache Sling CLI Test 1.0.0 to the Sling dist directory (https://dist.apache.org/repos/dist/release/sling/)?
+
+                Regards,
+                Daniel
+                """));
     }
 
     @Test

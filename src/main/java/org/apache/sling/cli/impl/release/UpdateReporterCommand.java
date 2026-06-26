@@ -86,7 +86,7 @@ public class UpdateReporterCommand implements Command {
             return Set.copyOf(Release.fromString(releaseName));
         }
         if (repositoryId == null) {
-            return null;
+            return Set.of();
         }
         return repositoryService.getReleases(repositoryService.find(repositoryId));
     }
@@ -95,7 +95,7 @@ public class UpdateReporterCommand implements Command {
     public Integer call() {
         try {
             Set<Release> releases = resolveReleases();
-            if (releases == null) {
+            if (releases.isEmpty()) {
                 LOGGER.error("Provide either --repository or --release.");
                 return CommandLine.ExitCode.USAGE;
             }

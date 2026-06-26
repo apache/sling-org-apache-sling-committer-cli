@@ -20,9 +20,10 @@ package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
@@ -163,6 +164,10 @@ public class FinalizeCommand implements Command {
             }
 
             LOGGER.info("=== Release finalization complete! ===");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOGGER.warn("Failed executing command", e);
+            return CommandLine.ExitCode.SOFTWARE;
         } catch (Exception e) {
             LOGGER.warn("Failed executing command", e);
             return CommandLine.ExitCode.SOFTWARE;
@@ -245,15 +250,17 @@ public class FinalizeCommand implements Command {
 
     private void stepUpdateReporter(Set<Release> releases) throws IOException {
         try (CloseableHttpClient client = httpClientFactory.newClient()) {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-            Date now = new Date();
+            Instant now = Instant.now();
+            String xdate = DateTimeFormatter.ISO_LOCAL_DATE
+                    .withZone(ZoneId.systemDefault())
+                    .format(now);
             for (Release release : releases) {
                 HttpPost post = new HttpPost("https://reporter.apache.org/addrelease.py");
                 List<NameValuePair> params = new ArrayList<>();
-                params.add(new BasicNameValuePair("date", Long.toString(now.getTime() / 1000)));
+                params.add(new BasicNameValuePair("date", Long.toString(now.getEpochSecond())));
                 params.add(new BasicNameValuePair("committee", "sling"));
                 params.add(new BasicNameValuePair("version", release.getFullName()));
-                params.add(new BasicNameValuePair("xdate", sdf.format(now)));
+                params.add(new BasicNameValuePair("xdate", xdate));
                 post.setEntity(new UrlEncodedFormEntity(params, StandardCharsets.UTF_8));
                 try (CloseableHttpResponse response = client.execute(post)) {
                     if (response.getStatusLine().getStatusCode() != 200) {

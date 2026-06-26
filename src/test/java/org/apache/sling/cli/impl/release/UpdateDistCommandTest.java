@@ -18,6 +18,7 @@
  */
 package org.apache.sling.cli.impl.release;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
@@ -26,6 +27,8 @@ import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.Credentials;
 import org.apache.sling.cli.impl.CredentialsService;
 import org.apache.sling.cli.impl.ExecutionMode;
+import org.apache.sling.cli.impl.InputOption;
+import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.junit.LogCapture;
 import org.apache.sling.cli.impl.nexus.Artifact;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
@@ -121,6 +124,28 @@ public class UpdateDistCommandTest {
         }
     }
 
+    @Test
+    public void testAutoDeduceKeepsNewVersionWithClassifierAndExtension() throws Exception {
+        // files for the version being published (with both an extension '.' and a classifier '-' right
+        // after the version) must be kept, exercising belongsToVersion's trailing-character check
+        List<String> releaseDir = List.of(
+                ARTIFACT + "-1.3.6", // exact match: filename equals the version prefix with no extension
+                ARTIFACT + "-1.3.6.pom",
+                ARTIFACT + "-1.3.6-source-release.zip",
+                ARTIFACT + "-1.3.4.pom");
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> UpdateDistCommand.listSvnFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+                    .thenReturn(releaseDir);
+
+            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "1.3.6", null);
+
+            assertEquals(List.of(ARTIFACT + "-1.3.4.pom"), old);
+            assertFalse(old.contains(ARTIFACT + "-1.3.6"));
+            assertFalse(old.contains(ARTIFACT + "-1.3.6.pom"));
+            assertFalse(old.contains(ARTIFACT + "-1.3.6-source-release.zip"));
+        }
+    }
+
     // ---- full command flow ----
 
     @Test
@@ -174,6 +199,118 @@ public class UpdateDistCommandTest {
             Command command = createCommand(ExecutionMode.AUTO, null);
             assertEquals(CommandLine.ExitCode.USAGE, (int) command.call());
             dist.verify(() -> UpdateDistCommand.runSvnMucc(any(), any(), any(), any(), any()), never());
+        }
+    }
+
+    @Test
+    public void testInteractiveYesCommitsViaSvnMucc() throws Exception {
+        prepareRepositoryService();
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS);
+                MockedStatic<UserInput> userInput = mockStatic(UserInput.class)) {
+            dist.when(() -> UpdateDistCommand.listSvnFiles(eq(UpdateDistCommand.DIST_DEV_URL), anyString()))
+                    .thenReturn(List.of(ARTIFACT + "-1.3.6-source-release.zip"));
+            dist.when(() -> UpdateDistCommand.listSvnFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+                    .thenReturn(List.of(ARTIFACT + "-1.3.4.pom"));
+            dist.when(() -> UpdateDistCommand.runSvnMucc(any(), any(), any(), any(), any()))
+                    .thenAnswer(invocation -> null);
+            userInput
+                    .when(() -> UserInput.yesNo(anyString(), eq(InputOption.YES)))
+                    .thenReturn(InputOption.YES);
+
+            Command command = createCommand(ExecutionMode.INTERACTIVE, null);
+            assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+            dist.verify(() -> UpdateDistCommand.runSvnMucc(eq(ARTIFACT), eq("1.3.6"), any(), any(), any()));
+        }
+    }
+
+    @Test
+    public void testInteractiveNoAborts() throws Exception {
+        prepareRepositoryService();
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS);
+                MockedStatic<UserInput> userInput = mockStatic(UserInput.class)) {
+            dist.when(() -> UpdateDistCommand.listSvnFiles(eq(UpdateDistCommand.DIST_DEV_URL), anyString()))
+                    .thenReturn(List.of(ARTIFACT + "-1.3.6-source-release.zip"));
+            dist.when(() -> UpdateDistCommand.listSvnFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+                    .thenReturn(List.of(ARTIFACT + "-1.3.4.pom"));
+            userInput
+                    .when(() -> UserInput.yesNo(anyString(), eq(InputOption.YES)))
+                    .thenReturn(InputOption.NO);
+
+            Command command = createCommand(ExecutionMode.INTERACTIVE, null);
+            assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+            assertTrue(logCapture.containsMessage("Aborted."));
+            dist.verify(() -> UpdateDistCommand.runSvnMucc(any(), any(), any(), any(), any()), never());
+        }
+    }
+
+    @Test
+    public void testExplicitPreviousVersionFullFlow() throws Exception {
+        prepareRepositoryService();
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> UpdateDistCommand.listSvnFiles(eq(UpdateDistCommand.DIST_DEV_URL), anyString()))
+                    .thenReturn(List.of(ARTIFACT + "-1.3.6-source-release.zip"));
+            dist.when(() -> UpdateDistCommand.listSvnFiles(
+                            eq(UpdateDistCommand.DIST_RELEASE_URL), eq(ARTIFACT + "-1.3.4")))
+                    .thenReturn(List.of(ARTIFACT + "-1.3.4.pom"));
+            dist.when(() -> UpdateDistCommand.runSvnMucc(any(), any(), any(), any(), any()))
+                    .thenAnswer(invocation -> null);
+
+            Command command = createCommand(ExecutionMode.AUTO, "1.3.4");
+            assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+            dist.verify(() -> UpdateDistCommand.runSvnMucc(eq(ARTIFACT), eq("1.3.6"), any(), any(), any()));
+        }
+    }
+
+    @Test
+    public void testIOExceptionReturnsSoftware() throws Exception {
+        prepareRepositoryService();
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> UpdateDistCommand.listSvnFiles(any(), anyString())).thenThrow(new IOException("svn boom"));
+
+            Command command = createCommand(ExecutionMode.AUTO, null);
+            assertEquals(CommandLine.ExitCode.SOFTWARE, (int) command.call());
+            assertTrue(logCapture.containsMessage("Failed executing command"));
+        }
+    }
+
+    @Test
+    public void testInterruptedExceptionReturnsSoftwareAndReinterrupts() throws Exception {
+        prepareRepositoryService();
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> UpdateDistCommand.listSvnFiles(eq(UpdateDistCommand.DIST_DEV_URL), anyString()))
+                    .thenReturn(List.of(ARTIFACT + "-1.3.6-source-release.zip"));
+            dist.when(() -> UpdateDistCommand.listSvnFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+                    .thenReturn(List.of());
+            dist.when(() -> UpdateDistCommand.runSvnMucc(any(), any(), any(), any(), any()))
+                    .thenThrow(new InterruptedException("interrupted"));
+
+            Command command = createCommand(ExecutionMode.AUTO, null);
+            assertEquals(CommandLine.ExitCode.SOFTWARE, (int) command.call());
+            assertTrue("The thread interrupt flag must be restored.", Thread.interrupted());
+        }
+    }
+
+    @Test
+    public void testNoPomArtifactThrows() throws Exception {
+        StagingRepository repository = mock(StagingRepository.class);
+        RepositoryService repositoryService = mock(RepositoryService.class);
+        when(repositoryService.find(123)).thenReturn(repository);
+        // a staging repository without a POM artifact triggers the orElseThrow guard
+        Artifact jar = new Artifact(repository, "org.apache.sling", ARTIFACT, "1.3.6", null, "jar");
+        when(repositoryService.getArtifacts(repository)).thenReturn(Set.of(jar));
+        CredentialsService credentialsService = mock(CredentialsService.class);
+        osgiContext.registerService(RepositoryService.class, repositoryService);
+        osgiContext.registerService(CredentialsService.class, credentialsService);
+
+        Command command = createCommand(ExecutionMode.AUTO, null);
+        try {
+            command.call();
+            org.junit.Assert.fail("Expected an IllegalStateException when no POM artifact is present.");
+        } catch (IllegalStateException e) {
+            assertTrue(e.getMessage().contains("No POM artifact"));
         }
     }
 

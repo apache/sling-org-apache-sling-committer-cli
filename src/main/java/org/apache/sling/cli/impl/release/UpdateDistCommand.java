@@ -63,6 +63,11 @@ public class UpdateDistCommand implements Command {
     static final String DIST_DEV_URL = "https://dist.apache.org/repos/dist/dev/sling/";
     static final String DIST_RELEASE_URL = "https://dist.apache.org/repos/dist/release/sling/";
 
+    // svn/svnmucc are provided by the Subversion package installed in the runtime image; pin the
+    // executable lookup to fixed, unwriteable system directories so command resolution cannot be
+    // hijacked through an attacker-controlled PATH (Sonar java:S4036).
+    private static final String SAFE_PATH = "/usr/bin:/bin";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(UpdateDistCommand.class);
 
     @CommandLine.Option(
@@ -167,7 +172,9 @@ public class UpdateDistCommand implements Command {
         }
 
         logger.info("Running svnmucc to update dist.apache.org...");
-        int exitCode = new ProcessBuilder(cmd).inheritIO().start().waitFor();
+        ProcessBuilder pb = new ProcessBuilder(cmd).inheritIO();
+        pb.environment().put("PATH", SAFE_PATH);
+        int exitCode = pb.start().waitFor();
         if (exitCode != 0) {
             throw new IOException("svnmucc failed with exit code " + exitCode);
         }
@@ -187,11 +194,11 @@ public class UpdateDistCommand implements Command {
         }
         return listSvnFiles(DIST_RELEASE_URL, artifactId + "-").stream()
                 // keep only versioned files for this exact artifact (a numeric version component
-                // right after the prefix excludes sibling artifacts such as "<artifactId>-extra-...")
+                // right after the prefix excludes sibling artifacts such as artifactId-extra-...)
                 .filter(f -> isVersionedArtifactFile(f, artifactId))
                 // never remove the version we are about to publish
                 .filter(f -> !belongsToVersion(f, artifactId, newVersion))
-                .collect(java.util.stream.Collectors.toList());
+                .toList();
     }
 
     private static boolean isVersionedArtifactFile(String fileName, String artifactId) {
@@ -206,8 +213,8 @@ public class UpdateDistCommand implements Command {
         if (!fileName.startsWith(prefix)) {
             return false;
         }
-        // the version is followed by an extension ('.') or a classifier ('-'), or is the whole name;
-        // this avoids matching e.g. 1.0.14 against 1.0.140
+        // the version must be the whole name, or be followed by an extension dot or a classifier dash;
+        // this avoids matching version 1.0.14 against the longer 1.0.140
         if (fileName.length() == prefix.length()) {
             return true;
         }
@@ -219,6 +226,7 @@ public class UpdateDistCommand implements Command {
         List<String> files = new ArrayList<>();
         try {
             ProcessBuilder pb = new ProcessBuilder("svn", "list", "--non-interactive", baseUrl);
+            pb.environment().put("PATH", SAFE_PATH);
             pb.redirectErrorStream(true);
             Process p = pb.start();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {

@@ -80,7 +80,7 @@ public class CreateJiraVersionCommand implements Command {
     public Integer call() {
         try {
             Collection<Release> releases = releases();
-            if (releases == null) {
+            if (releases.isEmpty()) {
                 logger.error("Provide either --repository or --release.");
                 return CommandLine.ExitCode.USAGE;
             }
@@ -153,7 +153,7 @@ public class CreateJiraVersionCommand implements Command {
             return Release.fromString(jiraVersionName);
         }
         if (repositoryId == null) {
-            return null;
+            return List.of();
         }
         return repositoryService.getReleases(repositoryService.find(repositoryId));
     }

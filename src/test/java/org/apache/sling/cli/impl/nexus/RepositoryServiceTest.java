@@ -171,6 +171,97 @@ public class RepositoryServiceTest {
     }
 
     @Test
+    public void testGetReleasesFromContent() throws IOException {
+        // browses the repository content tree directly (no Lucene index), recursing into directories
+        // and parsing every .pom leaf it finds
+        StagingRepository repository = new StagingRepository();
+        repository.setRepositoryId("orgapachesling-3");
+        Set<Release> releases = repositoryService.getReleasesFromContent(repository);
+        assertEquals(1, releases.size());
+        assertEquals(
+                "Sling Adapter Annotations 1.0.0", releases.iterator().next().getFullName());
+    }
+
+    @Test
+    public void testFindAnyReturnsOpenRepository() throws IOException {
+        // findAny does not require the repository to be closed, so the open orgapachesling-2 resolves
+        StagingRepository repository = repositoryService.findAny(2);
+        assertNotNull(repository);
+        assertEquals("orgapachesling-2", repository.getRepositoryId());
+    }
+
+    @Test
+    public void testFindAnyUnknownThrows() {
+        try {
+            repositoryService.findAny(999);
+            fail("Expected an IllegalArgumentException for an unknown repository id.");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("999"));
+        } catch (IOException e) {
+            fail("Unexpected IOException.");
+        }
+    }
+
+    @Test
+    public void testPromote() throws IOException {
+        // exercises the bulk-action POST path; MockNexus answers staging bulk actions with HTTP 201
+        repositoryService.promote(getStagingRepository());
+    }
+
+    @Test
+    public void testCloseWithDescription() throws IOException {
+        repositoryService.close(getStagingRepository(), "voting");
+    }
+
+    @Test
+    public void testDrop() throws IOException {
+        repositoryService.drop(getStagingRepository());
+    }
+
+    @Test
+    public void testParsePomInheritsGroupIdAndVersionFromParent() throws Exception {
+        // a child module POM omitting <groupId>/<version>/<packaging> inherits them from <parent>
+        String pomXml = "<project>"
+                + "<name>Apache Sling Child</name>"
+                + "<artifactId>child</artifactId>"
+                + "<parent>"
+                + "<groupId>org.apache.sling</groupId>"
+                + "<artifactId>parent</artifactId>"
+                + "<version>3.4.5</version>"
+                + "</parent>"
+                + "</project>";
+        RepositoryService.PomCoordinates coordinates = invokeParsePom(pomXml);
+        assertNotNull(coordinates);
+        assertEquals("org.apache.sling", coordinates.groupId());
+        assertEquals("3.4.5", coordinates.version());
+        assertEquals("jar", coordinates.packaging());
+    }
+
+    @Test
+    public void testParsePomInvalidXmlReturnsNull() throws Exception {
+        // malformed XML triggers the error branch which logs and returns null
+        assertEquals(null, invokeParsePom("this is not xml"));
+    }
+
+    @Test
+    public void testToReleasesSkipsInvalidReleaseNames() {
+        // a POM whose name/version cannot be parsed into a Release yields an empty result rather than
+        // throwing, exercising the buildReleases error branch
+        Set<Release> releases = RepositoryService.toReleases(
+                List.of(pom("", "org.apache.sling", "org.apache.sling.broken", "", "jar", PARENT_POM)));
+        assertTrue(releases.isEmpty());
+    }
+
+    private RepositoryService.PomCoordinates invokeParsePom(String pomXml) throws Exception {
+        java.lang.reflect.Method method =
+                RepositoryService.class.getDeclaredMethod("parsePom", InputStream.class, String.class);
+        method.setAccessible(true);
+        try (InputStream stream = new java.io.ByteArrayInputStream(pomXml.getBytes(StandardCharsets.UTF_8))) {
+            return (RepositoryService.PomCoordinates) method.invoke(repositoryService, stream, "test.pom");
+        }
+    }
+
+    @Test
     public void testToReleasesSingleModule() {
         // a POM's <name> is the bare component name; the version comes from <version>
         Set<Release> releases = RepositoryService.toReleases(List.of(

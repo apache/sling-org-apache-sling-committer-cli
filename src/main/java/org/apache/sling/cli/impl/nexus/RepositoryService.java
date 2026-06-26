@@ -454,7 +454,7 @@ public class RepositoryService {
                 // and is the root of the staged hierarchy (its own parent is not itself staged, e.g. it
                 // is the shared org.apache.sling parent POM, which is not part of the release)
                 .filter(p -> p.parentKey() == null || !stagedKeys.contains(p.parentKey()))
-                .collect(Collectors.toList());
+                .toList();
         if (aggregators.size() == 1) {
             return buildReleases(aggregators.get(0));
         }

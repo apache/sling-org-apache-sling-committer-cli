@@ -77,7 +77,7 @@ public class UpdateLocalSiteCommand implements Command {
             return Set.copyOf(Release.fromString(releaseName));
         }
         if (repositoryId == null) {
-            return null;
+            return Set.of();
         }
         return repositoryService.getReleases(repositoryService.find(repositoryId));
     }
@@ -89,7 +89,7 @@ public class UpdateLocalSiteCommand implements Command {
             try (Git git = Git.open(new File(GIT_CHECKOUT))) {
 
                 Set<Release> releases = resolveReleases();
-                if (releases == null) {
+                if (releases.isEmpty()) {
                     logger.error("Provide either --repository or --release.");
                     return CommandLine.ExitCode.USAGE;
                 }
