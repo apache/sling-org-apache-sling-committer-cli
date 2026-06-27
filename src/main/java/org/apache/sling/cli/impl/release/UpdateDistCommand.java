@@ -63,10 +63,11 @@ public class UpdateDistCommand implements Command {
     static final String DIST_DEV_URL = "https://dist.apache.org/repos/dist/dev/sling/";
     static final String DIST_RELEASE_URL = "https://dist.apache.org/repos/dist/release/sling/";
 
-    // svn/svnmucc are provided by the Subversion package installed in the runtime image; pin the
-    // executable lookup to fixed, unwriteable system directories so command resolution cannot be
-    // hijacked through an attacker-controlled PATH (Sonar java:S4036).
-    private static final String SAFE_PATH = "/usr/bin:/bin";
+    // Invoke svn/svnmucc by absolute path so execution never relies on PATH resolution, which an
+    // attacker could hijack (Sonar java:S4036). Both binaries are provided by the Subversion package
+    // installed in the runtime image (see Dockerfile: `apk add subversion`).
+    private static final String SVN = "/usr/bin/svn";
+    private static final String SVNMUCC = "/usr/bin/svnmucc";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UpdateDistCommand.class);
 
@@ -152,7 +153,7 @@ public class UpdateDistCommand implements Command {
         Logger logger = LoggerFactory.getLogger(UpdateDistCommand.class);
 
         List<String> cmd = new ArrayList<>();
-        cmd.add("svnmucc");
+        cmd.add(SVNMUCC);
         cmd.add("--username");
         cmd.add(credentials.getUsername());
         cmd.add("--password");
@@ -172,9 +173,7 @@ public class UpdateDistCommand implements Command {
         }
 
         logger.info("Running svnmucc to update dist.apache.org...");
-        ProcessBuilder pb = new ProcessBuilder(cmd).inheritIO();
-        pb.environment().put("PATH", SAFE_PATH);
-        int exitCode = pb.start().waitFor();
+        int exitCode = new ProcessBuilder(cmd).inheritIO().start().waitFor();
         if (exitCode != 0) {
             throw new IOException("svnmucc failed with exit code " + exitCode);
         }
@@ -225,8 +224,7 @@ public class UpdateDistCommand implements Command {
     static List<String> listSvnFiles(String baseUrl, String prefix) throws IOException {
         List<String> files = new ArrayList<>();
         try {
-            ProcessBuilder pb = new ProcessBuilder("svn", "list", "--non-interactive", baseUrl);
-            pb.environment().put("PATH", SAFE_PATH);
+            ProcessBuilder pb = new ProcessBuilder(SVN, "list", "--non-interactive", baseUrl);
             pb.redirectErrorStream(true);
             Process p = pb.start();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
