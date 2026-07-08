@@ -9,17 +9,108 @@ This module is part of the [Apache Sling](https://sling.apache.org) project.
 This module provides a command-line tool which automates various Sling development tasks. The tool is packaged
 as a docker image.
 
-## Configuration
+## Prerequisites
 
-To make various credentials and configurations available to the docker image it is recommended to use a docker env file.
-A sample file is stored at `docker-env.sample`. Copy this file to `docker-env` and fill in your own information.
+Before releasing you need the following in place. These are split between the **Maven side** (used by
+`mvn release:prepare`/`release:perform` in the project being released) and the **CLI side** (used by
+this Docker tool).
+
+### 1. ASF credentials for the CLI (`docker-env`)
+
+To make credentials available to the docker image, use a docker env file. A sample file is stored at
+`docker-env.sample`; copy it to `docker-env` and fill in your own information. At minimum it must
+provide your ASF credentials (these are read by the CLI for Nexus, JIRA, Whimsy and the mailing
+lists):
+
+    ASF_USERNAME=your-apache-id
+    ASF_PASSWORD=your-apache-password
+
+### 2. GPG signing key
+
+* Generate a code-signing key and publish it: `gpg --send-keys <KEY_ID>` to `keys.openpgp.org`, and
+  add its public block to the Sling `KEYS` file at
+  <https://dist.apache.org/repos/dist/release/sling/KEYS> (PMC members can commit there directly).
+* Note the key id (e.g. `0A1B2C3D4E5F6789`) — it goes into `settings.xml` below.
+
+### 3. Maven `~/.m2/settings.xml`
+
+Recent Apache/Sling parent POMs use **maven-gpg-plugin 3.x**, which changed how the GPG passphrase is
+supplied. The old approach of a `<gpg.passphrase>` property in the `apache-release` profile is **no
+longer used** — the plugin now reads the passphrase from a **server** whose id is given by
+`gpg.passphraseServerId` (default: `gpg.passphrase`) and decrypts it via `settings-security.xml`.
+
+```xml
+<settings>
+  <servers>
+    <!-- ASF Nexus credentials (encrypted, see settings-security.xml) -->
+    <server>
+      <id>apache.snapshots.https</id>
+      <username>your-apache-id</username>
+      <password>{ENCRYPTED}</password>
+    </server>
+    <server>
+      <id>apache.releases.https</id>
+      <username>your-apache-id</username>
+      <password>{ENCRYPTED}</password>
+    </server>
+
+    <!-- maven-gpg-plugin 3.x reads the passphrase from THIS server id (gpg.passphraseServerId
+         defaults to "gpg.passphrase") and decrypts it via settings-security.xml. -->
+    <server>
+      <id>gpg.passphrase</id>
+      <passphrase>{ENCRYPTED}</passphrase>
+    </server>
+  </servers>
+  <profiles>
+    <profile>
+      <id>apache-release</id>
+      <properties>
+        <apache.availid>your-apache-id</apache.availid>
+        <!-- required so gpg does not try to open an interactive pinentry dialog -->
+        <gpg.pinentryMode>loopback</gpg.pinentryMode>
+        <!-- the signing key id from step 2 -->
+        <gpg.keyname>YOUR_KEY_ID</gpg.keyname>
+        <!-- SMTP host used by the parent POM's announcement tooling -->
+        <smtp.host>smtp.gmail.com</smtp.host>
+      </properties>
+    </profile>
+  </profiles>
+</settings>
+```
+
+Encrypt the passwords/passphrase with `mvn --encrypt-password` (server passwords) and store the master
+password in `~/.m2/settings-security.xml`:
+
+```xml
+<settingsSecurity>
+  <master>{ENCRYPTED_MASTER_PASSWORD}</master>
+</settingsSecurity>
+```
+
+## Building
+
+The Docker image (`apache/sling-cli:latest`) is produced by the `docker:build` goal of the
+[fabric8 docker-maven-plugin](https://dmp.fabric8.io/). The image bundles the project jar via the
+generated `*-app.slingfeature` descriptor; the `slingfeature-maven-plugin` resolves the project's
+own bundle from the reactor, so the image always contains the jar built in the same invocation.
+
+A single command builds (and tests) the project and the image:
+
+    mvn clean package docker:build
+
+No prior `mvn install` is needed. The `docker:build` execution is also bound to the `package`
+phase, so the CI build (`mvn package`) builds the image too.
+
+To confirm the image contains the expected commands:
+
+    docker run --env-file=./docker-env apache/sling-cli release help
 
 ## Launching
 
-The image is built using `mvn package`. Afterwards it may be run with
+After building, run the image with:
 
     docker run --env-file=./docker-env apache/sling-cli
-    
+
 This invocation produces a list of available commands.
 
 ## Commands
@@ -39,21 +130,102 @@ To select a non-default execution mode provide the mode as an argument to the co
 Note that for running commands in the `INTERACTIVE` mode you need to run the Docker container in interactive mode with a pseudo-tty 
 attached (e.g. `docker run -it ...`).
 
-Listing active releases
+### Release workflow
 
-    docker run --env-file=./docker-env apache/sling-cli release list
+The full release lifecycle has **manual Maven steps** (run in the project being released) and **CLI
+steps** (run via this Docker tool). The CLI commands take the numeric staging repository id via
+`-r`/`--repository` (e.g. `3103` for `orgapachesling-3103`). Append `-x AUTO` to actually perform an
+action (the default mode is `DRY_RUN`).
 
-Generating a release vote email
+#### Manual steps in the project being released (Maven)
 
-    docker run --env-file=./docker-env apache/sling-cli release prepare-email --repository=$STAGING_REPOSITORY_ID
-    
-Generating a release vote result email
+These are **not** part of this tool — run them in the module you are releasing, with the prerequisites
+from the section above configured:
 
-    docker run --env-file=./docker-env apache/sling-cli release tally-votes --repository=$STAGING_REPOSITORY_ID
-    
-Generating the website update (only diff for now)
+1. Make sure the parent POM is up to date and the build is green (`mvn clean verify`).
+2. Dry-run the release and check that only `<version>`/`<scm>` change:
 
-	docker run --env-file=docker-env apache/sling-cli release update-local-site --repository=$STAGING_REPOSITORY_ID
+       mvn release:prepare -DdryRun=true
+       mvn release:clean
+
+3. Deploy a snapshot and confirm `META-INF/LICENSE` and `META-INF/NOTICE` are in the jar:
+
+       mvn deploy
+
+4. Prepare and perform the release (creates the tag, bumps to the next SNAPSHOT, signs and stages the
+   artifacts to Nexus):
+
+       mvn release:prepare
+       mvn release:perform
+
+   Note the staging repository id from the `release:perform` output (a line like
+   `…/orgapachesling-1087`). If it scrolls past, `release list` (below) shows open repos too.
+
+#### CLI steps (this tool)
+
+After `release:perform` has staged the artifacts, drive the rest with the CLI:
+
+0. **Find the staging repository id** if you did not capture it. `release list` shows every staging
+   repo with its `[open]`/`[closed]` state and description; a freshly staged one is `[open]`:
+
+       docker run --env-file=./docker-env apache/sling-cli release list
+
+1. **Close** the staging repository. The description is derived automatically from the staged POM's
+   `<name>` + `<version>` (e.g. _Apache Sling Feature Model Launcher 1.3.6_) by browsing the
+   repository content, so it works even though an open repository is not yet in the Lucene index:
+
+       docker run --env-file=./docker-env apache/sling-cli release close-staging --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+
+2. **Verify** the artifacts' signatures, hashes and CI status:
+
+       docker run --env-file=./docker-env apache/sling-cli release verify --repository=$STAGING_REPOSITORY_ID
+
+3. **Generate the vote email**:
+
+       docker run --env-file=./docker-env apache/sling-cli release prepare-email --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+
+4. After the 72h vote, **tally the votes** and generate the result email. PMC membership is detected
+   automatically from your ASF id: if you are a PMC member the email says you will copy the release to
+   the dist directory yourself; otherwise it asks a PMC member to perform the dist upload:
+
+       docker run --env-file=./docker-env apache/sling-cli release tally-votes --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+
+5. **Finalize** the release (post successful vote). This runs, in order: promote to Maven Central,
+   create the next Jira version, release the current Jira version, and update the Apache Reporter:
+
+       docker run --env-file=./docker-env apache/sling-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+
+   When the current user is detected as a PMC member, `finalize` additionally publishes to
+   `dist.apache.org` (requires `subversion`, which is bundled in the image). The previous version to
+   remove from `dist/release` is deduced automatically from the directory contents, so no extra flag
+   is needed:
+
+       docker run --env-file=./docker-env apache/sling-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+
+   PMC membership is determined from your ASF id (via Whimsy). A non-PMC committer's `finalize` skips
+   the dist upload and the `tally-votes` result email asks a PMC member to perform it.
+
+If the vote does not pass, **drop** the staging repository:
+
+    docker run --env-file=./docker-env apache/sling-cli release drop --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+
+### Command reference
+
+| Command | Description |
+|---------|-------------|
+| `release list` | List closed staging repositories |
+| `release close-staging -r <id>` | Close an open staging repo, setting the description from the staged POM |
+| `release verify -r <id>` | Download and verify artifact signatures, hashes and CI status |
+| `release prepare-email -r <id>` | Generate (and send) the `[VOTE]` email |
+| `release tally-votes -r <id>` | Count votes and generate the `[RESULT]` email (PMC membership auto-detected; non-PMC email asks a PMC member to do the dist upload) |
+| `release promote -r <id>` | Promote a closed staging repo to Maven Central |
+| `release update-dist -r <id>` | Move artifacts to `dist.apache.org` (PMC only); previous version auto-deduced, override with `--previous-version <v>` |
+| `release finalize -r <id>` | Promote + Jira + Reporter in one step; also updates `dist.apache.org` when you are a PMC member |
+| `release drop -r <id>` | Drop a staging repository (failed vote / cleanup) |
+| `release create-new-jira-version -r <id>` | Create the next Jira version and move unresolved issues |
+| `release release-jira-version -r <id>` | Mark the Jira version as released and close fixed issues |
+| `release update-reporter -r <id>` | Register the release with the Apache Reporter System |
+| `release update-local-site -r <id>` | Generate the website update (diff only for now) |
 
 ## Assumptions
 
