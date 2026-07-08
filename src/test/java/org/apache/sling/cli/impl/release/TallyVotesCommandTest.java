@@ -111,6 +111,49 @@ public class TallyVotesCommandTest {
     }
 
     @Test
+    public void testDryRunNonPmc() throws Exception {
+        // Daniel (a non-PMC committer) is the release manager running tally-votes; PMC status is
+        // auto-detected from the current user, so the result email asks a PMC member to do the dist
+        // upload.
+        Mailer mailer = mock(Mailer.class);
+        List<Email> thread = new ArrayList<>() {
+            {
+                add(mockEmail("daniel@apache.org", "Daniel"));
+                add(mockEmail("alice@apache.org", "Alice"));
+                add(mockEmail("bob@apache.org", "Bob"));
+                add(mockEmail("charlie@apache.org", "Charlie"));
+            }
+        };
+        prepareExecution(mailer, thread, "daniel");
+        Command command = createCommand(123, ExecutionMode.DRY_RUN);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+        verifyNoInteractions(mailer);
+        assertTrue(logCapture.containsMessage("""
+                From: Daniel <daniel@apache.org>
+                To: "Sling Developers List" <dev@sling.apache.org>
+                Reply-To: "Sling Developers List" <dev@sling.apache.org>
+                Date: Thu, 1 Jan 1970 01:00:00 +0100
+                Subject: [RESULT] [VOTE] Release Apache Sling CLI Test 1.0.0
+
+                Hi,
+
+                The vote has passed with the following result:
+
+                +1 (binding): Alice, Bob, Charlie
+                +1 (non-binding): none
+
+                I will promote the artifacts to the central Maven repository.
+
+                As I am not a PMC member, I cannot copy the release to the dist directory myself.
+
+                ACTION NEEDED: can a PMC member please copy Apache Sling CLI Test 1.0.0 to the Sling dist directory (https://dist.apache.org/repos/dist/release/sling/)?
+
+                Regards,
+                Daniel
+                """));
+    }
+
+    @Test
     public void testDryRunNotEnoughBindingVotes() throws Exception {
         Mailer mailer = mock(Mailer.class);
         List<Email> thread = new ArrayList<>() {
@@ -184,8 +227,13 @@ public class TallyVotesCommandTest {
     }
 
     private void prepareExecution(Mailer mailer, List<Email> thread) throws IOException, IllegalAccessException {
+        prepareExecution(mailer, thread, "johndoe");
+    }
+
+    private void prepareExecution(Mailer mailer, List<Email> thread, String currentUsername)
+            throws IOException, IllegalAccessException {
         CredentialsService credentialsService = mock(CredentialsService.class);
-        when(credentialsService.getAsfCredentials()).thenReturn(new Credentials("johndoe", "secret"));
+        when(credentialsService.getAsfCredentials()).thenReturn(new Credentials(currentUsername, "secret"));
 
         MembersFinder membersFinder = spy(new MembersFinder());
         Set<Member> members = new HashSet<>() {

@@ -139,6 +139,7 @@ public class TallyVotesCommand implements Command {
                         .replace("##DATE##", dateProvider.getCurrentDateForEmailHeader())
                         .replace("##RELEASE_NAME##", releaseFullName)
                         .replace("##BINDING_VOTERS##", String.join(", ", bindingVoters))
+                        .replace("##CLOSING_ACTION##", closingAction(releaseFullName, currentMember.isPMCMember()))
                         .replace(
                                 "##USER_NAME##",
                                 membersFinder.getCurrentMember().getName());
@@ -191,6 +192,23 @@ public class TallyVotesCommand implements Command {
             return CommandLine.ExitCode.SOFTWARE;
         }
         return CommandLine.ExitCode.OK;
+    }
+
+    /**
+     * Builds the closing paragraph of the result email. PMC members copy the release to the dist
+     * directory themselves; non-PMC release managers can only promote to Maven Central and must ask
+     * a PMC member to handle the dist upload (which is restricted to PMC members). PMC membership is
+     * derived from the current user, so no flag is needed.
+     */
+    private String closingAction(String releaseFullName, boolean isPmcMember) {
+        if (isPmcMember) {
+            return "I will copy this release to the Sling dist directory and\n"
+                    + "promote the artifacts to the central Maven repository.";
+        }
+        return "I will promote the artifacts to the central Maven repository.\n\n"
+                + "As I am not a PMC member, I cannot copy the release to the dist directory myself.\n\n"
+                + "ACTION NEEDED: can a PMC member please copy " + releaseFullName
+                + " to the Sling dist directory (https://dist.apache.org/repos/dist/release/sling/)?";
     }
 
     // TODO - better detection of '+1' votes
