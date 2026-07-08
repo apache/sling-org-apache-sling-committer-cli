@@ -28,7 +28,6 @@ import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
-import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -49,18 +48,12 @@ import picocli.CommandLine;
                         + CreateJiraVersionCommand.NAME + " in order to move any unresolved issues "
                         + "to the next version.",
         subcommands = CommandLine.HelpCommand.class)
-public class ReleaseJiraVersionCommand implements Command {
+public class ReleaseJiraVersionCommand extends AbstractReleaseCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ReleaseJiraVersionCommand.class);
 
     static final String GROUP = "release";
     static final String NAME = "release-jira-version";
-
-    @CommandLine.Option(
-            names = {"-r", "--repository"},
-            description = "Nexus repository id",
-            required = true)
-    private Integer repositoryId;
 
     @Reference
     private RepositoryService repositoryService;
@@ -74,8 +67,11 @@ public class ReleaseJiraVersionCommand implements Command {
     @Override
     public Integer call() {
         try {
-            StagingRepository repo = repositoryService.find(repositoryId);
-            Set<Release> releases = repositoryService.getReleases(repo);
+            Set<Release> releases = resolveReleases(repositoryService);
+            if (releases.isEmpty()) {
+                LOGGER.error("Provide either --repository or --release.");
+                return CommandLine.ExitCode.USAGE;
+            }
             ExecutionMode executionMode = reusableCLIOptions.executionMode;
             LOGGER.info(
                     "The following Jira versions {} be released:{}",

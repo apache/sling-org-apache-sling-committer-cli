@@ -28,7 +28,6 @@ import java.util.Set;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.jbake.JBakeContentUpdater;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
-import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ResetCommand.ResetType;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -49,7 +48,7 @@ import picocli.CommandLine;
         name = UpdateLocalSiteCommand.NAME,
         description = "Updates the Sling website with the new release information, " + "based on a local checkout",
         subcommands = CommandLine.HelpCommand.class)
-public class UpdateLocalSiteCommand implements Command {
+public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
 
     static final String GROUP = "release";
     static final String NAME = "update-local-site";
@@ -61,20 +60,17 @@ public class UpdateLocalSiteCommand implements Command {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    @CommandLine.Option(
-            names = {"-r", "--repository"},
-            description = "Nexus repository id",
-            required = true)
-    private Integer repositoryId;
-
     @Override
     public Integer call() {
         try {
             ensureRepo();
             try (Git git = Git.open(new File(GIT_CHECKOUT))) {
 
-                StagingRepository repository = repositoryService.find(repositoryId);
-                Set<Release> releases = repositoryService.getReleases(repository);
+                Set<Release> releases = resolveReleases(repositoryService);
+                if (releases.isEmpty()) {
+                    logger.error("Provide either --repository or --release.");
+                    return CommandLine.ExitCode.USAGE;
+                }
 
                 JBakeContentUpdater updater = new JBakeContentUpdater();
 

@@ -37,7 +37,6 @@ import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
-import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -54,7 +53,7 @@ import picocli.CommandLine;
         name = UpdateReporterCommand.NAME,
         description = "Updates the Apache Reporter System with the new release information",
         subcommands = CommandLine.HelpCommand.class)
-public class UpdateReporterCommand implements Command {
+public class UpdateReporterCommand extends AbstractReleaseCommand {
 
     static final String GROUP = "release";
     static final String NAME = "update-reporter";
@@ -67,20 +66,17 @@ public class UpdateReporterCommand implements Command {
     @Reference
     private HttpClientFactory httpClientFactory;
 
-    @CommandLine.Option(
-            names = {"-r", "--repository"},
-            description = "Nexus repository id",
-            required = true)
-    private Integer repositoryId;
-
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
     @Override
     public Integer call() {
         try {
-            StagingRepository repository = repositoryService.find(repositoryId);
-            Set<Release> releases = repositoryService.getReleases(repository);
+            Set<Release> releases = resolveReleases(repositoryService);
+            if (releases.isEmpty()) {
+                LOGGER.error("Provide either --repository or --release.");
+                return CommandLine.ExitCode.USAGE;
+            }
             String releaseReleases = releases.size() > 1 ? "releases" : "release";
             switch (reusableCLIOptions.executionMode) {
                 case DRY_RUN:

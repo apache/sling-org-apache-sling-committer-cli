@@ -99,4 +99,42 @@ public class CommandProcessorTest {
         assertThat(cmd.repositoryId, equalTo(24));
         assertThat(cmd.description, equalTo("Test 'description'"));
     }
+
+    /**
+     * A multi-word option value passed as a separate, quoted argument (e.g. {@code --release "Scripting
+     * Core 2.1.4"}) must survive intact: the shell passes it as one argument, run.sh writes it on its
+     * own line, and the newline-based arg parsing must not split it on spaces.
+     */
+    @Test
+    public void multiWordOptionValuePassedAsSeparateArgument() {
+        CommandProcessor commandProcessor = new CommandProcessor() {
+            @Override
+            protected String getArgLine() {
+                return "release\n" + "mock\n" + "-r\n" + "24\n" + "--description\n" + "Scripting Core 2.1.4";
+            }
+
+            @Override
+            protected void stopFramework() {
+                /* ignored  */
+            }
+
+            @Override
+            protected void terminateExecution(int commandExitCode) {
+                /* ignored  */
+            }
+        };
+        MockCommand cmd = new MockCommand();
+        commandProcessor.bindCommand(
+                cmd,
+                Map.of(
+                        Command.PROPERTY_NAME_COMMAND_GROUP,
+                        MockCommand.COMMAND_GROUP,
+                        Command.PROPERTY_NAME_COMMAND_NAME,
+                        MockCommand.COMMAND_NAME));
+
+        commandProcessor.runCommand();
+
+        assertThat(cmd.invocationCount, equalTo(1));
+        assertThat(cmd.description, equalTo("Scripting Core 2.1.4"));
+    }
 }
