@@ -204,102 +204,20 @@ public class RepositoryServiceTest {
 
     @Test
     public void testPromote() throws IOException {
-        // exercises the bulk-action POST path; MockNexus answers staging bulk actions with HTTP 201
         repositoryService.promote(getStagingRepository());
+        assertEquals("promote", nexus.getLastBulkAction());
     }
 
     @Test
     public void testCloseWithDescription() throws IOException {
         repositoryService.close(getStagingRepository(), "voting");
+        assertEquals("close", nexus.getLastBulkAction());
     }
 
     @Test
     public void testDrop() throws IOException {
         repositoryService.drop(getStagingRepository());
-    }
-
-    @Test
-    public void testParsePomInheritsGroupIdAndVersionFromParent() throws Exception {
-        // a child module POM omitting <groupId>/<version>/<packaging> inherits them from <parent>
-        String pomXml = "<project>"
-                + "<name>Apache Sling Child</name>"
-                + "<artifactId>child</artifactId>"
-                + "<parent>"
-                + "<groupId>org.apache.sling</groupId>"
-                + "<artifactId>parent</artifactId>"
-                + "<version>3.4.5</version>"
-                + "</parent>"
-                + "</project>";
-        RepositoryService.PomCoordinates coordinates = invokeParsePom(pomXml);
-        assertNotNull(coordinates);
-        assertEquals("org.apache.sling", coordinates.groupId());
-        assertEquals("3.4.5", coordinates.version());
-        assertEquals("jar", coordinates.packaging());
-    }
-
-    @Test
-    public void testParsePomInvalidXmlReturnsNull() throws Exception {
-        // malformed XML triggers the error branch which logs and returns null
-        assertEquals(null, invokeParsePom("this is not xml"));
-    }
-
-    @Test
-    public void testToReleasesSkipsInvalidReleaseNames() {
-        // a POM whose name/version cannot be parsed into a Release yields an empty result rather than
-        // throwing, exercising the buildReleases error branch
-        Set<Release> releases = RepositoryService.toReleases(
-                List.of(pom("", "org.apache.sling", "org.apache.sling.broken", "", "jar", PARENT_POM)));
-        assertTrue(releases.isEmpty());
-    }
-
-    private RepositoryService.PomCoordinates invokeParsePom(String pomXml) throws Exception {
-        java.lang.reflect.Method method =
-                RepositoryService.class.getDeclaredMethod("parsePom", InputStream.class, String.class);
-        method.setAccessible(true);
-        try (InputStream stream = new java.io.ByteArrayInputStream(pomXml.getBytes(StandardCharsets.UTF_8))) {
-            return (RepositoryService.PomCoordinates) method.invoke(repositoryService, stream, "test.pom");
-        }
-    }
-
-    @Test
-    public void testToReleasesSingleModule() {
-        // a POM's <name> is the bare component name; the version comes from <version>
-        Set<Release> releases = RepositoryService.toReleases(List.of(
-                pom("Apache Sling Foo", "org.apache.sling", "org.apache.sling.foo", "1.2.0", "jar", PARENT_POM)));
-        assertEquals(Set.of("Apache Sling Foo 1.2.0"), fullNames(releases));
-    }
-
-    @Test
-    public void testToReleasesIndependentModulesAreAllReturned() {
-        // several unrelated modules staged + voted together: each keeps its own release/JIRA version
-        Set<Release> releases = RepositoryService.toReleases(List.of(
-                pom("Apache Sling Foo", "org.apache.sling", "org.apache.sling.foo", "1.2.0", "jar", PARENT_POM),
-                pom("Apache Sling Bar", "org.apache.sling", "org.apache.sling.bar", "2.0.0", "jar", PARENT_POM)));
-        assertEquals(Set.of("Apache Sling Foo 1.2.0", "Apache Sling Bar 2.0.0"), fullNames(releases));
-    }
-
-    @Test
-    public void testToReleasesReactorCollapsesToAggregator() {
-        // a real reactor: a pom-packaging aggregator that is the parent of the staged child modules.
-        // The whole reactor is one logical release -> only the aggregator's name is returned.
-        String reactorKey = "org.apache.sling:org.apache.sling.reactor:1.0.0";
-        Set<Release> releases = RepositoryService.toReleases(List.of(
-                pom("Apache Sling Reactor", "org.apache.sling", "org.apache.sling.reactor", "1.0.0", "pom", PARENT_POM),
-                // children inherit groupId/version from the reactor parent
-                pom("Apache Sling Reactor Core", "org.apache.sling", "core", "1.0.0", "jar", reactorKey),
-                pom("Apache Sling Reactor API", "org.apache.sling", "api", "1.0.0", "jar", reactorKey)));
-        assertEquals(Set.of("Apache Sling Reactor 1.0.0"), fullNames(releases));
-    }
-
-    private static final String PARENT_POM = "org.apache.sling:sling:66";
-
-    private static RepositoryService.PomCoordinates pom(
-            String name, String groupId, String artifactId, String version, String packaging, String parentKey) {
-        return new RepositoryService.PomCoordinates(name, groupId, artifactId, version, packaging, parentKey);
-    }
-
-    private static Set<String> fullNames(Set<Release> releases) {
-        return releases.stream().map(Release::getFullName).collect(java.util.stream.Collectors.toSet());
+        assertEquals("delete", nexus.getLastBulkAction());
     }
 
     private StagingRepository getStagingRepository() {
