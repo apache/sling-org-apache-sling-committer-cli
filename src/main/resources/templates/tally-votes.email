@@ -11,8 +11,7 @@ The vote has passed with the following result:
 +1 (binding): ##BINDING_VOTERS##
 +1 (non-binding): ##NON_BINDING_VOTERS##
 
-I will copy this release to the Sling dist directory and
-promote the artifacts to the central Maven repository.
+##CLOSING_ACTION##
 
 Regards,
 ##USER_NAME##
