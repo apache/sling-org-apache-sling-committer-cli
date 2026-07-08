@@ -18,19 +18,13 @@
  */
 package org.apache.sling.cli.impl.nexus;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathExpressionException;
-import javax.xml.xpath.XPathFactory;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -50,6 +44,9 @@ import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.sling.cli.impl.ComponentContextHelper;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
@@ -62,8 +59,6 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.w3c.dom.Document;
-import org.xml.sax.SAXException;
 
 @Component(service = RepositoryService.class)
 public class RepositoryService {
@@ -75,8 +70,7 @@ public class RepositoryService {
 
     private Map<String, LocalRepository> repositories = new HashMap<>();
     private ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-    private final XPathFactory xPathFactory = XPathFactory.newInstance();
-    private final DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
+    private final PomParser pomParser = new PomParser();
 
     @Reference
     private HttpClientFactory httpClientFactory;
@@ -93,7 +87,6 @@ public class RepositoryService {
         return this.withStagingRepositories(reader -> {
             Gson gson = new Gson();
             return gson.fromJson(reader, StagingRepositories.class).getData().stream()
-                    .filter(r -> r.getType() == Status.closed)
                     .filter(r -> r.getRepositoryId().startsWith(REPOSITORY_PREFIX))
                     .collect(Collectors.toList());
         });
@@ -110,6 +103,65 @@ public class RepositoryService {
                     .orElseThrow(
                             () -> new IllegalArgumentException("No repository found with id " + stagingRepositoryId));
         });
+    }
+
+    public StagingRepository findAny(int stagingRepositoryId) throws IOException {
+        return this.withStagingRepositories(reader -> {
+            Gson gson = new Gson();
+            return gson.fromJson(reader, StagingRepositories.class).getData().stream()
+                    .filter(r -> r.getRepositoryId().startsWith(REPOSITORY_PREFIX))
+                    .filter(r -> r.getRepositoryId().endsWith("-" + stagingRepositoryId))
+                    .findFirst()
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("No repository found with id " + stagingRepositoryId));
+        });
+    }
+
+    public void close(StagingRepository repository) throws IOException {
+        executeBulkAction("close", repository.getRepositoryId(), Collections.emptyMap());
+    }
+
+    public void close(StagingRepository repository, String description) throws IOException {
+        executeBulkAction("close", repository.getRepositoryId(), Collections.singletonMap("description", description));
+    }
+
+    public void promote(StagingRepository repository) throws IOException {
+        // Nexus "Release": move the staged artifacts to the release repository (which syncs to Maven
+        // Central) and drop the staging repository afterwards. This matches the payload the Nexus UI
+        // sends. Note there is no targetRepositoryId — that field is for build-promotion profiles and
+        // is rejected with HTTP 400 by the bulk/promote endpoint.
+        executeBulkAction(
+                "promote", repository.getRepositoryId(), Collections.singletonMap("autoDropAfterRelease", true));
+    }
+
+    public void drop(StagingRepository repository) throws IOException {
+        executeBulkAction("delete", repository.getRepositoryId(), Collections.emptyMap());
+    }
+
+    private void executeBulkAction(String action, String repositoryId, Map<String, Object> extraData)
+            throws IOException {
+        try (CloseableHttpClient client = httpClientFactory.newClient()) {
+            HttpPost post = new HttpPost(nexusUrlPrefix + "/service/local/staging/bulk/" + action);
+            post.addHeader(HttpHeaders.ACCEPT, CONTENT_TYPE_JSON);
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("stagedRepositoryIds", Collections.singletonList(repositoryId));
+            data.put("description", "");
+            data.putAll(extraData);
+
+            JsonObject body = new JsonObject();
+            body.add("data", new Gson().toJsonTree(data));
+
+            post.setEntity(new StringEntity(body.toString(), ContentType.APPLICATION_JSON));
+
+            try (CloseableHttpResponse response = client.execute(post)) {
+                int statusCode = response.getStatusLine().getStatusCode();
+                if (statusCode != 201) {
+                    throw new IOException(
+                            "Unexpected status " + statusCode + " for staging bulk/" + action + " on " + repositoryId);
+                }
+            }
+        }
     }
 
     private <T> T withStagingRepositories(Function<InputStreamReader, T> function) throws IOException {
@@ -232,40 +284,81 @@ public class RepositoryService {
     }
 
     public Set<Release> getReleases(StagingRepository stagingRepository) throws IOException {
-        Set<Release> releases = new HashSet<>();
+        List<PomParser.PomCoordinates> poms = new ArrayList<>();
         getArtifacts(stagingRepository).stream()
                 .filter(artifact -> "pom".equals(artifact.getType()))
                 .forEach(pom -> {
                     try {
-                        XPath xPath = xPathFactory.newXPath();
                         processArtifactStream(pom, stream -> {
-                            try {
-                                DocumentBuilder builder = builderFactory.newDocumentBuilder();
-                                Document xmlDocument = builder.parse(stream);
-                                String name = (String) xPath.compile("/project/name/text()")
-                                        .evaluate(xmlDocument, XPathConstants.STRING);
-                                String version = (String) xPath.compile("/project/version/text()")
-                                        .evaluate(xmlDocument, XPathConstants.STRING);
-                                try {
-                                    releases.addAll(Release.fromString(name + " " + version));
-                                } catch (IllegalArgumentException e) {
-                                    LOGGER.error(
-                                            String.format(
-                                                    "Unable to determine a valid release from '%s %s'", name, version),
-                                            e);
-                                }
-                            } catch (ParserConfigurationException
-                                    | SAXException
-                                    | XPathExpressionException
-                                    | IOException e) {
-                                LOGGER.error(String.format("Unable to process artifact %s.", pom), e);
+                            PomParser.PomCoordinates coordinates = pomParser.parse(stream, pom.toString());
+                            if (coordinates != null) {
+                                poms.add(coordinates);
                             }
                         });
                     } catch (IOException e) {
                         LOGGER.error(String.format("Unable to process artifact %s.", pom), e);
                     }
                 });
-        return Set.copyOf(releases);
+        return PomParser.toReleases(poms);
+    }
+
+    /**
+     * Determines the releases contained in a staging repository by browsing its content directly,
+     * rather than relying on the Nexus Lucene search index. This works for <em>open</em> staging
+     * repositories too, whereas {@link #getReleases(StagingRepository)} only sees repositories that
+     * have already been closed and indexed.
+     */
+    public Set<Release> getReleasesFromContent(StagingRepository repository) throws IOException {
+        List<PomParser.PomCoordinates> poms = new ArrayList<>();
+        try (CloseableHttpClient client = httpClientFactory.newClient()) {
+            List<String> pomPaths = new ArrayList<>();
+            collectPomPaths(client, repository.getRepositoryId(), "/org/apache/sling/", pomPaths);
+            for (String pomPath : pomPaths) {
+                HttpGet get =
+                        newGet("/service/local/repositories/" + repository.getRepositoryId() + "/content" + pomPath);
+                try (CloseableHttpResponse response = client.execute(get)) {
+                    if (response.getStatusLine().getStatusCode() != 200) {
+                        continue;
+                    }
+                    try (InputStream stream = response.getEntity().getContent()) {
+                        PomParser.PomCoordinates coordinates = pomParser.parse(stream, pomPath);
+                        if (coordinates != null) {
+                            poms.add(coordinates);
+                        }
+                    }
+                }
+            }
+        }
+        return PomParser.toReleases(poms);
+    }
+
+    private void collectPomPaths(CloseableHttpClient client, String repositoryId, String path, List<String> pomPaths)
+            throws IOException {
+        HttpGet get = newGet("/service/local/repositories/" + repositoryId + "/content" + path);
+        try (CloseableHttpResponse response = client.execute(get)) {
+            if (response.getStatusLine().getStatusCode() != 200) {
+                return;
+            }
+            try (InputStream content = response.getEntity().getContent();
+                    InputStreamReader reader = new InputStreamReader(content)) {
+                JsonArray data = new JsonParser()
+                        .parse(reader)
+                        .getAsJsonObject()
+                        .get("data")
+                        .getAsJsonArray();
+                for (JsonElement element : data) {
+                    JsonObject entry = element.getAsJsonObject();
+                    String relativePath = entry.get("relativePath").getAsString();
+                    if (entry.get("leaf").getAsBoolean()) {
+                        if (entry.get("text").getAsString().endsWith(".pom")) {
+                            pomPaths.add(relativePath);
+                        }
+                    } else {
+                        collectPomPaths(client, repositoryId, relativePath, pomPaths);
+                    }
+                }
+            }
+        }
     }
 
     private void downloadFileFromRepository(

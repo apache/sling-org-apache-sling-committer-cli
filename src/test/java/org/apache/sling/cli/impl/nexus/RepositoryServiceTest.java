@@ -96,8 +96,10 @@ public class RepositoryServiceTest {
     @Test
     public void testRepositoryList() throws IOException {
         List<StagingRepository> stagingRepositories = repositoryService.list();
-        assertEquals(2, stagingRepositories.size());
-        Set<String> repositoriesIds = new HashSet<>(Set.of("orgapachesling-0", "orgapachesling-1"));
+        // Includes both closed repositories and the open (not yet closed) one, so that newly
+        // staged repositories show up before they have been closed for voting.
+        assertEquals(3, stagingRepositories.size());
+        Set<String> repositoriesIds = new HashSet<>(Set.of("orgapachesling-0", "orgapachesling-1", "orgapachesling-2"));
         for (StagingRepository repository : stagingRepositories) {
             assertEquals(
                     "http://localhost:" + nexus.getBoundPort() + "/content/repositories/"
@@ -166,6 +168,56 @@ public class RepositoryServiceTest {
         assertEquals(1, releases.size());
         Release release = releases.iterator().next();
         assertEquals("Sling Adapter Annotations 1.0.0", release.getFullName());
+    }
+
+    @Test
+    public void testGetReleasesFromContent() throws IOException {
+        // browses the repository content tree directly (no Lucene index), recursing into directories
+        // and parsing every .pom leaf it finds
+        StagingRepository repository = new StagingRepository();
+        repository.setRepositoryId("orgapachesling-3");
+        Set<Release> releases = repositoryService.getReleasesFromContent(repository);
+        assertEquals(1, releases.size());
+        assertEquals(
+                "Sling Adapter Annotations 1.0.0", releases.iterator().next().getFullName());
+    }
+
+    @Test
+    public void testFindAnyReturnsOpenRepository() throws IOException {
+        // findAny does not require the repository to be closed, so the open orgapachesling-2 resolves
+        StagingRepository repository = repositoryService.findAny(2);
+        assertNotNull(repository);
+        assertEquals("orgapachesling-2", repository.getRepositoryId());
+    }
+
+    @Test
+    public void testFindAnyUnknownThrows() {
+        try {
+            repositoryService.findAny(999);
+            fail("Expected an IllegalArgumentException for an unknown repository id.");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("999"));
+        } catch (IOException e) {
+            fail("Unexpected IOException.");
+        }
+    }
+
+    @Test
+    public void testPromote() throws IOException {
+        repositoryService.promote(getStagingRepository());
+        assertEquals("promote", nexus.getLastBulkAction());
+    }
+
+    @Test
+    public void testCloseWithDescription() throws IOException {
+        repositoryService.close(getStagingRepository(), "voting");
+        assertEquals("close", nexus.getLastBulkAction());
+    }
+
+    @Test
+    public void testDrop() throws IOException {
+        repositoryService.drop(getStagingRepository());
+        assertEquals("delete", nexus.getLastBulkAction());
     }
 
     private StagingRepository getStagingRepository() {

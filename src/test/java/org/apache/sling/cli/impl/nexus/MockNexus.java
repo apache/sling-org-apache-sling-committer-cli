@@ -37,6 +37,12 @@ public class MockNexus extends ExternalResource {
     static final String NEXUS_PASSWORD = "asf-password";
 
     private HttpServer server;
+    private volatile String lastBulkAction;
+
+    /** The last staging bulk action (e.g. {@code close}, {@code promote}, {@code delete}) posted, or {@code null}. */
+    public String getLastBulkAction() {
+        return lastBulkAction;
+    }
 
     @Override
     protected void before() throws Throwable {
@@ -65,7 +71,18 @@ public class MockNexus extends ExternalResource {
         List<HttpExchangeHandler> handlers = new ArrayList<>();
         handlers.add(new QueryLuceneIndexHandler());
         handlers.add(new StagingRepositoriesHandler());
+        handlers.add(new RepositoryContentListingHandler());
         handlers.add(new RepositoryContentHandler());
+        // staging bulk actions (close/promote/delete) are POSTs answered with HTTP 201
+        handlers.add(ex -> {
+            String path = ex.getRequestURI().getPath();
+            if ("POST".equals(ex.getRequestMethod()) && path.startsWith("/service/local/staging/bulk/")) {
+                lastBulkAction = path.substring(path.lastIndexOf('/') + 1);
+                ex.sendResponseHeaders(201, -1);
+                return true;
+            }
+            return false;
+        });
         handlers.add(ex -> {
             ex.sendResponseHeaders(400, -1);
             return true;
