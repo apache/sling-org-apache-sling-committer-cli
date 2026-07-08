@@ -30,7 +30,6 @@ import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
-import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -56,8 +55,7 @@ public class CreateJiraVersionCommand implements Command {
 
     @CommandLine.Option(
             names = {"-r", "--repository"},
-            description = "Nexus repository id",
-            required = true)
+            description = "Nexus staging repository id to derive the release(s) from")
     private Integer repositoryId;
 
     @Reference
@@ -67,9 +65,10 @@ public class CreateJiraVersionCommand implements Command {
     private VersionClient versionClient;
 
     @CommandLine.Option(
-            names = {"--version-name"},
-            description = "Jira version name to use",
-            required = false)
+            names = {"--release", "--version-name"},
+            description = "Release name(s) to act on, e.g. \"Apache Sling Foo 1.2.0\" (comma-separated for multiple)."
+                    + " Use instead of --repository when the staging repository no longer exists,"
+                    + " e.g. after the release has been promoted.")
     private String jiraVersionName;
 
     @CommandLine.Mixin
@@ -80,7 +79,12 @@ public class CreateJiraVersionCommand implements Command {
     @Override
     public Integer call() {
         try {
-            for (Release release : releases()) {
+            Collection<Release> releases = releases();
+            if (releases.isEmpty()) {
+                logger.error("Provide either --repository or --release.");
+                return CommandLine.ExitCode.USAGE;
+            }
+            for (Release release : releases) {
                 Version version = versionClient.find(release);
                 logger.info("Found {}.", version);
                 Version successorVersion = versionClient.findSuccessorVersion(release);
@@ -145,9 +149,12 @@ public class CreateJiraVersionCommand implements Command {
     }
 
     private Collection<Release> releases() throws IOException {
-        if (jiraVersionName != null) return Release.fromString(jiraVersionName);
-
-        StagingRepository repo = repositoryService.find(repositoryId);
-        return repositoryService.getReleases(repo);
+        if (jiraVersionName != null && !jiraVersionName.isBlank()) {
+            return Release.fromString(jiraVersionName);
+        }
+        if (repositoryId == null) {
+            return List.of();
+        }
+        return repositoryService.getReleases(repositoryService.find(repositoryId));
     }
 }

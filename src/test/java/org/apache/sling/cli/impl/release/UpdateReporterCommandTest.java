@@ -118,9 +118,60 @@ public class UpdateReporterCommandTest {
         verify(client, times(2)).execute(any());
     }
 
+    @Test
+    public void testAutoByName() throws Exception {
+        // resolves the release from --release rather than a (possibly gone) staging repository
+        Command updateReporter = createCommandByName("Apache Sling CLI 1", ExecutionMode.AUTO);
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        StatusLine statusLine = mock(StatusLine.class);
+        when(response.getStatusLine()).thenReturn(statusLine);
+        when(statusLine.getStatusCode()).thenReturn(200);
+        when(client.execute(any())).thenReturn(response);
+        assertEquals(0, (int) updateReporter.call());
+        verify(client, times(1)).execute(any());
+    }
+
+    @Test
+    public void testNoRepositoryNoReleaseReturnsUsage() throws Exception {
+        UpdateReporterCommand updateReporterCommand = spy(new UpdateReporterCommand());
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        FieldUtils.writeField(reusableCLIOptions, "executionMode", ExecutionMode.AUTO, true);
+        FieldUtils.writeField(updateReporterCommand, "reusableCLIOptions", reusableCLIOptions, true);
+        osgiContext.registerInjectActivateService(updateReporterCommand);
+        Command command = osgiContext.getService(Command.class);
+        assertEquals(2, (int) command.call());
+        assertTrue(logCapture.containsMessage("Provide either --repository or --release."));
+        verifyNoInteractions(client);
+    }
+
+    @Test
+    public void testReporterFailureReturnsSoftware() throws Exception {
+        Command updateReporter = createCommand(42, ExecutionMode.AUTO);
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        StatusLine statusLine = mock(StatusLine.class);
+        when(response.getStatusLine()).thenReturn(statusLine);
+        when(statusLine.getStatusCode()).thenReturn(500);
+        when(client.execute(any())).thenReturn(response);
+        assertEquals(1, (int) updateReporter.call());
+    }
+
     private Command createCommand(int repositoryId, ExecutionMode executionMode) throws IllegalAccessException {
         UpdateReporterCommand updateReporterCommand = spy(new UpdateReporterCommand());
         FieldUtils.writeField(updateReporterCommand, "repositoryId", repositoryId, true);
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        FieldUtils.writeField(reusableCLIOptions, "executionMode", executionMode, true);
+        FieldUtils.writeField(updateReporterCommand, "reusableCLIOptions", reusableCLIOptions, true);
+        osgiContext.registerInjectActivateService(updateReporterCommand);
+        Command result = osgiContext.getService(Command.class);
+        assertTrue(
+                "Expected to retrieve the UpdateReporterCommand from the mocked OSGi environment.",
+                result instanceof UpdateReporterCommand);
+        return result;
+    }
+
+    private Command createCommandByName(String releaseName, ExecutionMode executionMode) throws IllegalAccessException {
+        UpdateReporterCommand updateReporterCommand = spy(new UpdateReporterCommand());
+        FieldUtils.writeField(updateReporterCommand, "releaseName", releaseName, true);
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
         FieldUtils.writeField(reusableCLIOptions, "executionMode", executionMode, true);
         FieldUtils.writeField(updateReporterCommand, "reusableCLIOptions", reusableCLIOptions, true);
