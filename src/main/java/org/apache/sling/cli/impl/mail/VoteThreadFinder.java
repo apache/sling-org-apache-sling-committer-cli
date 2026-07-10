@@ -42,10 +42,13 @@ public class VoteThreadFinder {
     public List<Email> findVoteThread(String releaseName) throws IOException {
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             String threadSubject = "[VOTE] Release " + releaseName;
+            // Look back 6 months: a vote may be tallied well after the 72h period ends, so a 1-month
+            // window can miss threads for releases that linger before being finalized. The version in
+            // the query keeps the match specific to a single release.
             URI uri = new URIBuilder("https://lists.apache.org/api/stats.lua")
                     .addParameter("domain", "sling.apache.org")
                     .addParameter("list", "dev")
-                    .addParameter("d", "lte=1M")
+                    .addParameter("d", "lte=6M")
                     .addParameter("q", threadSubject)
                     .build();
 
