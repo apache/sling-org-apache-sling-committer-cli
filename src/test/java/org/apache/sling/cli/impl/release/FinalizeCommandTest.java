@@ -47,7 +47,10 @@ import picocli.CommandLine;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -122,7 +125,7 @@ public class FinalizeCommandTest {
         prepare(false);
         Command command = createCommand(123, ExecutionMode.DRY_RUN);
         assertEquals(CommandLine.ExitCode.OK, (int) command.call());
-        assertTrue(logCapture.containsMessage("--- Step 2/5: Update dist.apache.org --- SKIPPED (current user is not a"
+        assertTrue(logCapture.containsMessage("--- Step 1/5: Update dist.apache.org --- SKIPPED (current user is not a"
                 + " PMC member; a PMC member must update dist.apache.org separately) ---"));
         // dry-run: nothing is actually promoted
         verify(repositoryService, never()).promote(any());
@@ -138,7 +141,7 @@ public class FinalizeCommandTest {
                     .thenReturn(List.of("org.apache.sling.cli.test-0.9.0.pom"));
             Command command = createCommand(123, ExecutionMode.DRY_RUN);
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
-            assertTrue(logCapture.containsMessage("--- Step 2/5: Update dist.apache.org ---"));
+            assertTrue(logCapture.containsMessage("--- Step 1/5: Update dist.apache.org ---"));
             // dry-run: dist is described, not committed
             dist.verify(() -> UpdateDistCommand.publishToDistRelease(any(), any(), any(), any(), any()), never());
         }
@@ -151,9 +154,10 @@ public class FinalizeCommandTest {
         assertEquals(CommandLine.ExitCode.OK, (int) command.call());
         // promoted to Maven Central, dist skipped, jira released, reporter updated
         verify(repositoryService).promote(any());
-        verify(versionClient).release(any());
-        verify(client).execute(any());
-        assertTrue(logCapture.containsMessage("--- Step 2/5: Update dist.apache.org --- SKIPPED (current user is not a"
+        verify(versionClient).release(any(), any());
+        // reporter now queries (GET overview) before posting (POST addrelease)
+        verify(client, atLeastOnce()).execute(any());
+        assertTrue(logCapture.containsMessage("--- Step 1/5: Update dist.apache.org --- SKIPPED (current user is not a"
                 + " PMC member; a PMC member must update dist.apache.org separately) ---"));
     }
 
@@ -171,7 +175,7 @@ public class FinalizeCommandTest {
             // dist upload is actually committed for a PMC member
             dist.verify(() -> UpdateDistCommand.publishToDistRelease(
                     eq("org.apache.sling.cli.test"), eq("1.0.0"), any(), any(), any()));
-            verify(versionClient).release(any());
+            verify(versionClient).release(any(), any());
         }
     }
 
@@ -223,9 +227,86 @@ public class FinalizeCommandTest {
         assertTrue(logCapture.containsMessage("Would create JIRA version CLI Test 1.0.2"));
     }
 
+    @Test
+    public void testPreflightAbortsBeforePromoteWhenIssueTaggedAfterStaging() throws Exception {
+        prepare(false);
+        StagingRepository repository = repositoryService.find(123);
+        when(repository.getCreated()).thenReturn(java.time.Instant.parse("2020-01-01T00:00:00Z"));
+        org.apache.sling.cli.impl.jira.Issue late = mock(org.apache.sling.cli.impl.jira.Issue.class);
+        when(late.getKey()).thenReturn("SLING-13260");
+        when(late.getSummary()).thenReturn("Late tagged issue");
+        when(versionClient.findIssuesFixVersionedAfter(any(), any())).thenReturn(List.of(late));
+
+        Command command = createCommand(123, ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.SOFTWARE, (int) command.call());
+
+        assertTrue(logCapture.containsMessage("Refusing to release JIRA version Apache Sling CLI Test 1.0.0"));
+        assertTrue(logCapture.containsMessage("SLING-13260"));
+        assertTrue(logCapture.containsMessage("Aborting finalize before any changes are made."));
+        // the whole point: nothing irreversible ran, so the operator can fix JIRA and re-run
+        verify(repositoryService, never()).promote(any());
+        verify(versionClient, never()).release(any(), any());
+        assertTrue(logCapture.getMessages().stream().noneMatch(m -> m.contains("Step 1/5")));
+    }
+
+    @Test
+    public void testForceProceedsWhenIssueTaggedAfterStaging() throws Exception {
+        prepare(false);
+        StagingRepository repository = repositoryService.find(123);
+        when(repository.getCreated()).thenReturn(java.time.Instant.parse("2020-01-01T00:00:00Z"));
+        org.apache.sling.cli.impl.jira.Issue late = mock(org.apache.sling.cli.impl.jira.Issue.class);
+        when(late.getKey()).thenReturn("SLING-13260");
+        when(late.getSummary()).thenReturn("Late tagged issue");
+        when(versionClient.findIssuesFixVersionedAfter(any(), any())).thenReturn(List.of(late));
+
+        Command command = createCommand(123, ExecutionMode.AUTO, true);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+        assertTrue(logCapture.containsMessage("closing them anyway because --force-close-late-issues was given"));
+        // finalize proceeds through promote and release, forcing skips the guard via a null staged-at timestamp
+        verify(repositoryService).promote(any());
+        verify(versionClient).release(any(), isNull());
+        assertTrue(logCapture.containsMessage("Marked JIRA version Apache Sling CLI Test 1.0.0 as released"));
+    }
+
+    @Test
+    public void testResumeByNameSkipsPromoteAndDist() throws Exception {
+        prepare(true);
+        Command command = createCommandByName("Apache Sling CLI Test 1.0.0", ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+        assertTrue(logCapture.containsMessage("Resuming by release name"));
+        // the staging repository is gone, so promote/dist are skipped as already done...
+        verify(repositoryService, never()).find(anyInt());
+        verify(repositoryService, never()).promote(any());
+        assertTrue(logCapture.containsMessage("SKIPPED (staging repository already promoted and dropped)"));
+        // ...but the repository-independent JIRA release still runs (with no staging timestamp)
+        verify(versionClient).release(any(), isNull());
+    }
+
     private Command createCommand(int repositoryId, ExecutionMode executionMode) throws IllegalAccessException {
+        return createCommand(repositoryId, executionMode, false);
+    }
+
+    private Command createCommandByName(String releaseName, ExecutionMode executionMode) throws IllegalAccessException {
+        FinalizeCommand finalizeCommand = spy(new FinalizeCommand());
+        FieldUtils.writeField(finalizeCommand, "releaseName", releaseName, true);
+        ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
+        FieldUtils.writeField(reusableCLIOptions, "executionMode", executionMode, true);
+        FieldUtils.writeField(finalizeCommand, "reusableCLIOptions", reusableCLIOptions, true);
+        osgiContext.registerInjectActivateService(finalizeCommand);
+        Command result = osgiContext.getService(Command.class);
+        assertTrue(
+                "Expected to retrieve the FinalizeCommand from the mocked OSGi environment.",
+                result instanceof FinalizeCommand);
+        return result;
+    }
+
+    private Command createCommand(int repositoryId, ExecutionMode executionMode, boolean forceCloseLateIssues)
+            throws IllegalAccessException {
         FinalizeCommand finalizeCommand = spy(new FinalizeCommand());
         FieldUtils.writeField(finalizeCommand, "repositoryId", repositoryId, true);
+        FieldUtils.writeField(finalizeCommand, "forceCloseLateIssues", forceCloseLateIssues, true);
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
         FieldUtils.writeField(reusableCLIOptions, "executionMode", executionMode, true);
         FieldUtils.writeField(finalizeCommand, "reusableCLIOptions", reusableCLIOptions, true);

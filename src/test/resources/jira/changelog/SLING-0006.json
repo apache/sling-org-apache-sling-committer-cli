@@ -1,0 +1,39 @@
+{
+    "id": "6",
+    "key": "SLING-0006",
+    "changelog": {
+        "startAt": 0,
+        "maxResults": 10,
+        "total": 2,
+        "histories": [
+            {
+                "id": "100600",
+                "created": "2019-09-05T09:00:00.000+0000",
+                "items": [
+                    {
+                        "field": "summary",
+                        "fieldtype": "jira",
+                        "from": null,
+                        "fromString": "old summary",
+                        "to": null,
+                        "toString": "Test Transitions 6"
+                    }
+                ]
+            },
+            {
+                "id": "100601",
+                "created": "2019-09-20T08:15:00.000+0000",
+                "items": [
+                    {
+                        "field": "Fix Version",
+                        "fieldtype": "jira",
+                        "from": null,
+                        "fromString": null,
+                        "to": "10006",
+                        "toString": "Transitions 2.0.0"
+                    }
+                ]
+            }
+        ]
+    }
+}

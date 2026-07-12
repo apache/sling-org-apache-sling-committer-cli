@@ -312,6 +312,16 @@ public class UpdateDistCommand implements Command {
         }
     }
 
+    /**
+     * Returns {@code true} if {@code dist/release/sling} already contains files for the given
+     * {@code artifactId} and {@code version}. Used to make publishing idempotent so finalize can be
+     * safely re-run.
+     */
+    static boolean isVersionPublished(String artifactId, String version) throws IOException {
+        return listDistFiles(DIST_RELEASE_URL, artifactId + "-" + version).stream()
+                .anyMatch(f -> belongsToVersion(f, artifactId, version));
+    }
+
     private static boolean isVersionedArtifactFile(String fileName, String artifactId) {
         String prefix = artifactId + "-";
         return fileName.length() > prefix.length()
