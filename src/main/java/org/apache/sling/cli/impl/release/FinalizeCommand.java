@@ -38,6 +38,7 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.util.EntityUtils;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.Credentials;
 import org.apache.sling.cli.impl.CredentialsService;
@@ -381,12 +382,27 @@ public class FinalizeCommand implements Command {
                 params.add(new BasicNameValuePair("xdate", xdate));
                 post.setEntity(new UrlEncodedFormEntity(params, StandardCharsets.UTF_8));
                 try (CloseableHttpResponse response = client.execute(post)) {
-                    if (response.getStatusLine().getStatusCode() != 200) {
+                    int statusCode = response.getStatusLine().getStatusCode();
+                    // addrelease.py returns HTTP 200 even on failure, with the error in the body, so the
+                    // status code alone is not enough to tell success from failure.
+                    String body = response.getEntity() == null
+                            ? ""
+                            : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8)
+                                    .strip();
+                    if (statusCode == 200 && !body.contains("Could not save")) {
+                        LOGGER.info("Updated Apache Reporter for {}", release.getFullName());
+                    } else if (body.toLowerCase().contains("access to this committee data")) {
+                        // release data is committee-scoped; a non-PMC user cannot add it
+                        LOGGER.warn(
+                                "Apache Reporter NOT updated for {} — the current user lacks committee access; a PMC"
+                                        + " member must add it. Reporter said: {}",
+                                release.getFullName(),
+                                body);
+                    } else {
                         throw new IOException("Reporter update failed for " + release.getFullName() + ": HTTP "
-                                + response.getStatusLine().getStatusCode());
+                                + statusCode + (body.isEmpty() ? "" : " - " + body));
                     }
                 }
-                LOGGER.info("Updated Apache Reporter for {}", release.getFullName());
             }
         }
     }

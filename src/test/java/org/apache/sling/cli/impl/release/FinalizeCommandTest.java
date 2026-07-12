@@ -24,6 +24,7 @@ import java.util.Set;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.apache.http.StatusLine;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.Credentials;
@@ -192,6 +193,44 @@ public class FinalizeCommandTest {
         Command command = createCommand(123, ExecutionMode.AUTO);
         assertEquals(CommandLine.ExitCode.SOFTWARE, (int) command.call());
         assertTrue(logCapture.containsMessage("Failed executing command"));
+    }
+
+    @Test
+    public void testReporterReturns200WithErrorBodyFails() throws Exception {
+        prepare(false);
+        // addrelease.py returns HTTP 200 even on failure; a generic error body must surface as a failure
+        StatusLine statusLine = mock(StatusLine.class);
+        when(statusLine.getStatusCode()).thenReturn(200);
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        when(response.getStatusLine()).thenReturn(statusLine);
+        when(response.getEntity()).thenReturn(new StringEntity("Could not save. Unexpected server error."));
+        when(client.execute(any())).thenReturn(response);
+
+        Command command = createCommand(123, ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.SOFTWARE, (int) command.call());
+        assertTrue(logCapture.containsMessage("Failed executing command"));
+        // must NOT have falsely reported success
+        assertTrue(logCapture.getMessages().stream().noneMatch(m -> m.contains("Updated Apache Reporter")));
+    }
+
+    @Test
+    public void testReporterCommitteeAccessErrorWarnsButSucceeds() throws Exception {
+        prepare(false);
+        // the real reporter behaviour for a user without committee access: HTTP 200 + this message
+        StatusLine statusLine = mock(StatusLine.class);
+        when(statusLine.getStatusCode()).thenReturn(200);
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        when(response.getStatusLine()).thenReturn(statusLine);
+        when(response.getEntity())
+                .thenReturn(new StringEntity("Could not save. Make sure you have filled out all fields and have"
+                        + " access to this committee data!"));
+        when(client.execute(any())).thenReturn(response);
+
+        Command command = createCommand(123, ExecutionMode.AUTO);
+        // a committee-access error is a known limitation (non-PMC), so it warns and finalize still completes
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+        assertTrue(logCapture.containsMessage("lacks committee access"));
+        assertTrue(logCapture.getMessages().stream().noneMatch(m -> m.contains("Updated Apache Reporter")));
     }
 
     @Test
