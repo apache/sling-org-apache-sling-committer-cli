@@ -32,6 +32,7 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.util.EntityUtils;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
@@ -127,11 +128,17 @@ public class UpdateReporterCommand extends AbstractReleaseCommand {
                 parameters.add(new BasicNameValuePair("xdate", simpleDateFormat.format(now)));
                 post.setEntity(new UrlEncodedFormEntity(parameters, StandardCharsets.UTF_8));
                 try (CloseableHttpResponse response = client.execute(post)) {
-                    if (response.getStatusLine().getStatusCode() != 200) {
+                    int statusCode = response.getStatusLine().getStatusCode();
+                    // addrelease.py returns HTTP 200 even on failure, with the error in the body, so the
+                    // status code alone cannot tell success from failure.
+                    String body = response.getEntity() == null
+                            ? ""
+                            : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8)
+                                    .strip();
+                    if (statusCode != 200 || body.contains("Could not save")) {
                         throw new IOException(String.format(
-                                "The Apache Reporter System update failed for release %s. Got response code "
-                                        + "%s instead of 200.",
-                                release.getFullName(), response.getStatusLine().getStatusCode()));
+                                "The Apache Reporter System update failed for release %s. HTTP %s%s",
+                                release.getFullName(), statusCode, body.isEmpty() ? "" : " - " + body));
                     }
                 }
             }
