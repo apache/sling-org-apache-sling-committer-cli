@@ -19,36 +19,17 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.util.EntityUtils;
 import org.apache.sling.cli.impl.Command;
-import org.apache.sling.cli.impl.Credentials;
 import org.apache.sling.cli.impl.CredentialsService;
 import org.apache.sling.cli.impl.ExecutionMode;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.jira.Issue;
-import org.apache.sling.cli.impl.jira.Version;
 import org.apache.sling.cli.impl.jira.VersionClient;
-import org.apache.sling.cli.impl.nexus.Artifact;
-import org.apache.sling.cli.impl.nexus.LocalRepository;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.people.MembersFinder;
@@ -102,9 +83,6 @@ public class FinalizeCommand implements Command {
     static final String NAME = "finalize";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FinalizeCommand.class);
-
-    private static final String REPORTER_OVERVIEW_URL = "https://reporter.apache.org/api/overview?sling";
-    private static final String REPORTER_COMMITTEE = "sling";
 
     @CommandLine.Option(
             names = {"-r", "--repository"},
@@ -266,68 +244,42 @@ public class FinalizeCommand implements Command {
     }
 
     private void stepUpdateDist(StagingRepository repository, ExecutionMode mode) throws IOException {
-        LocalRepository localRepository = repositoryService.download(repository);
-        Artifact primary = localRepository.getArtifacts().stream()
-                .filter(a -> "pom".equals(a.getType()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No POM artifact found"));
+        // Delegate the download/collect/publish flow to UpdateDistCommand so it is not duplicated here.
+        UpdateDistCommand.DistReleasePlan plan = UpdateDistCommand.planDistRelease(repositoryService, repository, null);
 
-        String artifactId = primary.getArtifactId();
-        String newVersion = primary.getVersion();
-
-        if (UpdateDistCommand.isVersionPublished(artifactId, newVersion)) {
-            LOGGER.info("dist/release already contains {} {}; skipping.", artifactId, newVersion);
+        if (plan.alreadyPublished()) {
+            LOGGER.info("dist/release already contains {} {}; skipping.", plan.artifactId(), plan.newVersion());
             return;
         }
-
-        // Publish the staged artifacts (downloaded from Nexus) to dist/release; Maven releases never
-        // stage to dist/dev. The previous version to remove is deduced from the current dist/release.
-        List<Path> newFiles = UpdateDistCommand.collectDownloadedFiles(localRepository.getRootFolder());
-        List<String> oldFiles = UpdateDistCommand.listPreviousReleaseFiles(artifactId, newVersion, null);
-
-        if (newFiles.isEmpty()) {
-            LOGGER.warn("No artifacts were downloaded for {} {}; skipping dist update.", artifactId, newVersion);
+        if (plan.newFiles().isEmpty()) {
+            LOGGER.warn(
+                    "No artifacts were downloaded for {} {}; skipping dist update.",
+                    plan.artifactId(),
+                    plan.newVersion());
             return;
         }
 
         if (mode == ExecutionMode.DRY_RUN) {
-            LOGGER.info("Would publish {} file(s) to dist/release for {} {}", newFiles.size(), artifactId, newVersion);
-            LOGGER.info("Would remove {} old file(s) from dist/release", oldFiles.size());
+            LOGGER.info(
+                    "Would publish {} file(s) to dist/release for {} {}",
+                    plan.newFiles().size(),
+                    plan.artifactId(),
+                    plan.newVersion());
+            LOGGER.info(
+                    "Would remove {} old file(s) from dist/release",
+                    plan.oldFiles().size());
         } else {
-            Credentials creds = credentialsService.getAsfCredentials();
-            UpdateDistCommand.publishToDistRelease(artifactId, newVersion, newFiles, oldFiles, creds);
+            UpdateDistCommand.publishToDistRelease(
+                    plan.artifactId(),
+                    plan.newVersion(),
+                    plan.newFiles(),
+                    plan.oldFiles(),
+                    credentialsService.getAsfCredentials());
         }
     }
 
     private void stepCreateNextJiraVersion(Release release, ExecutionMode mode) throws IOException {
-        Version successorVersion = versionClient.findSuccessorVersion(release);
-        if (successorVersion == null) {
-            Release next = release.next();
-            if (mode == ExecutionMode.DRY_RUN) {
-                LOGGER.info("Would create JIRA version {}", next.getName());
-            } else {
-                versionClient.create(next.getName());
-                LOGGER.info("Created JIRA version {}", next.getName());
-                successorVersion = versionClient.findSuccessorVersion(release);
-            }
-        } else {
-            LOGGER.info("Successor JIRA version {} already exists", successorVersion.getName());
-        }
-        if (successorVersion != null) {
-            List<Issue> unresolved = versionClient.findUnresolvedIssues(release);
-            if (!unresolved.isEmpty()) {
-                if (mode == ExecutionMode.DRY_RUN) {
-                    LOGGER.info(
-                            "Would move {} unresolved issue(s) from {} to {}",
-                            unresolved.size(),
-                            release.getName(),
-                            successorVersion.getName());
-                } else {
-                    versionClient.moveIssuesToNewVersion(versionClient.find(release), successorVersion, unresolved);
-                    LOGGER.info("Moved {} unresolved issue(s) to {}", unresolved.size(), successorVersion.getName());
-                }
-            }
-        }
+        JiraVersions.createSuccessorAndMoveUnresolved(versionClient, release, mode, LOGGER);
     }
 
     /**
@@ -364,74 +316,23 @@ public class FinalizeCommand implements Command {
     private void stepUpdateReporter(Set<Release> releases) throws IOException {
         try (CloseableHttpClient client = httpClientFactory.newClient()) {
             // Query first so a resumed run does not add a release the reporter already lists.
-            Set<String> alreadyRecorded = fetchRecordedReporterReleases(client);
-            Instant now = Instant.now();
-            String xdate = DateTimeFormatter.ISO_LOCAL_DATE
-                    .withZone(ZoneId.systemDefault())
-                    .format(now);
+            Set<String> alreadyRecorded = Reporter.fetchRegisteredReleaseNames(client);
             for (Release release : releases) {
                 if (alreadyRecorded != null && alreadyRecorded.contains(release.getFullName())) {
                     LOGGER.info("Apache Reporter already lists {}; skipping.", release.getFullName());
                     continue;
                 }
-                HttpPost post = new HttpPost("https://reporter.apache.org/addrelease.py");
-                List<NameValuePair> params = new ArrayList<>();
-                params.add(new BasicNameValuePair("date", Long.toString(now.getEpochSecond())));
-                params.add(new BasicNameValuePair("committee", REPORTER_COMMITTEE));
-                params.add(new BasicNameValuePair("version", release.getFullName()));
-                params.add(new BasicNameValuePair("xdate", xdate));
-                post.setEntity(new UrlEncodedFormEntity(params, StandardCharsets.UTF_8));
-                try (CloseableHttpResponse response = client.execute(post)) {
-                    int statusCode = response.getStatusLine().getStatusCode();
-                    // addrelease.py returns HTTP 200 even on failure, with the error in the body, so the
-                    // status code alone is not enough to tell success from failure.
-                    String body = response.getEntity() == null
-                            ? ""
-                            : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8)
-                                    .strip();
-                    if (statusCode == 200 && !body.contains("Could not save")) {
-                        LOGGER.info("Updated Apache Reporter for {}", release.getFullName());
-                    } else if (body.toLowerCase().contains("access to this committee data")) {
-                        // release data is committee-scoped; a non-PMC user cannot add it
-                        LOGGER.warn(
-                                "Apache Reporter NOT updated for {} — the current user lacks committee access; a PMC"
-                                        + " member must add it. Reporter said: {}",
-                                release.getFullName(),
-                                body);
-                    } else {
-                        throw new IOException("Reporter update failed for " + release.getFullName() + ": HTTP "
-                                + statusCode + (body.isEmpty() ? "" : " - " + body));
-                    }
+                // Reporter release data is committee-scoped; a non-PMC / non-ASF-member user cannot add it.
+                // Like the dist step, treat that as a skip-with-warning rather than a hard failure.
+                if (Reporter.addRelease(client, release) == Reporter.Result.ACCESS_DENIED) {
+                    LOGGER.warn(
+                            "Apache Reporter NOT updated for {} — the current user lacks committee access; a PMC"
+                                    + " member must add it.",
+                            release.getFullName());
+                } else {
+                    LOGGER.info("Updated Apache Reporter for {}", release.getFullName());
                 }
             }
-        }
-    }
-
-    /**
-     * Fetches the set of release names the Apache Reporter already records for the Sling committee, so a
-     * resumed run can skip re-adding them. Returns {@code null} if the reporter could not be queried, in
-     * which case the caller should post without deduplication rather than risk skipping a real release.
-     */
-    private Set<String> fetchRecordedReporterReleases(CloseableHttpClient client) {
-        HttpGet get = new HttpGet(REPORTER_OVERVIEW_URL);
-        get.setHeader("Accept", "application/json");
-        try (CloseableHttpResponse response = client.execute(get)) {
-            int statusCode = response.getStatusLine().getStatusCode();
-            if (statusCode != 200 || response.getEntity() == null) {
-                LOGGER.warn("Could not query Apache Reporter (HTTP {}); will post without deduplication.", statusCode);
-                return null;
-            }
-            try (InputStreamReader reader =
-                    new InputStreamReader(response.getEntity().getContent(), StandardCharsets.UTF_8)) {
-                JsonObject root = new Gson().fromJson(reader, JsonObject.class);
-                JsonObject releases = root == null ? null : root.getAsJsonObject("releases");
-                JsonObject committeeReleases = releases == null ? null : releases.getAsJsonObject(REPORTER_COMMITTEE);
-                // the reporter keys each release by its full name (e.g. "Apache Sling API 2.27.6")
-                return committeeReleases == null ? Set.of() : Set.copyOf(committeeReleases.keySet());
-            }
-        } catch (Exception e) {
-            LOGGER.warn("Could not query Apache Reporter ({}); will post without deduplication.", e.getMessage());
-            return null;
         }
     }
 }

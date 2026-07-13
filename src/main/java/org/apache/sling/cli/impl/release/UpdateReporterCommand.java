@@ -19,20 +19,9 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
 import java.util.Set;
 
-import org.apache.http.NameValuePair;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.util.EntityUtils;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
@@ -109,7 +98,7 @@ public class UpdateReporterCommand extends AbstractReleaseCommand {
             }
 
         } catch (IOException e) {
-            LOGGER.error(String.format("Unable to update reporter service; passed command: %s.", repositoryId), e);
+            LOGGER.error("Unable to update the Apache Reporter System.", e);
             return CommandLine.ExitCode.SOFTWARE;
         }
         return CommandLine.ExitCode.OK;
@@ -117,30 +106,18 @@ public class UpdateReporterCommand extends AbstractReleaseCommand {
 
     private void updateReporter(Set<Release> releases) throws IOException {
         try (CloseableHttpClient client = httpClientFactory.newClient()) {
+            Set<String> alreadyRecorded = Reporter.fetchRegisteredReleaseNames(client);
             for (Release release : releases) {
-                HttpPost post = new HttpPost("https://reporter.apache.org/addrelease.py");
-                SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
-                List<NameValuePair> parameters = new ArrayList<>();
-                Date now = new Date();
-                parameters.add(new BasicNameValuePair("date", Long.toString(now.getTime() / 1000)));
-                parameters.add(new BasicNameValuePair("committee", "sling"));
-                parameters.add(new BasicNameValuePair("version", release.getFullName()));
-                parameters.add(new BasicNameValuePair("xdate", simpleDateFormat.format(now)));
-                post.setEntity(new UrlEncodedFormEntity(parameters, StandardCharsets.UTF_8));
-                try (CloseableHttpResponse response = client.execute(post)) {
-                    int statusCode = response.getStatusLine().getStatusCode();
-                    // addrelease.py returns HTTP 200 even on failure, with the error in the body, so the
-                    // status code alone cannot tell success from failure.
-                    String body = response.getEntity() == null
-                            ? ""
-                            : EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8)
-                                    .strip();
-                    if (statusCode != 200 || body.contains("Could not save")) {
-                        throw new IOException(String.format(
-                                "The Apache Reporter System update failed for release %s. HTTP %s%s",
-                                release.getFullName(), statusCode, body.isEmpty() ? "" : " - " + body));
-                    }
+                if (alreadyRecorded != null && alreadyRecorded.contains(release.getFullName())) {
+                    LOGGER.info("Apache Reporter already lists {}; skipping.", release.getFullName());
+                    continue;
                 }
+                if (Reporter.addRelease(client, release) == Reporter.Result.ACCESS_DENIED) {
+                    throw new IOException("The Apache Reporter System update failed for release "
+                            + release.getFullName() + ": the current user lacks committee access (release data can"
+                            + " only be added by a Sling PMC member or an ASF member).");
+                }
+                LOGGER.info("Added {} to the Apache Reporter System.", release.getFullName());
             }
         }
     }

@@ -80,7 +80,7 @@ public class CreateJiraVersionCommandTest {
         assertEquals(CommandLine.ExitCode.OK, (int) command.call());
 
         verify(versionClient, never()).create(anyString());
-        assertTrue(logCapture.containsMessage("would be created"));
+        assertTrue(logCapture.containsMessage("Would create JIRA version"));
     }
 
     @Test

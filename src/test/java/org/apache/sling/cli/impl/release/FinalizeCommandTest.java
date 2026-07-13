@@ -136,10 +136,13 @@ public class FinalizeCommandTest {
     public void testDryRunPmc() throws Exception {
         prepare(true);
         try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class)) {
-            dist.when(() -> UpdateDistCommand.collectDownloadedFiles(any()))
-                    .thenReturn(List.of(java.nio.file.Path.of("org.apache.sling.cli.test-1.0.0.pom")));
-            dist.when(() -> UpdateDistCommand.listPreviousReleaseFiles(any(), any(), any()))
-                    .thenReturn(List.of("org.apache.sling.cli.test-0.9.0.pom"));
+            dist.when(() -> UpdateDistCommand.planDistRelease(any(), any(), any()))
+                    .thenReturn(new UpdateDistCommand.DistReleasePlan(
+                            "org.apache.sling.cli.test",
+                            "1.0.0",
+                            List.of(java.nio.file.Path.of("org.apache.sling.cli.test-1.0.0.pom")),
+                            List.of("org.apache.sling.cli.test-0.9.0.pom"),
+                            false));
             Command command = createCommand(123, ExecutionMode.DRY_RUN);
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
             assertTrue(logCapture.containsMessage("--- Step 1/5: Update dist.apache.org ---"));
@@ -166,10 +169,13 @@ public class FinalizeCommandTest {
     public void testAutoPmc() throws Exception {
         prepare(true);
         try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class)) {
-            dist.when(() -> UpdateDistCommand.collectDownloadedFiles(any()))
-                    .thenReturn(List.of(java.nio.file.Path.of("org.apache.sling.cli.test-1.0.0.pom")));
-            dist.when(() -> UpdateDistCommand.listPreviousReleaseFiles(any(), any(), any()))
-                    .thenReturn(List.of("org.apache.sling.cli.test-0.9.0.pom"));
+            dist.when(() -> UpdateDistCommand.planDistRelease(any(), any(), any()))
+                    .thenReturn(new UpdateDistCommand.DistReleasePlan(
+                            "org.apache.sling.cli.test",
+                            "1.0.0",
+                            List.of(java.nio.file.Path.of("org.apache.sling.cli.test-1.0.0.pom")),
+                            List.of("org.apache.sling.cli.test-0.9.0.pom"),
+                            false));
             Command command = createCommand(123, ExecutionMode.AUTO);
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
             verify(repositoryService).promote(any());

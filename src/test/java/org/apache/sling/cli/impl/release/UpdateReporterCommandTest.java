@@ -102,7 +102,7 @@ public class UpdateReporterCommandTest {
             when(statusLine.getStatusCode()).thenReturn(200);
             when(client.execute(any())).thenReturn(response);
             assertEquals(0, (int) updateReporter.call());
-            verify(client, times(2)).execute(any());
+            verify(client, times(3)).execute(any());
         }
     }
 
@@ -115,7 +115,7 @@ public class UpdateReporterCommandTest {
         when(statusLine.getStatusCode()).thenReturn(200);
         when(client.execute(any())).thenReturn(response);
         assertEquals(0, (int) updateReporter.call());
-        verify(client, times(2)).execute(any());
+        verify(client, times(3)).execute(any());
     }
 
     @Test
@@ -128,7 +128,7 @@ public class UpdateReporterCommandTest {
         when(statusLine.getStatusCode()).thenReturn(200);
         when(client.execute(any())).thenReturn(response);
         assertEquals(0, (int) updateReporter.call());
-        verify(client, times(1)).execute(any());
+        verify(client, times(2)).execute(any());
     }
 
     @Test
