@@ -25,6 +25,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.apache.sling.cli.impl.Command;
@@ -94,7 +96,7 @@ public class UpdateDistCommand implements Command {
     @CommandLine.Option(
             names = {"--previous-version"},
             description = "Previous release version to remove from dist/release (e.g. 1.0.0)."
-                    + " Optional: if omitted, all older versions currently in dist/release are removed.")
+                    + " Optional: if omitted, the closest older version currently in dist/release is removed.")
     private String previousVersion;
 
     @CommandLine.Mixin
@@ -239,24 +241,74 @@ public class UpdateDistCommand implements Command {
         }
     }
 
+    private static final Pattern LEADING_VERSION = Pattern.compile("^(\\d+(?:\\.\\d+)*)");
+
     /**
      * Determines which files to remove from {@code dist/release} when publishing {@code newVersion}
      * of {@code artifactId}. When {@code explicitPreviousVersion} is given, only that version's files
-     * are returned; otherwise every older version currently present in {@code dist/release} for this
-     * artifact is returned (the release directory holds only the latest release per ASF policy).
+     * are returned. Otherwise only the <em>closest older</em> version's files are returned — the highest
+     * version strictly lower than {@code newVersion} currently present for this artifact. This keeps
+     * parallel maintenance streams intact (publishing {@code 2.0.4} removes {@code 2.0.2} but keeps
+     * {@code 1.2.4}) and never removes a newer version.
      */
     static List<String> listPreviousReleaseFiles(String artifactId, String newVersion, String explicitPreviousVersion)
             throws IOException {
         if (explicitPreviousVersion != null && !explicitPreviousVersion.isBlank()) {
             return listDistFiles(DIST_RELEASE_URL, artifactId + "-" + explicitPreviousVersion);
         }
-        return listDistFiles(DIST_RELEASE_URL, artifactId + "-").stream()
+        List<String> artifactFiles = listDistFiles(DIST_RELEASE_URL, artifactId + "-").stream()
                 // keep only versioned files for this exact artifact (a numeric version component
                 // right after the prefix excludes sibling artifacts such as artifactId-extra-...)
                 .filter(f -> isVersionedArtifactFile(f, artifactId))
-                // never remove the version we are about to publish
-                .filter(f -> !belongsToVersion(f, artifactId, newVersion))
                 .toList();
+        String previousVersion = closestOlderVersion(artifactFiles, artifactId, newVersion);
+        if (previousVersion == null) {
+            return List.of();
+        }
+        return artifactFiles.stream()
+                .filter(f -> belongsToVersion(f, artifactId, previousVersion))
+                .toList();
+    }
+
+    /**
+     * Returns the highest version among {@code artifactFiles} that is strictly lower than
+     * {@code newVersion}, or {@code null} if there is none.
+     */
+    private static String closestOlderVersion(List<String> artifactFiles, String artifactId, String newVersion) {
+        org.osgi.framework.Version target = parseOsgiVersion(newVersion);
+        if (target == null) {
+            return null;
+        }
+        String closest = null;
+        org.osgi.framework.Version closestVersion = null;
+        for (String file : artifactFiles) {
+            String candidateName = extractVersion(file, artifactId);
+            org.osgi.framework.Version candidate = parseOsgiVersion(candidateName);
+            if (candidate == null || candidate.compareTo(target) >= 0) {
+                continue;
+            }
+            if (closestVersion == null || candidate.compareTo(closestVersion) > 0) {
+                closestVersion = candidate;
+                closest = candidateName;
+            }
+        }
+        return closest;
+    }
+
+    private static String extractVersion(String fileName, String artifactId) {
+        Matcher matcher = LEADING_VERSION.matcher(fileName.substring(artifactId.length() + 1));
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private static org.osgi.framework.Version parseOsgiVersion(String version) {
+        if (version == null) {
+            return null;
+        }
+        try {
+            return new org.osgi.framework.Version(version);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     private static boolean isVersionedArtifactFile(String fileName, String artifactId) {

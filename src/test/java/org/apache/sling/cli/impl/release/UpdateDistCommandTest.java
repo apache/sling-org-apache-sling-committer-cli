@@ -112,8 +112,9 @@ public class UpdateDistCommandTest {
     }
 
     @Test
-    public void testAutoDeduceDoesNotConfuseVersionPrefixes() throws Exception {
-        // publishing 1.0.14 must not treat 1.0.140 as the same version
+    public void testAutoDeduceDoesNotConfuseVersionPrefixesAndKeepsNewerVersions() throws Exception {
+        // publishing 1.0.14 must not treat 1.0.140 as the same version, and must not remove it either:
+        // 1.0.140 > 1.0.14, so it is a newer version and is left untouched (nothing older is present)
         List<String> releaseDir = List.of(ARTIFACT + "-1.0.140.pom", ARTIFACT + "-1.0.14.pom");
         try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
             dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
@@ -121,8 +122,31 @@ public class UpdateDistCommandTest {
 
             List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "1.0.14", null);
 
-            // 1.0.140 is a different version and is removed; 1.0.14 (being published) is kept
-            assertEquals(List.of(ARTIFACT + "-1.0.140.pom"), old);
+            assertTrue("a newer version must never be removed", old.isEmpty());
+        }
+    }
+
+    @Test
+    public void testAutoDeduceRemovesOnlyClosestOlderVersionAcrossStreams() throws Exception {
+        // parallel maintenance streams: publishing 2.0.4 must remove 2.0.2 (the closest older version)
+        // but keep 1.2.4 (a different, still-maintained stream)
+        List<String> releaseDir = List.of(
+                ARTIFACT + "-1.2.4.pom",
+                ARTIFACT + "-1.2.4-source-release.zip",
+                ARTIFACT + "-2.0.2.pom",
+                ARTIFACT + "-2.0.2-source-release.zip");
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+                    .thenReturn(releaseDir);
+
+            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "2.0.4", null);
+
+            assertEquals(2, old.size());
+            assertTrue(old.contains(ARTIFACT + "-2.0.2.pom"));
+            assertTrue(old.contains(ARTIFACT + "-2.0.2-source-release.zip"));
+            // the other maintenance stream is left intact
+            assertFalse(old.contains(ARTIFACT + "-1.2.4.pom"));
+            assertFalse(old.contains(ARTIFACT + "-1.2.4-source-release.zip"));
         }
     }
 
