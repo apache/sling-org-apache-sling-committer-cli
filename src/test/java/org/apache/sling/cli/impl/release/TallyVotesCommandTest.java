@@ -113,8 +113,8 @@ public class TallyVotesCommandTest {
     @Test
     public void testDryRunNonPmc() throws Exception {
         // Daniel (a non-PMC committer) is the release manager running tally-votes; PMC status is
-        // auto-detected from the current user, so the result email asks a PMC member to do the dist
-        // upload.
+        // auto-detected from the current user, so the result email asks a PMC member to finalize the
+        // release (the dist upload must come first and is PMC-only).
         Mailer mailer = mock(Mailer.class);
         List<Email> thread = new ArrayList<>() {
             {
@@ -142,11 +142,14 @@ public class TallyVotesCommandTest {
                 +1 (binding): Alice, Bob, Charlie
                 +1 (non-binding): none
 
-                I will promote the artifacts to the central Maven repository.
+                The release still needs to be finalized: the artifacts must first be copied to the
+                Sling dist directory (https://dist.apache.org/repos/dist/release/sling/) and only
+                then promoted to the central Maven repository. As that first step requires PMC
+                membership, which I do not have, I cannot finalize this release myself.
 
-                As I am not a PMC member, I cannot copy the release to the dist directory myself.
-
-                ACTION NEEDED: can a PMC member please copy Apache Sling CLI Test 1.0.0 to the Sling dist directory (https://dist.apache.org/repos/dist/release/sling/)?
+                ACTION NEEDED: can a PMC member please finalize Apache Sling CLI Test 1.0.0 by copying it
+                to the dist directory and then promoting the staged artifacts to the central Maven
+                repository?
 
                 Regards,
                 Daniel
