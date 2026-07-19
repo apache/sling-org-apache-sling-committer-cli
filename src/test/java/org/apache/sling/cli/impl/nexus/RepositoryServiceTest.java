@@ -162,6 +162,20 @@ public class RepositoryServiceTest {
     }
 
     @Test
+    public void testDownloadRepositoryFetchesSha512Sidecar() throws IOException {
+        // the Apache release build emits a .sha512 for the source-release archive only; it must be
+        // downloaded so update-dist can publish it, while artifacts without one are not fabricated
+        LocalRepository localRepository = repositoryService.download(getStagingRepository());
+        Path base = localRepository.getRootFolder().resolve("org/apache/sling/adapter-annotations/1.0.0");
+        assertTrue(
+                "source-release .sha512 should be downloaded",
+                Files.exists(base.resolve("adapter-annotations-1.0.0-source-release.zip.sha512")));
+        assertTrue(
+                "no bogus .sha512 should be created for artifacts that lack one",
+                Files.notExists(base.resolve("adapter-annotations-1.0.0.jar.sha512")));
+    }
+
+    @Test
     public void testReleaseLookup() throws IOException {
         StagingRepository stagingRepository = getStagingRepository();
         Set<Release> releases = repositoryService.getReleases(stagingRepository);
