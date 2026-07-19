@@ -347,6 +347,7 @@
                         <exclude>src/main/resources/templates/*</exclude>
                         <exclude>**/*.md5</exclude>
                         <exclude>**/*.sha1</exclude>
+                        <exclude>**/*.sha512</exclude>
                         <exclude>**/*.asc</exclude>
                     </excludes>
                 </configuration>
