@@ -241,7 +241,8 @@ public class UpdateDistCommand implements Command {
         }
     }
 
-    private static final Pattern LEADING_VERSION = Pattern.compile("^(\\d+(?:\\.\\d+)*)");
+    // possessive quantifiers (++, *+) so the matcher never backtracks and cannot overflow the stack
+    private static final Pattern LEADING_VERSION = Pattern.compile("^(\\d++(?:\\.\\d++)*+)");
 
     /**
      * Determines which files to remove from {@code dist/release} when publishing {@code newVersion}
