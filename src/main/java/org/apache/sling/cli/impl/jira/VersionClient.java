@@ -285,20 +285,25 @@ public class VersionClient {
         }
         Instant latest = null;
         for (History history : changelog.histories) {
-            if (history.items == null || history.created == null) {
-                continue;
-            }
-            for (HistoryItem item : history.items) {
-                if (isFixVersionAddition(item, versionName)) {
-                    Instant when = OffsetDateTime.parse(history.created, JIRA_TIMESTAMP)
-                            .toInstant();
-                    if (latest == null || when.isAfter(latest)) {
-                        latest = when;
-                    }
-                }
+            Instant when = fixVersionChangeInstant(history, versionName);
+            if (when != null && (latest == null || when.isAfter(latest))) {
+                latest = when;
             }
         }
         return latest;
+    }
+
+    /** The timestamp of {@code history} when it records adding {@code versionName} to the fix versions, else null. */
+    private static Instant fixVersionChangeInstant(History history, String versionName) {
+        if (history.items == null || history.created == null) {
+            return null;
+        }
+        for (HistoryItem item : history.items) {
+            if (isFixVersionAddition(item, versionName)) {
+                return OffsetDateTime.parse(history.created, JIRA_TIMESTAMP).toInstant();
+            }
+        }
+        return null;
     }
 
     private static boolean isFixVersionAddition(HistoryItem item, String versionName) {
