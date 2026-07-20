@@ -121,117 +121,21 @@ public class FinalizeCommand implements Command {
     @Reference
     private MembersFinder membersFinder;
 
+    /** The finalize target: the staging repository (null once it has been promoted and dropped) and its releases. */
+    private record FinalizeTarget(StagingRepository repository, Set<Release> releases) {}
+
     @Override
     public Integer call() {
         try {
-            ExecutionMode mode = reusableCLIOptions.executionMode;
-            boolean isPmcMember = membersFinder.getCurrentMember().isPMCMember();
-
-            // Resolve the target releases. Before promotion, act by --repository (which still exists);
-            // to resume after promotion (which drops the repository), act by --release name instead.
-            StagingRepository repository;
-            Set<Release> releases;
-            if (repositoryId != null) {
-                try {
-                    repository = repositoryService.find(repositoryId);
-                } catch (IllegalArgumentException e) {
-                    LOGGER.error(
-                            "Staging repository {} was not found — it was most likely already promoted and"
-                                    + " dropped. Resume the remaining steps with --release \"<name>\" instead of"
-                                    + " --repository.",
-                            repositoryId);
-                    return CommandLine.ExitCode.USAGE;
-                }
-                releases = repositoryService.getReleases(repository);
-            } else if (releaseName != null && !releaseName.isBlank()) {
-                repository = null;
-                releases = Set.copyOf(Release.fromString(releaseName));
-            } else {
-                LOGGER.error("Provide either --repository <id> (initial run) or --release \"<name>\" (to resume after"
-                        + " the staging repository has been promoted).");
+            FinalizeTarget target = resolveTarget();
+            if (target == null) {
                 return CommandLine.ExitCode.USAGE;
             }
-
-            if (releases.isEmpty()) {
+            if (target.releases().isEmpty()) {
                 LOGGER.error("No releases could be resolved.");
                 return CommandLine.ExitCode.USAGE;
             }
-
-            Instant stagedAt = repository != null ? repository.getCreated() : null;
-
-            String releaseNames = releases.stream()
-                    .map(Release::getFullName)
-                    .reduce((a, b) -> a + ", " + b)
-                    .orElse("(none)");
-            LOGGER.info("=== Finalizing: {} ===", releaseNames);
-            if (repository == null) {
-                LOGGER.info("Resuming by release name; steps already completed before promotion are detected and"
-                        + " skipped.");
-            }
-
-            // Pre-flight: validate JIRA state *before* any irreversible action. Promoting to Maven Central drops
-            // the staging repository, so detecting a mis-tagged issue here lets the operator fix JIRA and re-run
-            // with nothing promoted or changed yet (SLING-13260). On a resume-by-name run there is no staging
-            // timestamp, so this is a no-op — it already passed on the initial run.
-            LOGGER.info("--- Pre-flight: validating JIRA state ---");
-            if (!preflightJiraState(releases, stagedAt)) {
-                LOGGER.error("Aborting finalize before any changes are made. Re-tag the issue(s) to the correct fix"
-                        + " version (or re-run with --force-close-late-issues), then run finalize again — nothing has"
-                        + " been promoted or changed yet.");
-                return CommandLine.ExitCode.SOFTWARE;
-            }
-
-            // Step 1: Update dist.apache.org. This is the only repository-dependent step, so it runs *before*
-            // promote (which drops the repository); everything after promote is repository-independent and thus
-            // resumable by --release. (PMC members only; auto-detected.)
-            if (isPmcMember) {
-                LOGGER.info("--- Step 1/5: Update dist.apache.org ---");
-                if (repository == null) {
-                    LOGGER.info("SKIPPED (staging repository already promoted; if dist still needs updating a PMC"
-                            + " member must run update-dist separately)");
-                } else {
-                    stepUpdateDist(repository, mode);
-                }
-            } else {
-                LOGGER.info("--- Step 1/5: Update dist.apache.org --- SKIPPED (current user is not a PMC member;"
-                        + " a PMC member must update dist.apache.org separately) ---");
-            }
-
-            // Step 2: Promote to Maven Central
-            LOGGER.info("--- Step 2/5: Promote to Maven Central ---");
-            if (repository == null) {
-                LOGGER.info("SKIPPED (staging repository already promoted and dropped)");
-            } else if (mode == ExecutionMode.DRY_RUN) {
-                LOGGER.info("Would promote {} to Maven Central", repository.getRepositoryId());
-            } else {
-                LOGGER.info("Promoting {}...", repository.getRepositoryId());
-                repositoryService.promote(repository);
-                LOGGER.info("Promoted. Artifacts will appear on Maven Central within ~10 minutes.");
-            }
-
-            // Step 3: Create next JIRA version and move unresolved issues (idempotent: skips if the successor
-            // already exists / there are no unresolved issues left to move)
-            LOGGER.info("--- Step 3/5: Create next JIRA version ---");
-            for (Release release : releases) {
-                stepCreateNextJiraVersion(release, mode);
-            }
-
-            // Step 4: Mark JIRA version as released (idempotent: release() skips an already-released version)
-            LOGGER.info("--- Step 4/5: Release JIRA version ---");
-            for (Release release : releases) {
-                stepReleaseJiraVersion(release, stagedAt, mode);
-            }
-
-            // Step 5: Update Apache Reporter (idempotent: skips releases the reporter already lists)
-            LOGGER.info("--- Step 5/5: Update Apache Reporter ---");
-            if (mode == ExecutionMode.DRY_RUN) {
-                LOGGER.info("Would add {} release(s) to the Apache Reporter System", releases.size());
-                releases.forEach(r -> LOGGER.info("  - {}", r.getFullName()));
-            } else {
-                stepUpdateReporter(releases);
-            }
-
-            LOGGER.info("=== Release finalization complete! ===");
+            return runFinalize(target, reusableCLIOptions.executionMode);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             LOGGER.warn("Failed executing command", e);
@@ -240,7 +144,126 @@ public class FinalizeCommand implements Command {
             LOGGER.warn("Failed executing command", e);
             return CommandLine.ExitCode.SOFTWARE;
         }
+    }
+
+    /**
+     * Resolves the target releases. Before promotion, act by {@code --repository} (which still exists); to
+     * resume after promotion (which drops the repository), act by {@code --release} name instead. Returns
+     * {@code null} (after logging the reason) when neither option resolves a target.
+     */
+    private FinalizeTarget resolveTarget() throws IOException {
+        if (repositoryId != null) {
+            StagingRepository repository;
+            try {
+                repository = repositoryService.find(repositoryId);
+            } catch (IllegalArgumentException e) {
+                LOGGER.error(
+                        "Staging repository {} was not found — it was most likely already promoted and"
+                                + " dropped. Resume the remaining steps with --release \"<name>\" instead of"
+                                + " --repository.",
+                        repositoryId);
+                return null;
+            }
+            return new FinalizeTarget(repository, repositoryService.getReleases(repository));
+        }
+        if (releaseName != null && !releaseName.isBlank()) {
+            return new FinalizeTarget(null, Set.copyOf(Release.fromString(releaseName)));
+        }
+        LOGGER.error("Provide either --repository <id> (initial run) or --release \"<name>\" (to resume after"
+                + " the staging repository has been promoted).");
+        return null;
+    }
+
+    /** Runs the pre-flight check and the five finalize steps for an already-resolved, non-empty target. */
+    private Integer runFinalize(FinalizeTarget target, ExecutionMode mode) throws Exception {
+        StagingRepository repository = target.repository();
+        Set<Release> releases = target.releases();
+        boolean isPmcMember = membersFinder.getCurrentMember().isPMCMember();
+        Instant stagedAt = repository != null ? repository.getCreated() : null;
+
+        String releaseNames = releases.stream()
+                .map(Release::getFullName)
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("(none)");
+        LOGGER.info("=== Finalizing: {} ===", releaseNames);
+        if (repository == null) {
+            LOGGER.info("Resuming by release name; steps already completed before promotion are detected and"
+                    + " skipped.");
+        }
+
+        // Pre-flight: validate JIRA state *before* any irreversible action. Promoting to Maven Central drops
+        // the staging repository, so detecting a mis-tagged issue here lets the operator fix JIRA and re-run
+        // with nothing promoted or changed yet (SLING-13260). On a resume-by-name run there is no staging
+        // timestamp, so this is a no-op — it already passed on the initial run.
+        LOGGER.info("--- Pre-flight: validating JIRA state ---");
+        if (!preflightJiraState(releases, stagedAt)) {
+            LOGGER.error("Aborting finalize before any changes are made. Re-tag the issue(s) to the correct fix"
+                    + " version (or re-run with --force-close-late-issues), then run finalize again — nothing has"
+                    + " been promoted or changed yet.");
+            return CommandLine.ExitCode.SOFTWARE;
+        }
+
+        // Step 1: Update dist.apache.org. This is the only repository-dependent step, so it runs *before*
+        // promote (which drops the repository); everything after promote is repository-independent and thus
+        // resumable by --release. (PMC members only; auto-detected.)
+        stepUpdateDistStage(repository, mode, isPmcMember);
+
+        // Step 2: Promote to Maven Central
+        stepPromoteStage(repository, mode);
+
+        // Step 3: Create next JIRA version and move unresolved issues (idempotent: skips if the successor
+        // already exists / there are no unresolved issues left to move)
+        LOGGER.info("--- Step 3/5: Create next JIRA version ---");
+        for (Release release : releases) {
+            stepCreateNextJiraVersion(release, mode);
+        }
+
+        // Step 4: Mark JIRA version as released (idempotent: release() skips an already-released version)
+        LOGGER.info("--- Step 4/5: Release JIRA version ---");
+        for (Release release : releases) {
+            stepReleaseJiraVersion(release, stagedAt, mode);
+        }
+
+        // Step 5: Update Apache Reporter (idempotent: skips releases the reporter already lists)
+        LOGGER.info("--- Step 5/5: Update Apache Reporter ---");
+        if (mode == ExecutionMode.DRY_RUN) {
+            LOGGER.info("Would add {} release(s) to the Apache Reporter System", releases.size());
+            releases.forEach(r -> LOGGER.info("  - {}", r.getFullName()));
+        } else {
+            stepUpdateReporter(releases);
+        }
+
+        LOGGER.info("=== Release finalization complete! ===");
         return CommandLine.ExitCode.OK;
+    }
+
+    private void stepUpdateDistStage(StagingRepository repository, ExecutionMode mode, boolean isPmcMember)
+            throws IOException {
+        if (!isPmcMember) {
+            LOGGER.info("--- Step 1/5: Update dist.apache.org --- SKIPPED (current user is not a PMC member;"
+                    + " a PMC member must update dist.apache.org separately) ---");
+            return;
+        }
+        LOGGER.info("--- Step 1/5: Update dist.apache.org ---");
+        if (repository == null) {
+            LOGGER.info("SKIPPED (staging repository already promoted; if dist still needs updating a PMC"
+                    + " member must run update-dist separately)");
+        } else {
+            stepUpdateDist(repository, mode);
+        }
+    }
+
+    private void stepPromoteStage(StagingRepository repository, ExecutionMode mode) throws IOException {
+        LOGGER.info("--- Step 2/5: Promote to Maven Central ---");
+        if (repository == null) {
+            LOGGER.info("SKIPPED (staging repository already promoted and dropped)");
+        } else if (mode == ExecutionMode.DRY_RUN) {
+            LOGGER.info("Would promote {} to Maven Central", repository.getRepositoryId());
+        } else {
+            LOGGER.info("Promoting {}...", repository.getRepositoryId());
+            repositoryService.promote(repository);
+            LOGGER.info("Promoted. Artifacts will appear on Maven Central within ~10 minutes.");
+        }
     }
 
     private void stepUpdateDist(StagingRepository repository, ExecutionMode mode) throws IOException {
@@ -318,7 +341,7 @@ public class FinalizeCommand implements Command {
             // Query first so a resumed run does not add a release the reporter already lists.
             Set<String> alreadyRecorded = Reporter.fetchRegisteredReleaseNames(client);
             for (Release release : releases) {
-                if (alreadyRecorded != null && alreadyRecorded.contains(release.getFullName())) {
+                if (alreadyRecorded.contains(release.getFullName())) {
                     LOGGER.info("Apache Reporter already lists {}; skipping.", release.getFullName());
                     continue;
                 }

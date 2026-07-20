@@ -73,6 +73,8 @@ public class VersionClient {
     private static final String PROJECT_KEY = "SLING";
     private static final String DEFAULT_JIRA_URL = "https://issues.apache.org/jira";
     private static final String CONTENT_TYPE_JSON = "application/json";
+    private static final String ISSUE_PATH = "issue/";
+    private static final String FIX_VERSIONS_FIELD = "fixVersions";
 
     private final PromiseFactory promiseFactory = new PromiseFactory(null, null);
 
@@ -251,50 +253,58 @@ public class VersionClient {
      * change history, or {@code null} if that cannot be determined.
      */
     private Instant findFixVersionAddedDate(Issue issue, String versionName) throws IOException {
+        HttpGet get = newGet(ISSUE_PATH + issue.getKey());
         try {
-            HttpGet get = newGet("issue/" + issue.getKey());
             URIBuilder builder = new URIBuilder(get.getURI());
             builder.addParameter("expand", "changelog");
             builder.addParameter("fields", ""); // only the changelog is needed
             get.setURI(builder.build());
-
-            try (CloseableHttpClient client = httpClientFactory.newClient()) {
-                try (CloseableHttpResponse response = client.execute(get)) {
-                    try (InputStream content = response.getEntity().getContent();
-                            InputStreamReader reader = new InputStreamReader(content)) {
-
-                        if (response.getStatusLine().getStatusCode() != 200) {
-                            throw newException(response, reader);
-                        }
-
-                        Changelog changelog = new Gson().fromJson(reader, IssueChangelog.class).changelog;
-                        if (changelog == null || changelog.histories == null) {
-                            return null;
-                        }
-                        Instant latest = null;
-                        for (History history : changelog.histories) {
-                            if (history.items == null || history.created == null) {
-                                continue;
-                            }
-                            for (HistoryItem item : history.items) {
-                                boolean isFixVersionChange = "fixVersions".equals(item.fieldId)
-                                        || (item.field != null && item.field.equalsIgnoreCase("Fix Version"));
-                                if (isFixVersionChange && versionName.equals(item.toString)) {
-                                    Instant when = OffsetDateTime.parse(history.created, JIRA_TIMESTAMP)
-                                            .toInstant();
-                                    if (latest == null || when.isAfter(latest)) {
-                                        latest = when;
-                                    }
-                                }
-                            }
-                        }
-                        return latest;
-                    }
-                }
-            }
         } catch (URISyntaxException e) {
             throw new IllegalArgumentException(e);
         }
+
+        try (CloseableHttpClient client = httpClientFactory.newClient();
+                CloseableHttpResponse response = client.execute(get);
+                InputStream content = response.getEntity().getContent();
+                InputStreamReader reader = new InputStreamReader(content)) {
+            if (response.getStatusLine().getStatusCode() != 200) {
+                throw newException(response, reader);
+            }
+            Changelog changelog = new Gson().fromJson(reader, IssueChangelog.class).changelog;
+            return latestFixVersionChange(changelog, versionName);
+        }
+    }
+
+    /**
+     * Scans a Jira changelog for the most recent moment {@code versionName} was added to the issue's fix
+     * versions, or {@code null} if the changelog is empty or records no such change.
+     */
+    private static Instant latestFixVersionChange(Changelog changelog, String versionName) {
+        if (changelog == null || changelog.histories == null) {
+            return null;
+        }
+        Instant latest = null;
+        for (History history : changelog.histories) {
+            if (history.items == null || history.created == null) {
+                continue;
+            }
+            for (HistoryItem item : history.items) {
+                if (isFixVersionAddition(item, versionName)) {
+                    Instant when = OffsetDateTime.parse(history.created, JIRA_TIMESTAMP)
+                            .toInstant();
+                    if (latest == null || when.isAfter(latest)) {
+                        latest = when;
+                    }
+                }
+            }
+        }
+        return latest;
+    }
+
+    private static boolean isFixVersionAddition(HistoryItem item, String versionName) {
+        boolean isFixVersionChange = FIX_VERSIONS_FIELD.equals(item.fieldId)
+                || (item.field != null && item.field.equalsIgnoreCase("Fix Version"));
+        return isFixVersionChange && versionName.equals(item.toString);
     }
 
     // JIRA change-history timestamps, e.g. "2024-01-15T10:30:00.000+0000"
@@ -552,12 +562,12 @@ public class VersionClient {
             StringWriter w = new StringWriter();
 
             IssueUpdate update = new IssueUpdate();
-            update.recordAdd("fixVersions", newVersion.getName());
-            update.recordRemove("fixVersions", oldVersion.getName());
+            update.recordAdd(FIX_VERSIONS_FIELD, newVersion.getName());
+            update.recordRemove(FIX_VERSIONS_FIELD, oldVersion.getName());
             Gson gson = new Gson();
             gson.toJson(update, w);
 
-            HttpPut put = newPut("issue/" + issue.getKey());
+            HttpPut put = newPut(ISSUE_PATH + issue.getKey());
             put.setEntity(new StringEntity(w.toString(), StandardCharsets.UTF_8));
 
             try (CloseableHttpClient client = httpClientFactory.newClient()) {
@@ -577,7 +587,7 @@ public class VersionClient {
     }
 
     private Promise<Transition> getCloseTransition(Issue issue) {
-        HttpGet get = newGet("issue/" + issue.getId() + "/transitions");
+        HttpGet get = newGet(ISSUE_PATH + issue.getId() + "/transitions");
         try {
             try (CloseableHttpClient client = httpClientFactory.newClient()) {
                 try (CloseableHttpResponse getResponse =
@@ -609,7 +619,7 @@ public class VersionClient {
     }
 
     private Promise<Issue> closeIssue(Issue issue, Transition closeTransition) {
-        HttpPost post = newPost("issue/" + issue.getId() + "/transitions");
+        HttpPost post = newPost(ISSUE_PATH + issue.getId() + "/transitions");
         StringWriter w = new StringWriter();
         try (JsonWriter jw = new Gson().newJsonWriter(w)) {
             jw.beginObject()

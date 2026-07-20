@@ -108,7 +108,7 @@ public class UpdateReporterCommand extends AbstractReleaseCommand {
         try (CloseableHttpClient client = httpClientFactory.newClient()) {
             Set<String> alreadyRecorded = Reporter.fetchRegisteredReleaseNames(client);
             for (Release release : releases) {
-                if (alreadyRecorded != null && alreadyRecorded.contains(release.getFullName())) {
+                if (alreadyRecorded.contains(release.getFullName())) {
                     LOGGER.info("Apache Reporter already lists {}; skipping.", release.getFullName());
                     continue;
                 }

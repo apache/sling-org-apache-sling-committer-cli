@@ -69,8 +69,9 @@ final class Reporter {
 
     /**
      * Returns the set of release names the reporter already records for the Sling committee, so callers
-     * can skip re-adding them. Returns {@code null} if the reporter could not be queried, in which case
-     * callers should proceed without deduplication rather than risk skipping a real release.
+     * can skip re-adding them. Returns an empty set if the reporter could not be queried; callers then
+     * deduplicate against nothing and proceed to (re-)add every release rather than risk skipping a real
+     * one.
      */
     static Set<String> fetchRegisteredReleaseNames(CloseableHttpClient client) {
         HttpGet get = new HttpGet(OVERVIEW_URL);
@@ -79,7 +80,7 @@ final class Reporter {
             int statusCode = response.getStatusLine().getStatusCode();
             if (statusCode != 200 || response.getEntity() == null) {
                 LOGGER.warn("Could not query Apache Reporter (HTTP {}); will not deduplicate.", statusCode);
-                return null;
+                return Set.of();
             }
             try (InputStreamReader reader =
                     new InputStreamReader(response.getEntity().getContent(), StandardCharsets.UTF_8)) {
@@ -91,7 +92,7 @@ final class Reporter {
             }
         } catch (Exception e) {
             LOGGER.warn("Could not query Apache Reporter ({}); will not deduplicate.", e.getMessage());
-            return null;
+            return Set.of();
         }
     }
 
