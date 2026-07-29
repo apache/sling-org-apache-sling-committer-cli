@@ -36,6 +36,7 @@ public class Artifact {
     private final String repositoryRelativePath;
     private final String repositoryRelativeSignaturePath;
     private final String repositoryRelativeSha1SumPath;
+    private final String repositoryRelativeSha512SumPath;
     private final String repositoryRelativeMd5SumPath;
 
     public Artifact(
@@ -62,6 +63,7 @@ public class Artifact {
         uri = URI.create(repository.getRepositoryURI() + "/" + repositoryRelativePath);
         repositoryRelativeSignaturePath = repositoryRelativePath + ".asc";
         repositoryRelativeSha1SumPath = repositoryRelativePath + ".sha1";
+        repositoryRelativeSha512SumPath = repositoryRelativePath + ".sha512";
         repositoryRelativeMd5SumPath = repositoryRelativePath + ".md5";
     }
 
@@ -83,6 +85,10 @@ public class Artifact {
 
     public String getRepositoryRelativeSha1SumPath() {
         return repositoryRelativeSha1SumPath;
+    }
+
+    public String getRepositoryRelativeSha512SumPath() {
+        return repositoryRelativeSha512SumPath;
     }
 
     public String getRepositoryRelativeMd5SumPath() {

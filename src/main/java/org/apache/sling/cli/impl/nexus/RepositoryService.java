@@ -209,6 +209,14 @@ public class RepositoryService {
                                     artifact.getRepositoryRelativeSha1SumPath());
                             downloadFileFromRepository(
                                     repository, client, artifactFolderPath, artifact.getRepositoryRelativeMd5SumPath());
+                            // the .sha512 sidecar is produced by the Apache release build for the
+                            // source-release archive only, so it is absent for most artifacts; download
+                            // it when present (a 404 is expected for the others and simply skipped)
+                            downloadFileFromRepository(
+                                    repository,
+                                    client,
+                                    artifactFolderPath,
+                                    artifact.getRepositoryRelativeSha512SumPath());
                         }
                     }
                     localRepository = new LocalRepository(repository, artifacts, rootFolder);
@@ -361,22 +369,28 @@ public class RepositoryService {
         }
     }
 
-    private void downloadFileFromRepository(
+    private boolean downloadFileFromRepository(
             @NotNull StagingRepository repository,
             @NotNull CloseableHttpClient client,
             @NotNull Path artifactFolderPath,
             @NotNull String relativeFilePath)
             throws IOException {
-        String fileName = relativeFilePath.substring(relativeFilePath.lastIndexOf('/') + 1);
-        Path filePath = Files.createFile(artifactFolderPath.resolve(fileName));
         HttpGet get = new HttpGet(repository.getRepositoryURI() + "/" + relativeFilePath);
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Downloading {}.", get.getURI());
         }
         try (CloseableHttpResponse response = client.execute(get)) {
+            // skip files the repository does not have so an error body is never written to disk as if it
+            // were the artifact; sidecars such as .sha512 legitimately exist only for some artifacts
+            if (response.getStatusLine().getStatusCode() != 200) {
+                return false;
+            }
+            String fileName = relativeFilePath.substring(relativeFilePath.lastIndexOf('/') + 1);
+            Path filePath = Files.createFile(artifactFolderPath.resolve(fileName));
             try (InputStream content = response.getEntity().getContent()) {
                 IOUtils.copyLarge(content, Files.newOutputStream(filePath));
             }
+            return true;
         }
     }
 
