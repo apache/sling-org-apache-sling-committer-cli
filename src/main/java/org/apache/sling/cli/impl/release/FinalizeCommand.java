@@ -73,9 +73,8 @@ import picocli.CommandLine;
         })
 @CommandLine.Command(
         name = FinalizeCommand.NAME,
-        description =
-                "Runs all post-vote finalization steps: promote to Maven Central, update JIRA, and report to Apache."
-                        + " When the current user is a PMC member, dist.apache.org is updated as well.",
+        description = "Runs all post-vote finalization steps, in order: update dist.apache.org (PMC members only),"
+                + " promote to Maven Central, update JIRA, and report to Apache.",
         subcommands = CommandLine.HelpCommand.class)
 public class FinalizeCommand implements Command {
 
