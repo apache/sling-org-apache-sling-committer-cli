@@ -18,6 +18,8 @@
  */
 package org.apache.sling.cli.impl.nexus;
 
+import java.time.Instant;
+
 /**
  * DTO for GSON usage
  *
@@ -34,6 +36,17 @@ public class StagingRepository {
     protected String repositoryURI;
     protected Status type;
     protected String userId;
+    protected long createdTimestamp;
+
+    /**
+     * Returns the moment this staging repository was created in Nexus, i.e. when the release artifacts
+     * were staged. Anything resolved in JIRA after this point cannot be part of the release.
+     *
+     * @return the creation instant, or {@code null} if Nexus did not report one
+     */
+    public Instant getCreated() {
+        return createdTimestamp > 0 ? Instant.ofEpochMilli(createdTimestamp) : null;
+    }
 
     public String getDescription() {
         return description;

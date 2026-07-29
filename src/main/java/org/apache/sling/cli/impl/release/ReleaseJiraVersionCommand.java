@@ -18,6 +18,7 @@
  */
 package org.apache.sling.cli.impl.release;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -64,6 +65,14 @@ public class ReleaseJiraVersionCommand extends AbstractReleaseCommand {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
+    @CommandLine.Option(
+            names = {"--force-close-late-issues"},
+            description = "Close issues even if they were tagged with the release's fix version only after the"
+                    + " artifacts were staged. Use only after confirming the fix is actually part of the release"
+                    + " (e.g. the fix version was simply forgotten during the release). Only has an effect when"
+                    + " --repository is used, since the staging timestamp is unavailable once the repository is gone.")
+    private boolean forceCloseLateIssues;
+
     @Override
     public Integer call() {
         try {
@@ -72,6 +81,10 @@ public class ReleaseJiraVersionCommand extends AbstractReleaseCommand {
                 LOGGER.error("Provide either --repository or --release.");
                 return CommandLine.ExitCode.USAGE;
             }
+            // The staging timestamp is only available while the staging repository still exists (i.e. when
+            // acting by --repository). Acting by --release happens after promotion, when it is gone.
+            Instant stagedAt =
+                    repositoryId != null ? repositoryService.find(repositoryId).getCreated() : null;
             ExecutionMode executionMode = reusableCLIOptions.executionMode;
             LOGGER.info(
                     "The following Jira versions {} be released:{}",
@@ -87,6 +100,7 @@ public class ReleaseJiraVersionCommand extends AbstractReleaseCommand {
                         issue.getStatus(),
                         issue.getResolution()));
                 LOGGER.info("");
+                LateFixVersionGuard.reportLateIssues(versionClient, release, stagedAt, forceCloseLateIssues, LOGGER);
                 boolean shouldRelease = false;
                 if (executionMode == ExecutionMode.INTERACTIVE) {
                     InputOption answer = UserInput.yesNo(
@@ -96,7 +110,8 @@ public class ReleaseJiraVersionCommand extends AbstractReleaseCommand {
                     shouldRelease = true;
                 }
                 if (shouldRelease) {
-                    versionClient.release(release);
+                    // when forcing, skip the guard inside release() by not passing the staged-at timestamp
+                    versionClient.release(release, forceCloseLateIssues ? null : stagedAt);
                     LOGGER.info("{} was released:", release.getFullName());
                     fixedIssues = versionClient.findFixedIssues(release);
                     fixedIssues.forEach(issue -> LOGGER.info(

@@ -81,6 +81,7 @@ public class MockJira extends ExternalResource {
         actions.add(new CreateVersionJiraAction());
         actions.add(new IssuesSearchJiraAction());
         actions.add(new TransitionsJiraAction());
+        actions.add(new ChangelogJiraAction());
         actions.add(new EditVersionJiraAction());
 
         // fallback, always executed

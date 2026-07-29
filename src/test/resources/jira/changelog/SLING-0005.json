@@ -1,0 +1,25 @@
+{
+    "id": "5",
+    "key": "SLING-0005",
+    "changelog": {
+        "startAt": 0,
+        "maxResults": 10,
+        "total": 1,
+        "histories": [
+            {
+                "id": "100500",
+                "created": "2019-09-02T12:30:00.000+0000",
+                "items": [
+                    {
+                        "field": "Fix Version",
+                        "fieldtype": "jira",
+                        "from": null,
+                        "fromString": null,
+                        "to": "10005",
+                        "toString": "Transitions 2.0.0"
+                    }
+                ]
+            }
+        ]
+    }
+}

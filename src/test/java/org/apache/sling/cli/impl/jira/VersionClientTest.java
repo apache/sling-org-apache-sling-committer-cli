@@ -19,6 +19,7 @@
 package org.apache.sling.cli.impl.jira;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -191,5 +192,44 @@ public class VersionClientTest {
             throwable = e;
         }
         assertNull("Did not expect an error, since this case should be handled graciously.", throwable);
+    }
+
+    @Test
+    public void findIssuesFixVersionedAfterFindsLateTaggedIssues() throws IOException {
+        Release release = Release.fromString("Transitions 2.0.0").get(0);
+        // SLING-0006 acquired the fix version on 2019-09-20, i.e. after this instant
+        List<Issue> late = versionClient.findIssuesFixVersionedAfter(release, Instant.parse("2019-09-13T00:00:00Z"));
+        assertThat(late, hasSize(1));
+        assertThat(late.get(0).getKey(), equalTo("SLING-0006"));
+    }
+
+    @Test
+    public void releaseAbortsWhenIssueTaggedAfterStaging() {
+        Release release = Release.fromString("Transitions 2.0.0").get(0);
+        Exception exception = null;
+        try {
+            versionClient.release(release, Instant.parse("2019-09-13T00:00:00Z"));
+        } catch (Exception e) {
+            exception = e;
+        }
+        assertNotNull("Releasing should have been aborted because of a late-tagged issue.", exception);
+        assertTrue(
+                "SLING-0006 should have been reported as tagged after staging.",
+                exception.getMessage().contains("SLING-0006"));
+        assertTrue(
+                "Only the late-tagged issue should be reported.",
+                !exception.getMessage().contains("SLING-0004"));
+    }
+
+    @Test
+    public void releaseSucceedsWhenAllIssuesTaggedBeforeStaging() {
+        Release release = Release.fromString("Transitions 2.0.0").get(0);
+        Exception exception = null;
+        try {
+            versionClient.release(release, Instant.parse("2019-10-01T00:00:00Z"));
+        } catch (Exception e) {
+            exception = e;
+        }
+        assertNull("All issues were tagged before staging, so the release should have worked.", exception);
     }
 }

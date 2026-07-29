@@ -287,6 +287,10 @@ public class UpdateDistCommandTest {
             dist.when(() -> UpdateDistCommand.listDistFiles(
                             eq(UpdateDistCommand.DIST_RELEASE_URL), eq(ARTIFACT + "-1.3.4")))
                     .thenReturn(List.of(ARTIFACT + "-1.3.4.pom"));
+            // the already-published probe queries the new version's prefix; it is not yet in dist/release
+            dist.when(() -> UpdateDistCommand.listDistFiles(
+                            eq(UpdateDistCommand.DIST_RELEASE_URL), eq(ARTIFACT + "-1.3.6")))
+                    .thenReturn(List.of());
             dist.when(() -> UpdateDistCommand.publishToDistRelease(any(), any(), any(), any(), any()))
                     .thenAnswer(invocation -> null);
 

@@ -25,6 +25,9 @@ import java.io.StringWriter;
 import java.lang.reflect.Type;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,6 +37,7 @@ import java.util.stream.Collectors;
 import com.google.gson.Gson;
 import com.google.gson.JsonIOException;
 import com.google.gson.JsonSyntaxException;
+import com.google.gson.annotations.SerializedName;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonWriter;
 import org.apache.http.HttpHeaders;
@@ -69,6 +73,8 @@ public class VersionClient {
     private static final String PROJECT_KEY = "SLING";
     private static final String DEFAULT_JIRA_URL = "https://issues.apache.org/jira";
     private static final String CONTENT_TYPE_JSON = "application/json";
+    private static final String ISSUE_PATH = "issue/";
+    private static final String FIX_VERSIONS_FIELD = "fixVersions";
 
     private final PromiseFactory promiseFactory = new PromiseFactory(null, null);
 
@@ -210,6 +216,126 @@ public class VersionClient {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Finds issues that were tagged with the release's fix version <em>after</em> {@code stagedAt}.
+     *
+     * <p>Such issues cannot be part of a release whose artifacts were already staged at that point; a
+     * common cause is a committer tagging an issue with a fix version that was already staged and out
+     * for a vote (see SLING-13260).</p>
+     *
+     * @param release the release whose fix version is checked
+     * @param stagedAt the moment the release artifacts were staged
+     * @return the issues tagged with the fix version after {@code stagedAt}, never {@code null}
+     * @throws IOException in case of any errors talking to JIRA
+     */
+    public List<Issue> findIssuesFixVersionedAfter(Release release, Instant stagedAt) throws IOException {
+        return findIssuesFixVersionedAfter(release, findIssues(release), stagedAt);
+    }
+
+    private List<Issue> findIssuesFixVersionedAfter(Release release, List<Issue> issues, Instant stagedAt)
+            throws IOException {
+        List<Issue> late = new ArrayList<>();
+        for (Issue issue : issues) {
+            if (issue.getResolution() == null) {
+                // unresolved issues are moved to the next version rather than closed, so they are not a concern
+                continue;
+            }
+            Instant addedAt = findFixVersionAddedDate(issue, release.getName());
+            if (addedAt != null && addedAt.isAfter(stagedAt)) {
+                late.add(issue);
+            }
+        }
+        return late;
+    }
+
+    /**
+     * Returns the most recent moment the given fix version was added to the issue, according to its
+     * change history, or {@code null} if that cannot be determined.
+     */
+    private Instant findFixVersionAddedDate(Issue issue, String versionName) throws IOException {
+        HttpGet get = newGet(ISSUE_PATH + issue.getKey());
+        try {
+            URIBuilder builder = new URIBuilder(get.getURI());
+            builder.addParameter("expand", "changelog");
+            builder.addParameter("fields", ""); // only the changelog is needed
+            get.setURI(builder.build());
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
+
+        try (CloseableHttpClient client = httpClientFactory.newClient();
+                CloseableHttpResponse response = client.execute(get);
+                InputStream content = response.getEntity().getContent();
+                InputStreamReader reader = new InputStreamReader(content)) {
+            if (response.getStatusLine().getStatusCode() != 200) {
+                throw newException(response, reader);
+            }
+            Changelog changelog = new Gson().fromJson(reader, IssueChangelog.class).changelog;
+            return latestFixVersionChange(changelog, versionName);
+        }
+    }
+
+    /**
+     * Scans a Jira changelog for the most recent moment {@code versionName} was added to the issue's fix
+     * versions, or {@code null} if the changelog is empty or records no such change.
+     */
+    private static Instant latestFixVersionChange(Changelog changelog, String versionName) {
+        if (changelog == null || changelog.histories == null) {
+            return null;
+        }
+        Instant latest = null;
+        for (History history : changelog.histories) {
+            Instant when = fixVersionChangeInstant(history, versionName);
+            if (when != null && (latest == null || when.isAfter(latest))) {
+                latest = when;
+            }
+        }
+        return latest;
+    }
+
+    /** The timestamp of {@code history} when it records adding {@code versionName} to the fix versions, else null. */
+    private static Instant fixVersionChangeInstant(History history, String versionName) {
+        if (history.items == null || history.created == null) {
+            return null;
+        }
+        for (HistoryItem item : history.items) {
+            if (isFixVersionAddition(item, versionName)) {
+                return OffsetDateTime.parse(history.created, JIRA_TIMESTAMP).toInstant();
+            }
+        }
+        return null;
+    }
+
+    private static boolean isFixVersionAddition(HistoryItem item, String versionName) {
+        boolean isFixVersionChange = FIX_VERSIONS_FIELD.equals(item.fieldId)
+                || (item.field != null && item.field.equalsIgnoreCase("Fix Version"));
+        return isFixVersionChange && versionName.equals(item.toString);
+    }
+
+    // JIRA change-history timestamps, e.g. "2024-01-15T10:30:00.000+0000"
+    private static final DateTimeFormatter JIRA_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+
+    static class IssueChangelog {
+        private Changelog changelog;
+    }
+
+    static class Changelog {
+        private List<History> histories;
+    }
+
+    static class History {
+        private String created;
+        private List<HistoryItem> items;
+    }
+
+    static class HistoryItem {
+        private String field;
+        private String fieldId;
+
+        @SerializedName("toString")
+        private String toString;
+    }
+
     private void closeIssues(List<Issue> issues) throws Exception {
         List<Promise<Issue>> closedIssues = new ArrayList<>();
         for (Issue issue : issues) {
@@ -235,6 +361,23 @@ public class VersionClient {
     }
 
     public void release(Release release) throws Exception {
+        release(release, null);
+    }
+
+    /**
+     * Marks the JIRA version matching the {@code release} as released and closes all its fixed issues.
+     *
+     * <p>When {@code stagedAt} is provided (the moment the release artifacts were staged in Nexus), this
+     * first guards against issues that acquired the release's fix version <em>after</em> the artifacts
+     * were staged: such issues cannot physically be part of the release, so closing them under this
+     * version would be wrong. If any are found the release is aborted before anything is closed, so a
+     * human can correct the fix-version tagging. See SLING-13260.</p>
+     *
+     * @param release the release to mark as released
+     * @param stagedAt the moment the artifacts were staged, or {@code null} to skip the staleness guard
+     * @throws Exception on any error, or when unresolved / late-tagged issues are found
+     */
+    public void release(Release release, Instant stagedAt) throws Exception {
         List<Issue> issues = findIssues(release);
         List<Issue> unresolvedIssues = new ArrayList<>();
         issues.forEach(issue -> {
@@ -243,6 +386,19 @@ public class VersionClient {
             }
         });
         if (unresolvedIssues.isEmpty()) {
+            if (stagedAt != null) {
+                List<Issue> lateIssues = findIssuesFixVersionedAfter(release, issues, stagedAt);
+                if (!lateIssues.isEmpty()) {
+                    String report = lateIssues.stream()
+                            .map(issue -> String.format("%s/browse/%s", jiraURL, issue.getKey()))
+                            .collect(Collectors.joining(System.lineSeparator()));
+                    throw new IllegalStateException(String.format(
+                            "The following issues were tagged with fix version \"%s\" after the release artifacts were "
+                                    + "staged (%s), so they cannot be part of the release and must not be closed under "
+                                    + "it. Re-tag them to the correct fix version before finalizing:%n%s",
+                            release.getName(), stagedAt, report));
+                }
+            }
             closeIssues(issues);
             Version version = find(release);
             if (!version.isReleased()) {
@@ -411,12 +567,12 @@ public class VersionClient {
             StringWriter w = new StringWriter();
 
             IssueUpdate update = new IssueUpdate();
-            update.recordAdd("fixVersions", newVersion.getName());
-            update.recordRemove("fixVersions", oldVersion.getName());
+            update.recordAdd(FIX_VERSIONS_FIELD, newVersion.getName());
+            update.recordRemove(FIX_VERSIONS_FIELD, oldVersion.getName());
             Gson gson = new Gson();
             gson.toJson(update, w);
 
-            HttpPut put = newPut("issue/" + issue.getKey());
+            HttpPut put = newPut(ISSUE_PATH + issue.getKey());
             put.setEntity(new StringEntity(w.toString(), StandardCharsets.UTF_8));
 
             try (CloseableHttpClient client = httpClientFactory.newClient()) {
@@ -436,7 +592,7 @@ public class VersionClient {
     }
 
     private Promise<Transition> getCloseTransition(Issue issue) {
-        HttpGet get = newGet("issue/" + issue.getId() + "/transitions");
+        HttpGet get = newGet(ISSUE_PATH + issue.getId() + "/transitions");
         try {
             try (CloseableHttpClient client = httpClientFactory.newClient()) {
                 try (CloseableHttpResponse getResponse =
@@ -468,7 +624,7 @@ public class VersionClient {
     }
 
     private Promise<Issue> closeIssue(Issue issue, Transition closeTransition) {
-        HttpPost post = newPost("issue/" + issue.getId() + "/transitions");
+        HttpPost post = newPost(ISSUE_PATH + issue.getId() + "/transitions");
         StringWriter w = new StringWriter();
         try (JsonWriter jw = new Gson().newJsonWriter(w)) {
             jw.beginObject()

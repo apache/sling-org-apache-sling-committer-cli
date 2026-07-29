@@ -42,6 +42,8 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -87,7 +89,7 @@ public class ReleaseJiraVersionCommandTest {
         prepare();
         Command command = createCommand(123, ExecutionMode.DRY_RUN);
         assertEquals(CommandLine.ExitCode.OK, (int) command.call());
-        verify(versionClient, never()).release(any());
+        verify(versionClient, never()).release(any(), any());
         assertTrue(logCapture.containsMessage("The following Jira versions would be released:"));
     }
 
@@ -100,7 +102,7 @@ public class ReleaseJiraVersionCommandTest {
                     .thenReturn(InputOption.YES);
             Command command = createCommand(123, ExecutionMode.INTERACTIVE);
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
-            verify(versionClient, times(1)).release(any());
+            verify(versionClient, times(1)).release(any(), any());
         }
     }
 
@@ -109,7 +111,7 @@ public class ReleaseJiraVersionCommandTest {
         prepare();
         Command command = createCommand(123, ExecutionMode.AUTO);
         assertEquals(CommandLine.ExitCode.OK, (int) command.call());
-        verify(versionClient, times(1)).release(any());
+        verify(versionClient, times(1)).release(any(), any());
     }
 
     @Test
@@ -118,13 +120,53 @@ public class ReleaseJiraVersionCommandTest {
         prepare();
         Command command = createCommandByName("Apache Sling CLI Test 1.0.0", ExecutionMode.AUTO);
         assertEquals(CommandLine.ExitCode.OK, (int) command.call());
-        verify(versionClient, times(1)).release(any());
+        verify(versionClient, times(1)).release(any(), any());
         verify(repositoryService, never()).find(anyInt());
     }
 
+    @Test
+    public void testGuardWarnsAndPassesStagingTimestamp() throws Exception {
+        prepare();
+        when(repositoryService.find(123).getCreated()).thenReturn(java.time.Instant.parse("2020-01-01T00:00:00Z"));
+        Issue late = mock(Issue.class);
+        when(late.getKey()).thenReturn("SLING-13260");
+        when(late.getSummary()).thenReturn("Late tagged issue");
+        when(versionClient.findIssuesFixVersionedAfter(any(), any())).thenReturn(List.of(late));
+
+        Command command = createCommand(123, ExecutionMode.AUTO, false);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+        assertTrue(logCapture.containsMessage("Refusing to release JIRA version Apache Sling CLI Test 1.0.0"));
+        assertTrue(logCapture.containsMessage("SLING-13260"));
+        // the staging timestamp is handed to release(), which is the authoritative guard
+        verify(versionClient).release(any(), eq(java.time.Instant.parse("2020-01-01T00:00:00Z")));
+    }
+
+    @Test
+    public void testForcePassesNullTimestamp() throws Exception {
+        prepare();
+        when(repositoryService.find(123).getCreated()).thenReturn(java.time.Instant.parse("2020-01-01T00:00:00Z"));
+        Issue late = mock(Issue.class);
+        when(late.getKey()).thenReturn("SLING-13260");
+        when(late.getSummary()).thenReturn("Late tagged issue");
+        when(versionClient.findIssuesFixVersionedAfter(any(), any())).thenReturn(List.of(late));
+
+        Command command = createCommand(123, ExecutionMode.AUTO, true);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+        assertTrue(logCapture.containsMessage("closing them anyway because --force-close-late-issues was given"));
+        verify(versionClient).release(any(), isNull());
+    }
+
     private Command createCommand(int repositoryId, ExecutionMode executionMode) throws Exception {
+        return createCommand(repositoryId, executionMode, false);
+    }
+
+    private Command createCommand(int repositoryId, ExecutionMode executionMode, boolean forceCloseLateIssues)
+            throws Exception {
         ReleaseJiraVersionCommand releaseJiraVersionCommand = spy(new ReleaseJiraVersionCommand());
         FieldUtils.writeField(releaseJiraVersionCommand, "repositoryId", repositoryId, true);
+        FieldUtils.writeField(releaseJiraVersionCommand, "forceCloseLateIssues", forceCloseLateIssues, true);
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
         FieldUtils.writeField(reusableCLIOptions, "executionMode", executionMode, true);
         FieldUtils.writeField(releaseJiraVersionCommand, "reusableCLIOptions", reusableCLIOptions, true);
