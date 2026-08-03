@@ -89,6 +89,14 @@ public class TallyVotesCommand implements Command {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
+    /** The steps {@link FinalizeCommand} performs, in the order it performs them. */
+    private static final String FINALIZE_STEPS = "  1. copy the artifacts to the Sling dist directory\n"
+            + "     (https://dist.apache.org/repos/dist/release/sling/)\n"
+            + "  2. promote the staged artifacts to the central Maven repository\n"
+            + "  3. create the next JIRA version and move any unresolved issues to it\n"
+            + "  4. mark the JIRA version as released\n"
+            + "  5. add the release to the Apache Reporter System";
+
     private static final String EMAIL_TEMPLATE;
 
     static {
@@ -199,20 +207,16 @@ public class TallyVotesCommand implements Command {
      * dist directory first and only then promoting the artifacts to Maven Central. Because the dist
      * upload is restricted to PMC members, a non-PMC release manager cannot perform the finalization
      * in the correct order and must ask a PMC member to finalize the release. PMC membership is derived
-     * from the current user, so no flag is needed.
+     * from the current user, so no flag is needed. Both variants list the same {@link #FINALIZE_STEPS},
+     * so the email states what finalizing actually involves rather than only its first two steps.
      */
     private String closingAction(String releaseFullName, boolean isPmcMember) {
         if (isPmcMember) {
-            return "I will copy this release to the Sling dist directory and\n"
-                    + "promote the artifacts to the central Maven repository.";
+            return "I will finalize this release:\n\n" + FINALIZE_STEPS;
         }
-        return "The release still needs to be finalized: the artifacts must first be copied to the\n"
-                + "Sling dist directory (https://dist.apache.org/repos/dist/release/sling/) and only\n"
-                + "then promoted to the central Maven repository. As that first step requires PMC\n"
-                + "membership, which I do not have, I cannot finalize this release myself.\n\n"
-                + "ACTION NEEDED: can a PMC member please finalize " + releaseFullName + " by copying it\n"
-                + "to the dist directory and then promoting the staged artifacts to the central Maven\n"
-                + "repository?";
+        return "This release still needs to be finalized:\n\n" + FINALIZE_STEPS + "\n\n"
+                + "Steps 1 and 5 require PMC membership, which I do not have.\n\n"
+                + "ACTION NEEDED: can a PMC member please finalize " + releaseFullName + "?";
     }
 
     // TODO - better detection of '+1' votes
