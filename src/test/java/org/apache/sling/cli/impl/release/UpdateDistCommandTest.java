@@ -151,6 +151,61 @@ public class UpdateDistCommandTest {
     }
 
     @Test
+    public void testAutoDeduceRemovesOnlySameMajorVersion() throws Exception {
+        // publishing 1.2.16 must remove 1.2.14 and leave the 2.x stream untouched
+        List<String> releaseDir = List.of(
+                ARTIFACT + "-1.2.14.pom",
+                ARTIFACT + "-1.2.14-source-release.zip",
+                ARTIFACT + "-2.1.0.pom",
+                ARTIFACT + "-2.1.0-source-release.zip");
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+                    .thenReturn(releaseDir);
+
+            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "1.2.16", null);
+
+            assertEquals(2, old.size());
+            assertTrue(old.contains(ARTIFACT + "-1.2.14.pom"));
+            assertTrue(old.contains(ARTIFACT + "-1.2.14-source-release.zip"));
+            assertFalse(old.contains(ARTIFACT + "-2.1.0.pom"));
+            assertFalse(old.contains(ARTIFACT + "-2.1.0-source-release.zip"));
+        }
+    }
+
+    @Test
+    public void testAutoDeduceIgnoresOlderMajorVersions() throws Exception {
+        // publishing 2.1.2 must remove 2.1.0 and never touch the older 1.x stream
+        List<String> releaseDir =
+                List.of(ARTIFACT + "-1.2.14.pom", ARTIFACT + "-2.1.0.pom", ARTIFACT + "-2.1.0-source-release.zip");
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+                    .thenReturn(releaseDir);
+
+            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "2.1.2", null);
+
+            assertEquals(2, old.size());
+            assertTrue(old.contains(ARTIFACT + "-2.1.0.pom"));
+            assertTrue(old.contains(ARTIFACT + "-2.1.0-source-release.zip"));
+            assertFalse(old.contains(ARTIFACT + "-1.2.14.pom"));
+        }
+    }
+
+    @Test
+    public void testAutoDeduceKeepsOlderMajorWhenNoSameMajorPredecessorExists() throws Exception {
+        // the first release of a new major stream: nothing in dist/release shares its major, so the
+        // previous major line stays published (it is still maintained separately)
+        List<String> releaseDir = List.of(ARTIFACT + "-1.2.14.pom", ARTIFACT + "-1.2.14-source-release.zip");
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+                    .thenReturn(releaseDir);
+
+            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "2.0.0", null);
+
+            assertTrue("a different major version must never be removed", old.isEmpty());
+        }
+    }
+
+    @Test
     public void testExplicitPreviousVersionWins() throws Exception {
         try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
             dist.when(() -> UpdateDistCommand.listDistFiles(

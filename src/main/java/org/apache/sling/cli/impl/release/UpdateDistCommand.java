@@ -97,7 +97,8 @@ public class UpdateDistCommand implements Command {
     @CommandLine.Option(
             names = {"--previous-version"},
             description = "Previous release version to remove from dist/release (e.g. 1.0.0)."
-                    + " Optional: if omitted, the closest older version currently in dist/release is removed.")
+                    + " Optional: if omitted, the closest older version with the same major version currently in"
+                    + " dist/release is removed; other major version streams are left untouched.")
     private String previousVersion;
 
     @CommandLine.Mixin
@@ -290,10 +291,11 @@ public class UpdateDistCommand implements Command {
     /**
      * Determines which files to remove from {@code dist/release} when publishing {@code newVersion}
      * of {@code artifactId}. When {@code explicitPreviousVersion} is given, only that version's files
-     * are returned. Otherwise only the <em>closest older</em> version's files are returned — the highest
-     * version strictly lower than {@code newVersion} currently present for this artifact. This keeps
-     * parallel maintenance streams intact (publishing {@code 2.0.4} removes {@code 2.0.2} but keeps
-     * {@code 1.2.4}) and never removes a newer version.
+     * are returned. Otherwise only the <em>closest older version with the same major version</em> is
+     * returned — the highest version strictly lower than {@code newVersion} sharing its major. This
+     * keeps parallel maintenance streams intact (publishing {@code 1.2.16} removes {@code 1.2.14} but
+     * keeps {@code 2.1.0}, and publishing {@code 2.1.2} leaves {@code 1.2.14} alone) and never removes
+     * a newer version.
      */
     static List<String> listPreviousReleaseFiles(String artifactId, String newVersion, String explicitPreviousVersion)
             throws IOException {
@@ -305,7 +307,7 @@ public class UpdateDistCommand implements Command {
                 // right after the prefix excludes sibling artifacts such as artifactId-extra-...)
                 .filter(f -> isVersionedArtifactFile(f, artifactId))
                 .toList();
-        String previousVersion = closestOlderVersion(artifactFiles, artifactId, newVersion);
+        String previousVersion = closestOlderVersionInSameMajor(artifactFiles, artifactId, newVersion);
         if (previousVersion == null) {
             return List.of();
         }
@@ -315,10 +317,12 @@ public class UpdateDistCommand implements Command {
     }
 
     /**
-     * Returns the highest version among {@code artifactFiles} that is strictly lower than
-     * {@code newVersion}, or {@code null} if there is none.
+     * Returns the highest version among {@code artifactFiles} that shares {@code newVersion}'s major
+     * version and is strictly lower than it, or {@code null} if there is none. Versions from other
+     * major streams are never candidates, so an older major line stays published.
      */
-    private static String closestOlderVersion(List<String> artifactFiles, String artifactId, String newVersion) {
+    private static String closestOlderVersionInSameMajor(
+            List<String> artifactFiles, String artifactId, String newVersion) {
         org.osgi.framework.Version target = parseOsgiVersion(newVersion);
         if (target == null) {
             return null;
@@ -328,7 +332,7 @@ public class UpdateDistCommand implements Command {
         for (String file : artifactFiles) {
             String candidateName = extractVersion(file, artifactId);
             org.osgi.framework.Version candidate = parseOsgiVersion(candidateName);
-            if (candidate == null || candidate.compareTo(target) >= 0) {
+            if (candidate == null || candidate.getMajor() != target.getMajor() || candidate.compareTo(target) >= 0) {
                 continue;
             }
             if (closestVersion == null || candidate.compareTo(closestVersion) > 0) {
