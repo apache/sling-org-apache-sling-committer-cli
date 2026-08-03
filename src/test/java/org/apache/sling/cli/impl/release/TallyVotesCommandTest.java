@@ -103,8 +103,14 @@ public class TallyVotesCommandTest {
                         + "+1 (binding): Alice, Bob, Charlie, John Doe, Joerg Hoh\n"
                         + "+1 (non-binding): Daniel\n"
                         + "\n"
-                        + "I will copy this release to the Sling dist directory and\n"
-                        + "promote the artifacts to the central Maven repository.\n"
+                        + "I will finalize this release:\n"
+                        + "\n"
+                        + "  1. copy the artifacts to the Sling dist directory\n"
+                        + "     (https://dist.apache.org/repos/dist/release/sling/)\n"
+                        + "  2. promote the staged artifacts to the central Maven repository\n"
+                        + "  3. create the next JIRA version and move any unresolved issues to it\n"
+                        + "  4. mark the JIRA version as released\n"
+                        + "  5. add the release to the Apache Reporter System\n"
                         + "\n"
                         + "Regards,\n"
                         + "John Doe\n"));
@@ -142,14 +148,18 @@ public class TallyVotesCommandTest {
                 +1 (binding): Alice, Bob, Charlie
                 +1 (non-binding): none
 
-                The release still needs to be finalized: the artifacts must first be copied to the
-                Sling dist directory (https://dist.apache.org/repos/dist/release/sling/) and only
-                then promoted to the central Maven repository. As that first step requires PMC
-                membership, which I do not have, I cannot finalize this release myself.
+                This release still needs to be finalized:
 
-                ACTION NEEDED: can a PMC member please finalize Apache Sling CLI Test 1.0.0 by copying it
-                to the dist directory and then promoting the staged artifacts to the central Maven
-                repository?
+                  1. copy the artifacts to the Sling dist directory
+                     (https://dist.apache.org/repos/dist/release/sling/)
+                  2. promote the staged artifacts to the central Maven repository
+                  3. create the next JIRA version and move any unresolved issues to it
+                  4. mark the JIRA version as released
+                  5. add the release to the Apache Reporter System
+
+                Steps 1 and 5 require PMC membership, which I do not have.
+
+                ACTION NEEDED: can a PMC member please finalize Apache Sling CLI Test 1.0.0?
 
                 Regards,
                 Daniel
@@ -204,8 +214,14 @@ public class TallyVotesCommandTest {
                         + "+1 (binding): Alice, Bob, Charlie, John Doe\n"
                         + "+1 (non-binding): Daniel\n"
                         + "\n"
-                        + "I will copy this release to the Sling dist directory and\n"
-                        + "promote the artifacts to the central Maven repository.\n"
+                        + "I will finalize this release:\n"
+                        + "\n"
+                        + "  1. copy the artifacts to the Sling dist directory\n"
+                        + "     (https://dist.apache.org/repos/dist/release/sling/)\n"
+                        + "  2. promote the staged artifacts to the central Maven repository\n"
+                        + "  3. create the next JIRA version and move any unresolved issues to it\n"
+                        + "  4. mark the JIRA version as released\n"
+                        + "  5. add the release to the Apache Reporter System\n"
                         + "\n"
                         + "Regards,\n"
                         + "John Doe\n");
