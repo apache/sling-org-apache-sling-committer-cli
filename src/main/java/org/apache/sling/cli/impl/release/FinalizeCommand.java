@@ -63,7 +63,8 @@ import picocli.CommandLine;
  * when the current user (resolved from the ASF credentials) is a PMC member and skipped otherwise.
  * When skipped, a PMC member must complete it separately (the {@code tally-votes} result email asks
  * for this when run by a non-PMC member). The previous version to remove from dist/release is
- * deduced from the current contents of the release directory.
+ * deduced from the current contents of the release directory, restricted to the major version being
+ * released so parallel major version streams stay published.
  */
 @Component(
         service = Command.class,
