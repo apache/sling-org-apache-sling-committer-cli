@@ -134,6 +134,44 @@ class PomParser {
         return Set.copyOf(releases);
     }
 
+    /**
+     * Returns the artifact ids among {@code poms} that belong to {@code release}.
+     *
+     * <p>A module's own {@code <name>} identifies it only when it is the release itself. In a multi-module
+     * reactor the children carry their own names — <em>Apache Sling Testing Sling Mock Core</em> is not the
+     * release <em>Apache Sling Testing Sling Mock</em> — so they are collected through the {@code <parent>}
+     * chain instead, which is the same relationship {@link #toReleases(List)} uses to fold a reactor into a
+     * single release.
+     */
+    static Set<String> artifactIdsFor(List<PomCoordinates> poms, Release release) {
+        Set<String> roots = poms.stream()
+                .filter(p -> buildReleases(p).contains(release))
+                .map(PomCoordinates::ownKey)
+                .filter(k -> k != null)
+                .collect(Collectors.toSet());
+        if (roots.isEmpty()) {
+            return Set.of();
+        }
+        // walk down the parent chain until no further module is pulled in, so grandchildren are included too
+        Set<String> family = new HashSet<>(roots);
+        boolean grown = true;
+        while (grown) {
+            grown = false;
+            for (PomCoordinates pom : poms) {
+                String key = pom.ownKey();
+                if (key != null && !family.contains(key) && family.contains(pom.parentKey())) {
+                    family.add(key);
+                    grown = true;
+                }
+            }
+        }
+        return poms.stream()
+                .filter(p -> p.ownKey() != null && family.contains(p.ownKey()))
+                .map(PomCoordinates::artifactId)
+                .filter(a -> a != null && !a.isBlank())
+                .collect(Collectors.toSet());
+    }
+
     private static Set<Release> buildReleases(PomCoordinates pom) {
         try {
             return new HashSet<>(Release.fromString(pom.name() + " " + pom.version()));

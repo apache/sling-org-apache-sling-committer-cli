@@ -103,6 +103,104 @@ public class PomParserTest {
         assertEquals(Set.of("Apache Sling Reactor 1.0.0"), fullNames(releases));
     }
 
+    @Test
+    public void testArtifactIdsForSingleModule() {
+        List<PomCoordinates> poms = List.of(
+                pom("Apache Sling Foo", "org.apache.sling", "org.apache.sling.foo", "1.2.0", "jar", PARENT_POM));
+
+        assertEquals(
+                Set.of("org.apache.sling.foo"),
+                PomParser.artifactIdsFor(
+                        poms, Release.fromString("Apache Sling Foo 1.2.0").get(0)));
+    }
+
+    @Test
+    public void testArtifactIdsForReactorIncludesChildrenViaParentChain() {
+        // the children carry their own names, so they belong to the release only through <parent>
+        String aggregator = "org.apache.sling:org.apache.sling.testing.sling-mock:4.0.6";
+        List<PomCoordinates> poms = List.of(
+                pom(
+                        "Apache Sling Testing Sling Mock",
+                        "org.apache.sling",
+                        "org.apache.sling.testing.sling-mock",
+                        "4.0.6",
+                        "pom",
+                        PARENT_POM),
+                pom(
+                        "Apache Sling Testing Sling Mock Core",
+                        "org.apache.sling",
+                        "org.apache.sling.testing.sling-mock.core",
+                        "4.0.6",
+                        "jar",
+                        aggregator),
+                pom(
+                        "Apache Sling Testing Sling Mock JUnit 4",
+                        "org.apache.sling",
+                        "org.apache.sling.testing.sling-mock.junit4",
+                        "4.0.6",
+                        "jar",
+                        aggregator));
+
+        assertEquals(
+                Set.of(
+                        "org.apache.sling.testing.sling-mock",
+                        "org.apache.sling.testing.sling-mock.core",
+                        "org.apache.sling.testing.sling-mock.junit4"),
+                PomParser.artifactIdsFor(
+                        poms,
+                        Release.fromString("Apache Sling Testing Sling Mock 4.0.6")
+                                .get(0)));
+    }
+
+    @Test
+    public void testArtifactIdsForIncludesGrandchildren() {
+        // the parent chain is walked transitively, not only one level deep
+        String aggregator = "org.apache.sling:org.apache.sling.foo:1.2.0";
+        String intermediate = "org.apache.sling:org.apache.sling.foo.parent:1.2.0";
+        List<PomCoordinates> poms = List.of(
+                pom("Apache Sling Foo", "org.apache.sling", "org.apache.sling.foo", "1.2.0", "pom", PARENT_POM),
+                pom(
+                        "Apache Sling Foo Modules",
+                        "org.apache.sling",
+                        "org.apache.sling.foo.parent",
+                        "1.2.0",
+                        "pom",
+                        aggregator),
+                pom(
+                        "Apache Sling Foo Impl",
+                        "org.apache.sling",
+                        "org.apache.sling.foo.impl",
+                        "1.2.0",
+                        "jar",
+                        intermediate));
+
+        assertEquals(
+                Set.of("org.apache.sling.foo", "org.apache.sling.foo.parent", "org.apache.sling.foo.impl"),
+                PomParser.artifactIdsFor(
+                        poms, Release.fromString("Apache Sling Foo 1.2.0").get(0)));
+    }
+
+    @Test
+    public void testArtifactIdsForUnrelatedReleaseIsEmpty() {
+        List<PomCoordinates> poms = List.of(
+                pom("Apache Sling Foo", "org.apache.sling", "org.apache.sling.foo", "1.2.0", "jar", PARENT_POM));
+
+        assertTrue(PomParser.artifactIdsFor(
+                        poms, Release.fromString("Apache Sling Bar 9.9.9").get(0))
+                .isEmpty());
+    }
+
+    @Test
+    public void testArtifactIdsForOtherVersionOfSameComponentIsEmpty() {
+        // the same module at a different version must not be picked up
+        List<PomCoordinates> poms = List.of(
+                pom("Apache Sling Foo", "org.apache.sling", "org.apache.sling.foo", "1.2.0", "jar", PARENT_POM));
+
+        assertTrue(PomParser.artifactIdsFor(
+                        poms, Release.fromString("Apache Sling Foo 1.2.2").get(0))
+                .isEmpty());
+    }
+
     private PomCoordinates parse(String pomXml) {
         try (InputStream stream = new ByteArrayInputStream(pomXml.getBytes(StandardCharsets.UTF_8))) {
             return pomParser.parse(stream, "test.pom");

@@ -234,6 +234,53 @@ public class RepositoryServiceTest {
         assertEquals("delete", nexus.getLastBulkAction());
     }
 
+    @Test
+    public void testGetArtifactIdsFromStagedPoms() throws IOException {
+        // the website update keys downloads entries on the artifact id, resolved from the staged POMs
+        Set<String> artifactIds = repositoryService.getArtifactIds(
+                getStagingRepository(),
+                Release.fromString("Sling Adapter Annotations 1.0.0").get(0));
+
+        assertEquals(Set.of("adapter-annotations"), artifactIds);
+    }
+
+    @Test
+    public void testGetArtifactIdsForAnUnrelatedReleaseIsEmpty() throws IOException {
+        Set<String> artifactIds = repositoryService.getArtifactIds(
+                getStagingRepository(),
+                Release.fromString("Sling Something Else 9.9.9").get(0));
+
+        assertTrue(artifactIds.isEmpty());
+    }
+
+    @Test
+    public void testGetArtifactIdsFromPomUrls() throws IOException {
+        // the resume-by-name path reads the released POMs instead of the staged ones, matching each on
+        // its <name>; a name that is not published is skipped rather than failing the lookup
+        Set<String> artifactIds = repositoryService.getArtifactIdsFromPomUrls(
+                pomBaseUrl(),
+                List.of("adapter-annotations-1.0.0.pom", "does-not-exist-1.0.0.pom"),
+                Release.fromString("Sling Adapter Annotations 1.0.0").get(0));
+
+        assertEquals(Set.of("adapter-annotations"), artifactIds);
+    }
+
+    @Test
+    public void testGetArtifactIdsFromPomUrlsWithoutMatchesIsEmpty() throws IOException {
+        Set<String> artifactIds = repositoryService.getArtifactIdsFromPomUrls(
+                pomBaseUrl(),
+                List.of("adapter-annotations-1.0.0.pom"),
+                Release.fromString("Sling Adapter Annotations 2.0.0").get(0));
+
+        assertTrue(artifactIds.isEmpty());
+    }
+
+    /** Serves the fixture POMs as if they were published in a flat directory, like {@code dist/release}. */
+    private String pomBaseUrl() {
+        return "http://localhost:" + nexus.getBoundPort()
+                + "/service/local/repositories/orgapachesling-3/content/org/apache/sling/adapter-annotations/1.0.0/";
+    }
+
     private StagingRepository getStagingRepository() {
         StagingRepository stagingRepository = new StagingRepository();
         stagingRepository.setRepositoryId("orgapachesling-0");

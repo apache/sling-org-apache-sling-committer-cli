@@ -24,6 +24,7 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -292,6 +293,19 @@ public class RepositoryService {
     }
 
     public Set<Release> getReleases(StagingRepository stagingRepository) throws IOException {
+        return PomParser.toReleases(readStagedPoms(stagingRepository));
+    }
+
+    /**
+     * Returns the artifact ids belonging to {@code release}, resolved from the POMs staged in
+     * {@code stagingRepository}. Used to key website updates on the artifact id rather than on the
+     * human-readable component name, which frequently differs from what the site lists.
+     */
+    public Set<String> getArtifactIds(StagingRepository stagingRepository, Release release) throws IOException {
+        return PomParser.artifactIdsFor(readStagedPoms(stagingRepository), release);
+    }
+
+    private List<PomParser.PomCoordinates> readStagedPoms(StagingRepository stagingRepository) throws IOException {
         List<PomParser.PomCoordinates> poms = new ArrayList<>();
         getArtifacts(stagingRepository).stream()
                 .filter(artifact -> "pom".equals(artifact.getType()))
@@ -307,7 +321,39 @@ public class RepositoryService {
                         LOGGER.error(String.format("Unable to process artifact %s.", pom), e);
                     }
                 });
-        return PomParser.toReleases(poms);
+        return poms;
+    }
+
+    /**
+     * Resolves the artifact ids belonging to {@code release} by reading the released POMs published at
+     * {@code baseUrl} (dist.apache.org). Used when the staging repository is gone — after promotion it is
+     * dropped, so a resumed run has no staged POMs to consult, but the released ones are still available.
+     *
+     * <p>{@code pomFileNames} are the {@code <artifactId>-<version>.pom} names already known to carry the
+     * release's version. Several unrelated artifacts share a version (29 different artifacts sit at
+     * {@code 1.0.0}), so the version alone does not identify the release; each candidate POM is read and
+     * matched on its {@code <name>}, which is exactly what the release name was derived from.
+     */
+    public Set<String> getArtifactIdsFromPomUrls(String baseUrl, Collection<String> pomFileNames, Release release)
+            throws IOException {
+        List<PomParser.PomCoordinates> poms = new ArrayList<>();
+        try (CloseableHttpClient client = httpClientFactory.newClient()) {
+            for (String pomFileName : pomFileNames) {
+                HttpGet get = new HttpGet(baseUrl + pomFileName);
+                try (CloseableHttpResponse response = client.execute(get)) {
+                    if (response.getStatusLine().getStatusCode() != 200) {
+                        continue;
+                    }
+                    try (InputStream stream = response.getEntity().getContent()) {
+                        PomParser.PomCoordinates coordinates = pomParser.parse(stream, pomFileName);
+                        if (coordinates != null) {
+                            poms.add(coordinates);
+                        }
+                    }
+                }
+            }
+        }
+        return PomParser.artifactIdsFor(poms, release);
     }
 
     /**

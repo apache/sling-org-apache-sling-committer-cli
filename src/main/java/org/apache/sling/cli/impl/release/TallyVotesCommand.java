@@ -95,7 +95,8 @@ public class TallyVotesCommand implements Command {
             + "  2. promote the staged artifacts to the central Maven repository\n"
             + "  3. create the next JIRA version and move any unresolved issues to it\n"
             + "  4. mark the JIRA version as released\n"
-            + "  5. add the release to the Apache Reporter System";
+            + "  5. add the release to the Apache Reporter System\n"
+            + "  6. update the Sling website: the releases list and the downloads page";
 
     private static final String EMAIL_TEMPLATE;
 
