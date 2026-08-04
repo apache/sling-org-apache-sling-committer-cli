@@ -29,7 +29,6 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.eclipse.jgit.api.Git;
@@ -218,35 +217,13 @@ public class JBakeContentUpdaterTest {
     }
 
     @Test
-    public void updateDownloadsTemplate_newReleaseOfExistingModule() throws IOException {
+    public void updateDownloadsByArtifactId_updatesMavenPluginEntry() throws IOException {
+        // maven plugin entries carry a bare artifact id rather than a fully qualified one
+        JBakeContentUpdater.DownloadsUpdate result =
+                updater.updateDownloadsByArtifactId(templatePath(), "slingstart-maven-plugin", "1.9.0");
 
-        updateDownloadsTemplate0("API", "2.20.2");
-    }
-
-    private void updateDownloadsTemplate0(String newReleaseName, String newReleaseVersion) throws IOException {
-        Path templatePath = Paths.get(new File(tmp.getRoot(), "downloads.tpl").toURI());
-
-        int changeCount = updater.updateDownloads(templatePath, newReleaseName, newReleaseVersion);
-        assertThat("Unexpected count of changes", changeCount, equalTo(1));
-
-        Optional<String> apiLineHolder = Files.readAllLines(templatePath, StandardCharsets.UTF_8).stream()
-                .filter(l -> l.trim().startsWith("\"" + newReleaseName + "|"))
-                .findFirst();
-        assertTrue(apiLineHolder.isPresent());
-        String apiLine = apiLineHolder.get();
-        assertThat("Did not find modified version in the release line", apiLine, containsString(newReleaseVersion));
-    }
-
-    @Test
-    public void updateDownloadsTemplate_newReleaseOfExistingMavenPlugin() throws IOException {
-
-        updateDownloadsTemplate0("Slingstart Maven Plugin", "1.9.0");
-    }
-
-    @Test
-    public void updateDownloadsTemplate_newReleaseOfIDETooling() throws IOException {
-
-        updateDownloadsTemplate0("Sling IDE Tooling for Eclipse", "1.4.0");
+        assertThat(result.updated(), equalTo(1));
+        assertThat(lineFor("slingstart-maven-plugin"), containsString("|1.9.0|"));
     }
 
     @Test

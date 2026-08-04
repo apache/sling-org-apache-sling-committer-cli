@@ -26,48 +26,16 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class JBakeContentUpdater {
-
-    private static final Pattern DOWNLOAD_LINE_PATTERN =
-            Pattern.compile("^.*\"([a-zA-Z\\s\\-]+)\\|([a-zA-Z\\.\\-]+)\\|([0-9\\.\\-]+).*$");
 
     /**
      * A version column: starts with a digit and contains only version characters. Deliberately does not
      * match a Groovy interpolation such as {@code ${starterVersion}}, which must never be rewritten.
      */
     private static final Pattern VERSION_COLUMN = Pattern.compile("^\\d[\\dA-Za-z.\\-]*$");
-
-    public int updateDownloads(Path downloadsTemplatePath, String newReleaseName, String newReleaseVersion)
-            throws IOException {
-
-        int[] changeCount = new int[1];
-
-        List<String> updatedLines = Files.readAllLines(downloadsTemplatePath, StandardCharsets.UTF_8).stream()
-                .map(line -> {
-                    Matcher matcher = DOWNLOAD_LINE_PATTERN.matcher(line);
-                    if (!matcher.find()) return line;
-
-                    if (!matcher.group(1).equals(newReleaseName)) return line;
-
-                    changeCount[0]++;
-
-                    StringBuilder buffer = new StringBuilder();
-                    buffer.append(line.substring(0, matcher.start(3)));
-                    buffer.append(newReleaseVersion);
-                    buffer.append(line.substring(matcher.end(3)));
-
-                    return buffer.toString();
-                })
-                .collect(Collectors.toList());
-
-        Files.write(downloadsTemplatePath, updatedLines);
-
-        return changeCount[0];
-    }
 
     /**
      * Updates the version of every {@code downloads.tpl} entry that declares {@code artifactId}. Keyed on the
