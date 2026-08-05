@@ -40,11 +40,11 @@
             "start-order": "1"
         },
         {
-            "id"         : "ch.qos.logback:logback-classic:1.2.8",
+            "id"         : "ch.qos.logback:logback-classic:1.2.13",
             "start-order": "1"
         },
         {
-            "id"         : "ch.qos.logback:logback-core:1.2.8",
+            "id"         : "ch.qos.logback:logback-core:1.2.13",
             "start-order": "1"
         },
         {
