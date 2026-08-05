@@ -76,7 +76,7 @@
             "start-order": "3"
         },
         {
-            "id"         : "org.eclipse.jgit:org.eclipse.jgit:5.2.1.201812262042-r",
+            "id"         : "org.eclipse.jgit:org.eclipse.jgit:5.13.4.202507202350-r",
             "start-order": "3"
         },
         {
