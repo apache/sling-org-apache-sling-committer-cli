@@ -1,21 +1,21 @@
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
- ~ Licensed to the Apache Software Foundation (ASF) under one
- ~ or more contributor license agreements.  See the NOTICE file
- ~ distributed with this work for additional information
- ~ regarding copyright ownership.  The ASF licenses this file
- ~ to you under the Apache License, Version 2.0 (the
- ~ "License"); you may not use this file except in compliance
- ~ with the License.  You may obtain a copy of the License at
- ~
- ~   http://www.apache.org/licenses/LICENSE-2.0
- ~
- ~ Unless required by applicable law or agreed to in writing,
- ~ software distributed under the License is distributed on an
- ~ "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- ~ KIND, either express or implied.  See the License for the
- ~ specific language governing permissions and limitations
- ~ under the License.
- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*/
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 package org.apache.sling.cli.impl.pgp;
 
 import java.io.FileOutputStream;
@@ -72,8 +72,8 @@ public class PGPSignatureValidator {
             PGPSignature pgpSignature = sigList.get(0);
             PGPPublicKey key = keyRingCollection.getPublicKey(pgpSignature.getKeyID());
             if (key == null) {
-                throw new IllegalStateException(String
-                        .format("Signature %s was not generated with any of the known keys.", signature.getFileName()));
+                throw new IllegalStateException(String.format(
+                        "Signature %s was not generated with any of the known keys.", signature.getFileName()));
             }
             pgpSignature.init(new BcPGPContentVerifierBuilderProvider(), key);
             byte[] buff = new byte[1024];
@@ -83,8 +83,8 @@ public class PGPSignatureValidator {
             }
             return new ValidationResult(pgpSignature.verify(), key);
         } catch (PGPException | IOException e) {
-            throw new IllegalStateException(String.format("Unable to verify signature %s.", signature.getFileName()),
-                    e);
+            throw new IllegalStateException(
+                    String.format("Unable to verify signature %s.", signature.getFileName()), e);
         }
     }
 
@@ -104,8 +104,7 @@ public class PGPSignatureValidator {
                     }
                 }
             } catch (IOException e) {
-                throw new IllegalStateException(
-                        "Cannot download Sling key file from " + KEYS_FILE_URL, e);
+                throw new IllegalStateException("Cannot download Sling key file from " + KEYS_FILE_URL, e);
             }
         }
         try (InputStream in = Files.newInputStream(keysFilePath)) {
@@ -114,8 +113,8 @@ public class PGPSignatureValidator {
                 ArmoredInputStream as = (ArmoredInputStream) bouncyIn;
                 List<PGPPublicKeyRing> keyRings = new ArrayList<>();
                 while (!as.isEndOfStream()) {
-                    PGPPublicKeyRingCollection collection = new PGPPublicKeyRingCollection(as,
-                            new JcaKeyFingerprintCalculator());
+                    PGPPublicKeyRingCollection collection =
+                            new PGPPublicKeyRingCollection(as, new JcaKeyFingerprintCalculator());
                     Iterator<PGPPublicKeyRing> readKeyRings = collection.getKeyRings();
                     while (readKeyRings.hasNext()) {
                         PGPPublicKeyRing keyRing = readKeyRings.next();
@@ -125,7 +124,8 @@ public class PGPSignatureValidator {
                 if (!keyRings.isEmpty()) {
                     keyRingCollection = new PGPPublicKeyRingCollection(keyRings);
                 } else {
-                    throw new IllegalStateException(String.format("Sling keys file from %s does not contain any keys.", keysFile));
+                    throw new IllegalStateException(
+                            String.format("Sling keys file from %s does not contain any keys.", keysFile));
                 }
             }
         } catch (IOException | PGPException e) {
