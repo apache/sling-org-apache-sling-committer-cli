@@ -1,0 +1,14 @@
+{
+  "data": [
+    {
+      "relativePath": "/org/apache/sling/adapter-annotations/1.0.0/adapter-annotations-1.0.0.pom",
+      "text": "adapter-annotations-1.0.0.pom",
+      "leaf": true
+    },
+    {
+      "relativePath": "/org/apache/sling/adapter-annotations/1.0.0/adapter-annotations-1.0.0.jar",
+      "text": "adapter-annotations-1.0.0.jar",
+      "leaf": true
+    }
+  ]
+}

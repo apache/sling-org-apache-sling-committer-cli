@@ -9,7 +9,7 @@
 # either express or implied. See the License for the specific language governing permissions
 # and limitations under the License.
 # ----------------------------------------------------------------------------------------
-FROM azul/zulu-openjdk-alpine:17 as builder
+FROM azul/zulu-openjdk-alpine:21 as builder
 RUN apk add --no-cache binutils
 RUN $JAVA_HOME/bin/jlink --add-modules java.logging,java.naming,java.xml,java.security.jgss,java.sql,jdk.crypto.ec,java.desktop  --output /opt/jre --strip-debug --compress=2 --no-header-files --no-man-pages
 
@@ -42,3 +42,5 @@ COPY target/artifacts /usr/share/sling-cli/artifacts
 # Add the service itself
 ARG FEATURE_FILE
 COPY ${FEATURE_FILE} /usr/share/sling-cli/sling-cli.feature
+
+RUN mkdir /usr/share/sling-cli/secrets

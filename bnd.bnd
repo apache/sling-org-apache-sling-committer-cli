@@ -1,1 +1,29 @@
-Import-Package: !org.fusesource.jansi, *
+# Embed SVNKit and the transitive jars it needs for https/DAV url operations into this bundle (see
+# pom.xml). Everything lands on a single classloader so SVNKit's internal reflection and service
+# lookups resolve without cross-bundle wiring. lz4 is included because SVNKit uses it to generate the
+# deltas sent when committing file content to dist/release.
+-includeresource: \
+    @svnkit-[0-9.]*.jar, \
+    @sequence-library-[0-9.]*.jar, \
+    @sqljet-[0-9.]*.jar, \
+    @antlr-runtime-[0-9.]*.jar, \
+    @lz4-java-[0-9.]*.jar
+
+# The svn+ssh:// / native / server-side packages are intentionally not embedded; SVNKit references
+# them but never loads them on the https url code path, so import them optionally to keep the bundle
+# resolvable in the Felix runtime.
+Import-Package: \
+    !org.fusesource.jansi, \
+    sun.misc;resolution:=optional, \
+    org.apache.sshd.*;resolution:=optional, \
+    com.sun.jna.*;resolution:=optional, \
+    com.trilead.*;resolution:=optional, \
+    com.jcraft.*;resolution:=optional, \
+    net.i2p.crypto.*;resolution:=optional, \
+    javax.servlet.*;resolution:=optional, \
+    org.tigris.subversion.javahl.*;resolution:=optional, \
+    org.antlr.stringtemplate.*;resolution:=optional, \
+    jcifs.*;resolution:=optional, \
+    de.rbri.*;resolution:=optional, \
+    javax.security.sasl;resolution:=optional, \
+    *
