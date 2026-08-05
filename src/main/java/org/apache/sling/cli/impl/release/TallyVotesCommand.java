@@ -1,20 +1,24 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
  */
 package org.apache.sling.cli.impl.release;
+
+import javax.mail.internet.InternetAddress;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,8 +29,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import javax.mail.internet.InternetAddress;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.sling.cli.impl.Command;
@@ -44,16 +46,18 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import picocli.CommandLine;
 
-@Component(service = Command.class, property = {
-        Command.PROPERTY_NAME_COMMAND_GROUP + "=" + TallyVotesCommand.GROUP,
-        Command.PROPERTY_NAME_COMMAND_NAME + "=" + TallyVotesCommand.NAME
-})
-@CommandLine.Command(name = TallyVotesCommand.NAME,
-                     description = "Counts votes cast for a release and generates the result email",
-                     subcommands = CommandLine.HelpCommand.class)
+@Component(
+        service = Command.class,
+        property = {
+            Command.PROPERTY_NAME_COMMAND_GROUP + "=" + TallyVotesCommand.GROUP,
+            Command.PROPERTY_NAME_COMMAND_NAME + "=" + TallyVotesCommand.NAME
+        })
+@CommandLine.Command(
+        name = TallyVotesCommand.NAME,
+        description = "Counts votes cast for a release and generates the result email",
+        subcommands = CommandLine.HelpCommand.class)
 public class TallyVotesCommand implements Command {
 
     static final String GROUP = "release";
@@ -76,11 +80,22 @@ public class TallyVotesCommand implements Command {
     @Reference
     private DateProvider dateProvider;
 
-    @CommandLine.Option(names = {"-r", "--repository"}, description = "Nexus repository id", required = true)
+    @CommandLine.Option(
+            names = {"-r", "--repository"},
+            description = "Nexus repository id",
+            required = true)
     private Integer repositoryId;
 
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
+
+    /** The steps {@link FinalizeCommand} performs, in the order it performs them. */
+    private static final String FINALIZE_STEPS = "  1. copy the artifacts to the Sling dist directory\n"
+            + "     (https://dist.apache.org/repos/dist/release/sling/)\n"
+            + "  2. promote the staged artifacts to the central Maven repository\n"
+            + "  3. create the next JIRA version and move any unresolved issues to it\n"
+            + "  4. mark the JIRA version as released\n"
+            + "  5. add the release to the Apache Reporter System";
 
     private static final String EMAIL_TEMPLATE;
 
@@ -88,8 +103,7 @@ public class TallyVotesCommand implements Command {
         try {
             EMAIL_TEMPLATE = IOUtils.toString(
                     TallyVotesCommand.class.getClassLoader().getResourceAsStream("templates/tally-votes.email"),
-                    StandardCharsets.UTF_8
-            );
+                    StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to read embedded email template.", e);
         }
@@ -110,29 +124,33 @@ public class TallyVotesCommand implements Command {
             if (emailThread.isEmpty()) {
                 LOGGER.error("Could not find a corresponding email voting thread for release \"{}\".", releaseName);
             } else {
-                emailThread.stream().skip(1).filter(this::isPositiveVote).forEachOrdered(
-                        email -> {
-                            String from = email.getFrom().getAddress();
-                            String name = email.getFrom().getPersonal();
-                            Member m = membersFinder.findByNameOrEmail(name, from);
-                            if (m != null) {
-                                if (m.isPMCMember()) {
-                                    bindingVoters.add(m.getName());
-                                } else {
-                                    nonBindingVoters.add(m.getName());
-                                }
-                            } else {
-                                nonBindingVoters.add(name);
-                            }
+                emailThread.stream().skip(1).filter(this::isPositiveVote).forEachOrdered(email -> {
+                    String from = email.getFrom().getAddress();
+                    String name = email.getFrom().getPersonal();
+                    Member m = membersFinder.findByNameOrEmail(name, from);
+                    if (m != null) {
+                        if (m.isPMCMember()) {
+                            bindingVoters.add(m.getName());
+                        } else {
+                            nonBindingVoters.add(m.getName());
                         }
-                );
+                    } else {
+                        nonBindingVoters.add(name);
+                    }
+                });
                 Member currentMember = membersFinder.getCurrentMember();
                 String email = EMAIL_TEMPLATE
-                        .replace("##FROM##", new InternetAddress(currentMember.getEmail(), currentMember.getName()).toUnicodeString())
+                        .replace(
+                                "##FROM##",
+                                new InternetAddress(currentMember.getEmail(), currentMember.getName())
+                                        .toUnicodeString())
                         .replace("##DATE##", dateProvider.getCurrentDateForEmailHeader())
                         .replace("##RELEASE_NAME##", releaseFullName)
                         .replace("##BINDING_VOTERS##", String.join(", ", bindingVoters))
-                        .replace("##USER_NAME##", membersFinder.getCurrentMember().getName());
+                        .replace("##CLOSING_ACTION##", closingAction(releaseFullName, currentMember.isPMCMember()))
+                        .replace(
+                                "##USER_NAME##",
+                                membersFinder.getCurrentMember().getName());
                 if (nonBindingVoters.isEmpty()) {
                     email = email.replace("##NON_BINDING_VOTERS##", "none");
                 } else {
@@ -142,12 +160,14 @@ public class TallyVotesCommand implements Command {
                 if (bindingVoters.size() >= 3) {
                     switch (reusableCLIOptions.executionMode) {
                         case DRY_RUN:
-                            LOGGER.info("The following email would be sent from your @apache.org address (see the \"From:\" header):\n");
+                            LOGGER.info(
+                                    "The following email would be sent from your @apache.org address (see the \"From:\" header):\n");
                             LOGGER.info(email);
                             break;
                         case INTERACTIVE:
-                            String question ="Should the following email be sent from your @apache.org address (see the" +
-                                    " \"From:\" header)?\n\n" + email;
+                            String question =
+                                    "Should the following email be sent from your @apache.org address (see the"
+                                            + " \"From:\" header)?\n\n" + email;
                             InputOption answer = UserInput.yesNo(question, InputOption.YES);
                             if (InputOption.YES.equals(answer)) {
                                 LOGGER.info("Sending email...");
@@ -166,16 +186,37 @@ public class TallyVotesCommand implements Command {
                     }
                 } else {
                     LOGGER.info("Release {} does not have at least 3 binding votes.", releaseFullName);
-                    LOGGER.info("Binding votes: {}.", bindingVoters.isEmpty() ? "none" : String.join(", ", bindingVoters));
+                    LOGGER.info(
+                            "Binding votes: {}.", bindingVoters.isEmpty() ? "none" : String.join(", ", bindingVoters));
+                    LOGGER.info(
+                            "Non-binding votes: {}.",
+                            nonBindingVoters.isEmpty() ? "none" : String.join(", ", bindingVoters));
                     return CommandLine.ExitCode.USAGE;
                 }
             }
-            
+
         } catch (IOException e) {
             LOGGER.warn("Command execution failed", e);
             return CommandLine.ExitCode.SOFTWARE;
         }
         return CommandLine.ExitCode.OK;
+    }
+
+    /**
+     * Builds the closing paragraph of the result email. Finalizing a release means copying it to the
+     * dist directory first and only then promoting the artifacts to Maven Central. Because the dist
+     * upload is restricted to PMC members, a non-PMC release manager cannot perform the finalization
+     * in the correct order and must ask a PMC member to finalize the release. PMC membership is derived
+     * from the current user, so no flag is needed. Both variants list the same {@link #FINALIZE_STEPS},
+     * so the email states what finalizing actually involves rather than only its first two steps.
+     */
+    private String closingAction(String releaseFullName, boolean isPmcMember) {
+        if (isPmcMember) {
+            return "I will finalize this release:\n\n" + FINALIZE_STEPS;
+        }
+        return "This release still needs to be finalized:\n\n" + FINALIZE_STEPS + "\n\n"
+                + "Steps 1 and 5 require PMC membership, which I do not have.\n\n"
+                + "ACTION NEEDED: can a PMC member please finalize " + releaseFullName + "?";
     }
 
     // TODO - better detection of '+1' votes
@@ -186,9 +227,8 @@ public class TallyVotesCommand implements Command {
     private String cleanup(String subject) {
         String[] lines = subject.split("\\n");
         return Arrays.stream(lines)
-            .filter( l -> !l.isEmpty() )
-            .filter( l -> !l.startsWith(">"))
-            .collect(Collectors.joining("\n"));
+                .filter(l -> !l.isEmpty())
+                .filter(l -> !l.startsWith(">"))
+                .collect(Collectors.joining("\n"));
     }
-
 }

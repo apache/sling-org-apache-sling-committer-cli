@@ -13,7 +13,7 @@ Staging repository:
 https://repository.apache.org/content/repositories/orgapachesling-##RELEASE_ID##/
 
 You can use this UNIX script to download the release and verify the signatures:
-https://gitbox.apache.org/repos/asf?p=sling-tooling-release.git;a=blob;f=check_staged_release.sh;hb=HEAD
+https://raw.githubusercontent.com/apache/sling-tooling-release/master/check_staged_release.sh
 
 Usage:
 sh check_staged_release.sh ##RELEASE_ID## /tmp/sling-staging
