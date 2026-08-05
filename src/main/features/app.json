@@ -55,7 +55,7 @@
             "start-order": "3"
         },
         {
-            "id"         : "com.google.code.gson:gson:2.8.5",
+            "id"         : "com.google.code.gson:gson:2.8.9",
             "start-order": "3"
         },
         {
