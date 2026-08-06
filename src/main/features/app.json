@@ -40,11 +40,11 @@
             "start-order": "1"
         },
         {
-            "id"         : "ch.qos.logback:logback-classic:1.2.8",
+            "id"         : "ch.qos.logback:logback-classic:1.2.13",
             "start-order": "1"
         },
         {
-            "id"         : "ch.qos.logback:logback-core:1.2.8",
+            "id"         : "ch.qos.logback:logback-core:1.2.13",
             "start-order": "1"
         },
         {
@@ -72,11 +72,11 @@
             "start-order": "3"
         },
         {
-            "id"         : "com.google.code.gson:gson:2.8.5",
+            "id"         : "com.google.code.gson:gson:2.8.9",
             "start-order": "3"
         },
         {
-            "id"         : "org.eclipse.jgit:org.eclipse.jgit:5.2.1.201812262042-r",
+            "id"         : "org.eclipse.jgit:org.eclipse.jgit:5.13.4.202507202350-r",
             "start-order": "3"
         },
         {
@@ -92,10 +92,13 @@
             "start-order": "4"
         },
         {
-            "id": "org.bouncycastle:bcpg-jdk15on:1.62"
+            "id": "org.bouncycastle:bcpg-jdk18on:${bouncycastle.version}"
         },
         {
-            "id": "org.bouncycastle:bcprov-jdk15on:1.62"
+            "id": "org.bouncycastle:bcprov-jdk18on:${bouncycastle.version}"
+        },
+        {
+            "id": "org.bouncycastle:bcutil-jdk18on:${bouncycastle.version}"
         },
         {
             "id": "javax.mail:mail:1.5.0-b01"
@@ -107,7 +110,7 @@
             "id": "info.picocli:picocli:4.0.0-beta-2"
         },
         {
-            "id": "commons-io:commons-io:2.6"
+            "id": "commons-io:commons-io:2.14.0"
         },
         {
             "id": "com.ibm.icu:icu4j:72.1"
