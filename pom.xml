@@ -30,7 +30,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.build.outputTimestamp>2026-01-01T00:00:01Z</project.build.outputTimestamp>
         <sling.java.version>21</sling.java.version>
-        <bouncycastle.version>1.85</bouncycastle.version>      
+        <bouncycastle.version>1.85</bouncycastle.version>
         <docker.skip.push>true</docker.skip.push>
         <docker.image.name>apache/sling-committer-cli</docker.image.name>
         <docker.image.tag>latest</docker.image.tag>
