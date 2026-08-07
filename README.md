@@ -215,10 +215,20 @@ After `release:perform` has staged the artifacts, drive the rest with the CLI:
    artifact has no entry at all it is reported so it can be added by hand, which is also what the
    release guide asks for when a brand new module is released.
 
-   The checkout lives in `$HOME/.sling-cli/sling-site` and is reused across runs; override it with the
-   `SLING_CLI_SITE_CHECKOUT` environment variable (or the `sling.cli.site.checkout` system property) to
-   point at an existing clone. It is reset to `origin/master` before each run, so local edits there are
-   discarded rather than committed.
+   The CLI keeps its own checkout of `sling-site` and never looks for one you may already have. It lives
+   in `$HOME/.sling-cli/sling-site`, which inside the container is `/root/.sling-cli/sling-site` — so by
+   default it is discarded with the container and re-cloned on every run. Only the tip of `master` is
+   cloned, which keeps that to about 25 MB rather than the ~380 MB a full clone of the site would take, but
+   to avoid re-cloning altogether mount a directory that outlives the container:
+
+       docker run --env-file=./docker-env \
+           -v "$HOME/.sling-cli:/root/.sling-cli" \
+           apache/sling-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+
+   Use `SLING_CLI_SITE_CHECKOUT` (or the `sling.cli.site.checkout` system property) to put the checkout
+   somewhere else. Point it at a directory dedicated to this purpose rather than at a clone you work in:
+   `master` is checked out and hard-reset to `origin/master` before each run, so anything uncommitted
+   there is discarded, and the release is then committed and pushed from it.
 
    The news page is deliberately *not* part of `finalize` — the release guide only asks for a news entry
    when a release warrants an announcement. Run it by hand for those:

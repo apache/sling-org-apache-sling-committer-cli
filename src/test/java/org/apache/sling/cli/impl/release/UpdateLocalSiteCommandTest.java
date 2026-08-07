@@ -36,6 +36,7 @@ import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
 import org.eclipse.jgit.api.AddCommand;
+import org.eclipse.jgit.api.CheckoutCommand;
 import org.eclipse.jgit.api.CloneCommand;
 import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.DiffCommand;
@@ -57,6 +58,9 @@ import picocli.CommandLine;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
@@ -105,8 +109,12 @@ public class UpdateLocalSiteCommandTest {
         when(resetCommand.setMode(any())).thenReturn(resetCommand);
         when(resetCommand.setRef(any())).thenReturn(resetCommand);
         when(gitInstance.reset()).thenReturn(resetCommand);
+        CheckoutCommand checkoutCommand = mock(CheckoutCommand.class);
+        when(checkoutCommand.setName(any())).thenReturn(checkoutCommand);
+        when(gitInstance.checkout()).thenReturn(checkoutCommand);
         FetchCommand fetchCommand = mock(FetchCommand.class);
         when(fetchCommand.setProgressMonitor(any())).thenReturn(fetchCommand);
+        when(fetchCommand.setDepth(anyInt())).thenReturn(fetchCommand);
         when(gitInstance.fetch()).thenReturn(fetchCommand);
         // diff(): git.diff().setOutputStream(...).call()
         DiffCommand diffCommand = mock(DiffCommand.class);
@@ -129,6 +137,7 @@ public class UpdateLocalSiteCommandTest {
         commitCommand = mock(CommitCommand.class);
         when(commitCommand.setMessage(any())).thenReturn(commitCommand);
         when(commitCommand.setAuthor(any(), any())).thenReturn(commitCommand);
+        when(commitCommand.setCommitter(anyString(), anyString())).thenReturn(commitCommand);
         when(gitInstance.commit()).thenReturn(commitCommand);
         pushCommand = mock(PushCommand.class);
         when(pushCommand.setCredentialsProvider(any())).thenReturn(pushCommand);
@@ -141,6 +150,10 @@ public class UpdateLocalSiteCommandTest {
         when(cloneCommand.setURI(any())).thenReturn(cloneCommand);
         when(cloneCommand.setProgressMonitor(any())).thenReturn(cloneCommand);
         when(cloneCommand.setDirectory(any())).thenReturn(cloneCommand);
+        when(cloneCommand.setCloneAllBranches(anyBoolean())).thenReturn(cloneCommand);
+        when(cloneCommand.setBranchesToClone(any())).thenReturn(cloneCommand);
+        when(cloneCommand.setBranch(any())).thenReturn(cloneCommand);
+        when(cloneCommand.setDepth(anyInt())).thenReturn(cloneCommand);
         git.when(Git::cloneRepository).thenReturn(cloneCommand);
         return git;
     }
@@ -164,7 +177,7 @@ public class UpdateLocalSiteCommandTest {
                 MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class);
                 MockedConstruction<JBakeContentUpdater> updater = mockConstruction(
                         JBakeContentUpdater.class, (m, ctx) -> when(m.updateDownloadsByArtifactId(any(), any(), any()))
-                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(1, 0)))) {
+                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(1, 0, 0)))) {
             dist.when(() -> UpdateDistCommand.listReleasePomFileNames("1.2.0"))
                     .thenReturn(java.util.List.of("org.apache.sling.foo-1.2.0.pom"));
             when(repositoryService.getArtifactIdsFromPomUrls(any(), any(), any()))
@@ -192,7 +205,7 @@ public class UpdateLocalSiteCommandTest {
         try (MockedStatic<Git> git = stubGit(false);
                 MockedConstruction<JBakeContentUpdater> updater = mockConstruction(
                         JBakeContentUpdater.class, (m, ctx) -> when(m.updateDownloadsByArtifactId(any(), any(), any()))
-                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(1, 0)))) {
+                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(1, 0, 0)))) {
             Command command = createCommand(123, null, ExecutionMode.DRY_RUN);
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
 
@@ -212,7 +225,7 @@ public class UpdateLocalSiteCommandTest {
                 MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class);
                 MockedConstruction<JBakeContentUpdater> updater = mockConstruction(
                         JBakeContentUpdater.class, (m, ctx) -> when(m.updateDownloadsByArtifactId(any(), any(), any()))
-                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(1, 0)))) {
+                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(1, 0, 0)))) {
             dist.when(() -> UpdateDistCommand.listReleasePomFileNames(any()))
                     .thenReturn(java.util.List.of("org.apache.sling.foo-1.2.0.pom"));
 
@@ -235,7 +248,7 @@ public class UpdateLocalSiteCommandTest {
                 MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class);
                 MockedConstruction<JBakeContentUpdater> updater = mockConstruction(
                         JBakeContentUpdater.class, (m, ctx) -> when(m.updateDownloadsByArtifactId(any(), any(), any()))
-                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(1, 0)))) {
+                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(1, 0, 0)))) {
             dist.when(() -> UpdateDistCommand.listReleasePomFileNames(any()))
                     .thenReturn(java.util.List.of("org.apache.sling.foo-1.2.0.pom"));
 
@@ -258,7 +271,7 @@ public class UpdateLocalSiteCommandTest {
                 MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class);
                 MockedConstruction<JBakeContentUpdater> updater = mockConstruction(
                         JBakeContentUpdater.class, (m, ctx) -> when(m.updateDownloadsByArtifactId(any(), any(), any()))
-                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(0, 0)))) {
+                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(0, 0, 0)))) {
             dist.when(() -> UpdateDistCommand.listReleasePomFileNames(any()))
                     .thenReturn(java.util.List.of("org.apache.sling.foo-1.2.0.pom"));
 
@@ -283,7 +296,7 @@ public class UpdateLocalSiteCommandTest {
                         JBakeContentUpdater.class,
                         // the page lists only the newer major, so nothing is updated but it is not "missing"
                         (m, ctx) -> when(m.updateDownloadsByArtifactId(any(), any(), any()))
-                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(0, 1)))) {
+                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(0, 1, 0)))) {
             dist.when(() -> UpdateDistCommand.listReleasePomFileNames(any()))
                     .thenReturn(java.util.List.of("org.apache.sling.resourceresolver-1.12.18.pom"));
 
@@ -344,7 +357,7 @@ public class UpdateLocalSiteCommandTest {
                 MockedStatic<UserInput> input = mockStatic(UserInput.class);
                 MockedConstruction<JBakeContentUpdater> updater = mockConstruction(
                         JBakeContentUpdater.class, (m, ctx) -> when(m.updateDownloadsByArtifactId(any(), any(), any()))
-                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(1, 0)))) {
+                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(1, 0, 0)))) {
             dist.when(() -> UpdateDistCommand.listReleasePomFileNames(any()))
                     .thenReturn(java.util.List.of("org.apache.sling.foo-1.2.0.pom"));
             input.when(() -> UserInput.yesNo(any(), any())).thenReturn(InputOption.NO);
@@ -354,6 +367,32 @@ public class UpdateLocalSiteCommandTest {
 
             verify(pushCommand, never()).call();
             assertTrue(logCapture.containsMessage("Aborted; the changes are left in"));
+        }
+    }
+
+    @Test
+    public void testAlreadyCurrentEntryIsNotReportedAsMissing() throws Exception {
+        // re-running against a page that already carries the version must not claim the entry is absent
+        RepositoryService repositoryService = mock(RepositoryService.class);
+        when(repositoryService.getArtifactIdsFromPomUrls(any(), any(), any()))
+                .thenReturn(Set.of("org.apache.sling.event"));
+        registerServices(repositoryService);
+
+        try (MockedStatic<Git> git = stubGit(true);
+                MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class);
+                MockedConstruction<JBakeContentUpdater> updater = mockConstruction(
+                        JBakeContentUpdater.class, (m, ctx) -> when(m.updateDownloadsByArtifactId(any(), any(), any()))
+                                .thenReturn(new JBakeContentUpdater.DownloadsUpdate(0, 0, 1)))) {
+            dist.when(() -> UpdateDistCommand.listReleasePomFileNames(any()))
+                    .thenReturn(java.util.List.of("org.apache.sling.event-4.4.2.pom"));
+
+            Command command = createCommand(null, "Apache Sling Event Impl 4.4.2", ExecutionMode.DRY_RUN);
+            assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+            assertTrue(logCapture.containsMessage("already lists"));
+            assertTrue(
+                    "must not warn about a missing entry",
+                    !logCapture.containsMessage("has no entry for Apache Sling Event Impl 4.4.2"));
         }
     }
 
