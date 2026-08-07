@@ -89,10 +89,14 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
     /** Cloned over https from gitbox so the same ASF credentials that commit to dist.apache.org can push. */
     static final String SITE_GIT_URL = "https://gitbox.apache.org/repos/asf/sling-site.git";
 
+    /** The branch the website is published from. */
+    static final String SITE_BRANCH = "master";
+
     /**
-     * Where the site is checked out. Deliberately not under the shared temporary directory: the checkout is
-     * reused across runs and is committed from, so a world-writable location would let anything else on the
-     * host substitute the content that gets pushed to the website. Resolved per call so it can be redirected.
+     * Where the site is checked out. Deliberately not under the shared temporary directory: it is committed
+     * and pushed from, so a world-writable location would let anything else on the host substitute the
+     * content that reaches the website. Resolved per call so it can be redirected, which is also how it is
+     * made to outlive a container run instead of being re-cloned every time.
      */
     static String checkoutDir() {
         String configured = System.getProperty(CHECKOUT_PROPERTY);
@@ -207,15 +211,20 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
 
         int updated = 0;
         int otherMajor = 0;
+        int alreadyCurrent = 0;
         for (String artifactId : artifactIds) {
             JBakeContentUpdater.DownloadsUpdate result =
                     updater.updateDownloadsByArtifactId(templatePath, artifactId, release.getVersion());
             updated += result.updated();
             otherMajor += result.skippedOtherMajor();
+            alreadyCurrent += result.alreadyCurrent();
         }
 
         if (updated > 0) {
             LOGGER.info("Updated {} downloads.tpl entry/entries for {}", updated, release.getFullName());
+        } else if (alreadyCurrent > 0) {
+            // a re-run, or a release whose entry someone already updated by hand
+            LOGGER.info("downloads.tpl already lists {} at {}; nothing to do.", artifactIds, release.getVersion());
         } else if (otherMajor > 0) {
             // dist.apache.org keeps several major streams published while the downloads page lists only the
             // latest; a maintenance release of an older line therefore has nothing to update here
@@ -298,9 +307,12 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
             throws GitAPIException, IOException {
         try (Git git = Git.open(new File(checkoutDir()))) {
             git.add().addFilepattern("src/main/jbake").call();
+            // set the committer as well as the author: the container has no git identity, so JGit would
+            // otherwise derive one from the process user and hostname (root@<container id>)
             git.commit()
                     .setMessage(message)
                     .setAuthor(author.getName(), author.getEmail())
+                    .setCommitter(author.getName(), author.getEmail())
                     .call();
             git.push()
                     .setCredentialsProvider(new UsernamePasswordCredentialsProvider(
@@ -324,22 +336,42 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
     }
 
     /**
-     * Makes sure {@link #checkoutDir()} holds a clean checkout at the tip of the default branch, so a
+     * Makes sure {@link #checkoutDir()} holds a clean checkout at the tip of {@value #SITE_BRANCH}, so a
      * previous run's leftovers are never committed and the edits apply to current content.
+     *
+     * <p>{@value #SITE_BRANCH} is checked out explicitly rather than resetting whatever happens to be
+     * checked out: the location is configurable, so it may point at a checkout someone else is using, and
+     * resetting their branch would discard their work and push the release onto it.
      */
     static void ensureRepo() throws GitAPIException, IOException {
 
         if (!Paths.get(checkoutDir()).toFile().exists()) {
             createCheckoutParent();
+            // Only the tip of the published branch is needed: the site content is edited and committed on
+            // top of it, never inspected historically. A full clone of the site repository is a few hundred
+            // MB of history against ~15 MB of content, and by default this clone happens on every run since
+            // the checkout lives inside the container unless pointed at a directory that outlives it.
             Git.cloneRepository()
                     .setURI(SITE_GIT_URL)
                     .setProgressMonitor(new TextProgressMonitor())
                     .setDirectory(new File(checkoutDir()))
+                    .setCloneAllBranches(false)
+                    .setBranchesToClone(List.of("refs/heads/" + SITE_BRANCH))
+                    .setBranch(SITE_BRANCH)
+                    .setDepth(1)
                     .call();
         } else {
             try (Git git = Git.open(new File(checkoutDir()))) {
-                git.fetch().setProgressMonitor(new TextProgressMonitor()).call();
-                git.reset().setMode(ResetType.HARD).setRef("origin/master").call();
+                // stay shallow on refresh too, so a reused checkout does not grow into a full clone
+                git.fetch()
+                        .setProgressMonitor(new TextProgressMonitor())
+                        .setDepth(1)
+                        .call();
+                git.checkout().setName(SITE_BRANCH).call();
+                git.reset()
+                        .setMode(ResetType.HARD)
+                        .setRef("origin/" + SITE_BRANCH)
+                        .call();
             }
         }
     }

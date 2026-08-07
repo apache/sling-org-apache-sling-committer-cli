@@ -51,10 +51,12 @@ public class JBakeContentUpdater {
 
         int[] updated = new int[1];
         int[] otherMajor = new int[1];
+        int[] alreadyCurrent = new int[1];
 
         List<String> updatedLines = Files.readAllLines(downloadsTemplatePath, StandardCharsets.UTF_8).stream()
                 .map(line -> {
-                    String rewritten = updateDownloadsLine(line, artifactId, newReleaseVersion, otherMajor);
+                    String rewritten =
+                            updateDownloadsLine(line, artifactId, newReleaseVersion, otherMajor, alreadyCurrent);
                     if (rewritten != null) {
                         updated[0]++;
                         return rewritten;
@@ -65,7 +67,7 @@ public class JBakeContentUpdater {
 
         Files.write(downloadsTemplatePath, updatedLines);
 
-        return new DownloadsUpdate(updated[0], otherMajor[0]);
+        return new DownloadsUpdate(updated[0], otherMajor[0], alreadyCurrent[0]);
     }
 
     /**
@@ -75,12 +77,14 @@ public class JBakeContentUpdater {
      * @param skippedOtherMajor     entries for the same artifact left alone because they track another major
      *                              version; a non-zero count with {@code updated == 0} means the release is a
      *                              maintenance release of an older line, which the downloads page does not list
+     * @param alreadyCurrent        entries that already carried the new version, so a re-run is distinguishable
+     *                              from an artifact the page does not list
      */
-    public record DownloadsUpdate(int updated, int skippedOtherMajor) {
+    public record DownloadsUpdate(int updated, int skippedOtherMajor, int alreadyCurrent) {
 
         /** {@code true} when the artifact is not listed on the downloads page at all. */
         public boolean notListed() {
-            return updated == 0 && skippedOtherMajor == 0;
+            return updated == 0 && skippedOtherMajor == 0 && alreadyCurrent == 0;
         }
     }
 
@@ -88,7 +92,8 @@ public class JBakeContentUpdater {
      * Returns the rewritten line, or {@code null} when it does not declare {@code artifactId}, already
      * carries the new version, or tracks a different major version (counted in {@code otherMajor}).
      */
-    private String updateDownloadsLine(String line, String artifactId, String newReleaseVersion, int[] otherMajor) {
+    private String updateDownloadsLine(
+            String line, String artifactId, String newReleaseVersion, int[] otherMajor, int[] alreadyCurrent) {
         int quoteStart = line.indexOf('"');
         if (quoteStart == -1) {
             return null;
@@ -120,7 +125,8 @@ public class JBakeContentUpdater {
                 return null;
             }
             if (columns[i].equals(newReleaseVersion)) {
-                return null; // already up to date; do not report a change
+                alreadyCurrent[0]++;
+                return null; // already up to date; not a change, but the entry does exist
             }
             columns[i] = newReleaseVersion;
             return line.substring(0, quoteStart + 1) + String.join("|", columns) + line.substring(quoteEnd);

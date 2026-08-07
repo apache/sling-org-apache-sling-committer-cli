@@ -169,6 +169,8 @@ public class JBakeContentUpdaterTest {
                 updater.updateDownloadsByArtifactId(templatePath(), "org.apache.sling.api", "2.20.2");
 
         assertThat("re-running must not report a change", second.updated(), equalTo(0));
+        assertThat("but the entry must be recognised as present", second.alreadyCurrent(), equalTo(1));
+        assertTrue("an existing entry is not 'not listed'", !second.notListed());
         assertThat(lineFor("org.apache.sling.api"), containsString("|2.20.2|"));
     }
 
