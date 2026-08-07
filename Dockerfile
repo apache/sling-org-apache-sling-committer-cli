@@ -11,7 +11,8 @@
 # ----------------------------------------------------------------------------------------
 FROM azul/zulu-openjdk-alpine:21 as builder
 RUN apk add --no-cache binutils
-RUN $JAVA_HOME/bin/jlink --add-modules java.logging,java.naming,java.xml,java.security.jgss,java.sql,jdk.crypto.ec,java.desktop  --output /opt/jre --strip-debug --compress=2 --no-header-files --no-man-pages
+# java.management is required by org.eclipse.jgit, which imports javax.management
+RUN $JAVA_HOME/bin/jlink --add-modules java.logging,java.management,java.naming,java.xml,java.security.jgss,java.sql,jdk.crypto.ec,java.desktop  --output /opt/jre --strip-debug --compress=2 --no-header-files --no-man-pages
 
 FROM alpine
 

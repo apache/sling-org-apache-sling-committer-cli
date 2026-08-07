@@ -76,11 +76,16 @@
             "start-order": "3"
         },
         {
-            "id"         : "org.eclipse.jgit:org.eclipse.jgit:5.13.4.202507202350-r",
+            "id"         : "org.eclipse.jgit:org.eclipse.jgit:7.7.1.202607240634-r",
             "start-order": "3"
         },
         {
             "id"         : "com.googlecode.javaewah:JavaEWAH:1.1.6",
+            "start-order": "3"
+        },
+        {
+            "_comment"   : "required by org.eclipse.jgit, which imports org.apache.commons.codec.digest [1.15,2)",
+            "id"         : "commons-codec:commons-codec:1.22.1",
             "start-order": "3"
         },
         {
