@@ -29,7 +29,6 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.eclipse.jgit.api.Git;
@@ -66,38 +65,165 @@ public class JBakeContentUpdaterTest {
         Files.copy(
                 getClass().getResourceAsStream("/releases.md"),
                 Paths.get(new File(tmp.getRoot(), "releases.md").toURI()));
+        Files.copy(getClass().getResourceAsStream("/news.md"), Paths.get(new File(tmp.getRoot(), "news.md").toURI()));
+    }
+
+    private Path templatePath() {
+        return Paths.get(new File(tmp.getRoot(), "downloads.tpl").toURI());
+    }
+
+    private Path newsPath() {
+        return Paths.get(new File(tmp.getRoot(), "news.md").toURI());
+    }
+
+    private List<String> templateLines() throws IOException {
+        return Files.readAllLines(templatePath(), StandardCharsets.UTF_8);
+    }
+
+    /** Returns the single template line declaring {@code artifactId}, failing if there is not exactly one. */
+    private String lineFor(String artifactId) throws IOException {
+        List<String> matches = templateLines().stream()
+                .filter(l -> l.contains("|" + artifactId + "|"))
+                .toList();
+        assertThat("expected exactly one line for " + artifactId, matches.size(), equalTo(1));
+        return matches.get(0);
     }
 
     @Test
-    public void updateDownloadsTemplate_newReleaseOfExistingModule() throws IOException {
+    public void updateDownloadsByArtifactId_matchesWhenDisplayNameHasDigits() throws IOException {
+        // "I18n" / org.apache.sling.i18n: both the display name and the artifact id contain digits, which
+        // the display-name based matching could never handle
+        JBakeContentUpdater.DownloadsUpdate result =
+                updater.updateDownloadsByArtifactId(templatePath(), "org.apache.sling.i18n", "2.5.14");
 
-        updateDownloadsTemplate0("API", "2.20.2");
-    }
-
-    private void updateDownloadsTemplate0(String newReleaseName, String newReleaseVersion) throws IOException {
-        Path templatePath = Paths.get(new File(tmp.getRoot(), "downloads.tpl").toURI());
-
-        int changeCount = updater.updateDownloads(templatePath, newReleaseName, newReleaseVersion);
-        assertThat("Unexpected count of changes", changeCount, equalTo(1));
-
-        Optional<String> apiLineHolder = Files.readAllLines(templatePath, StandardCharsets.UTF_8).stream()
-                .filter(l -> l.trim().startsWith("\"" + newReleaseName + "|"))
-                .findFirst();
-        assertTrue(apiLineHolder.isPresent());
-        String apiLine = apiLineHolder.get();
-        assertThat("Did not find modified version in the release line", apiLine, containsString(newReleaseVersion));
+        assertThat(result.updated(), equalTo(1));
+        assertThat(result.skippedOtherMajor(), equalTo(0));
+        assertThat(lineFor("org.apache.sling.i18n"), containsString("|2.5.14|"));
     }
 
     @Test
-    public void updateDownloadsTemplate_newReleaseOfExistingMavenPlugin() throws IOException {
+    public void updateDownloadsByArtifactId_updatesEntryWithDescriptionColumn() throws IOException {
+        // the IDE tooling entry carries a description column, so the version is not simply the third column
+        JBakeContentUpdater.DownloadsUpdate result =
+                updater.updateDownloadsByArtifactId(templatePath(), "eclipse", "1.4.0");
 
-        updateDownloadsTemplate0("Slingstart Maven Plugin", "1.9.0");
+        assertThat(result.updated(), equalTo(1));
+        assertThat(lineFor("eclipse"), containsString("|1.4.0|"));
     }
 
     @Test
-    public void updateDownloadsTemplate_newReleaseOfIDETooling() throws IOException {
+    public void updateDownloadsByArtifactId_updatesEveryArtifactOfAMultiModuleRelease() throws IOException {
+        // Testing OSGi Mock is released as one unit but listed as three entries, one per artifact
+        for (String artifactId : Arrays.asList(
+                "org.apache.sling.testing.osgi-mock.core",
+                "org.apache.sling.testing.osgi-mock.junit4",
+                "org.apache.sling.testing.osgi-mock.junit5")) {
+            assertThat(
+                    updater.updateDownloadsByArtifactId(templatePath(), artifactId, "2.4.8")
+                            .updated(),
+                    equalTo(1));
+            assertThat(lineFor(artifactId), containsString("|2.4.8|"));
+        }
+    }
 
-        updateDownloadsTemplate0("Sling IDE Tooling for Eclipse", "1.4.0");
+    @Test
+    public void updateDownloadsByArtifactId_leavesOtherMajorVersionAlone() throws IOException {
+        // dist.apache.org keeps several major streams published while the downloads page lists only the
+        // latest, so releasing 2.0.0 must not rewrite the 1.6.6 entry into a different major version
+        String before = lineFor("org.apache.sling.resourceresolver");
+
+        JBakeContentUpdater.DownloadsUpdate result =
+                updater.updateDownloadsByArtifactId(templatePath(), "org.apache.sling.resourceresolver", "2.0.0");
+
+        assertThat(result.updated(), equalTo(0));
+        assertThat(result.skippedOtherMajor(), equalTo(1));
+        assertThat(
+                "the entry must not have been touched", lineFor("org.apache.sling.resourceresolver"), equalTo(before));
+    }
+
+    @Test
+    public void updateDownloadsByArtifactId_updatesMaintenanceReleaseOfTheListedMajor() throws IOException {
+        JBakeContentUpdater.DownloadsUpdate result =
+                updater.updateDownloadsByArtifactId(templatePath(), "org.apache.sling.resourceresolver", "1.6.8");
+
+        assertThat(result.updated(), equalTo(1));
+        assertThat(result.skippedOtherMajor(), equalTo(0));
+        assertThat(lineFor("org.apache.sling.resourceresolver"), containsString("|1.6.8|"));
+    }
+
+    @Test
+    public void updateDownloadsByArtifactId_reportsAnArtifactThatIsNotListed() throws IOException {
+        JBakeContentUpdater.DownloadsUpdate result =
+                updater.updateDownloadsByArtifactId(templatePath(), "org.apache.sling.not.on.the.page", "1.0.0");
+
+        assertThat(result.updated(), equalTo(0));
+        assertThat(result.skippedOtherMajor(), equalTo(0));
+        assertTrue("should be reported as not listed", result.notListed());
+    }
+
+    @Test
+    public void updateDownloadsByArtifactId_isIdempotent() throws IOException {
+        updater.updateDownloadsByArtifactId(templatePath(), "org.apache.sling.api", "2.20.2");
+
+        JBakeContentUpdater.DownloadsUpdate second =
+                updater.updateDownloadsByArtifactId(templatePath(), "org.apache.sling.api", "2.20.2");
+
+        assertThat("re-running must not report a change", second.updated(), equalTo(0));
+        assertThat(lineFor("org.apache.sling.api"), containsString("|2.20.2|"));
+    }
+
+    @Test
+    public void updateNews_addsEntryAboveTheExistingOnes() throws IOException {
+        boolean added = updater.updateNews(
+                newsPath(),
+                "Apache Sling Pipes 4.5.2",
+                "/documentation/bundles/sling-pipes.html",
+                LocalDateTime.of(2026, 8, 4, 12, 0));
+
+        assertTrue(added);
+        List<String> lines = Files.readAllLines(newsPath(), StandardCharsets.UTF_8);
+        String firstEntry =
+                lines.stream().filter(l -> l.startsWith("* ")).findFirst().orElseThrow();
+        assertThat(
+                firstEntry,
+                equalTo("* Released [Apache Sling Pipes 4.5.2](/documentation/bundles/sling-pipes.html)"
+                        + " (August 4th, 2026)."));
+    }
+
+    @Test
+    public void updateNews_withoutLinkOmitsTheMarkdownLink() throws IOException {
+        updater.updateNews(newsPath(), "Apache Sling Pipes 4.5.2", null, LocalDateTime.of(2026, 8, 1, 12, 0));
+
+        List<String> lines = Files.readAllLines(newsPath(), StandardCharsets.UTF_8);
+        assertThat(
+                lines.stream().filter(l -> l.startsWith("* ")).findFirst().orElseThrow(),
+                equalTo("* Released Apache Sling Pipes 4.5.2 (August 1st, 2026)."));
+    }
+
+    @Test
+    public void updateNews_doesNotAnnounceTheSameReleaseTwice() throws IOException {
+        LocalDateTime when = LocalDateTime.of(2026, 8, 4, 12, 0);
+        assertTrue(updater.updateNews(newsPath(), "Apache Sling Pipes 4.5.2", null, when));
+
+        assertThat(
+                "an already announced release must not be added again",
+                updater.updateNews(newsPath(), "Apache Sling Pipes 4.5.2", null, when),
+                equalTo(false));
+        assertThat(
+                Files.readAllLines(newsPath(), StandardCharsets.UTF_8).stream()
+                        .filter(l -> l.contains("Apache Sling Pipes 4.5.2"))
+                        .count(),
+                equalTo(1L));
+    }
+
+    @Test
+    public void updateDownloadsByArtifactId_updatesMavenPluginEntry() throws IOException {
+        // maven plugin entries carry a bare artifact id rather than a fully qualified one
+        JBakeContentUpdater.DownloadsUpdate result =
+                updater.updateDownloadsByArtifactId(templatePath(), "slingstart-maven-plugin", "1.9.0");
+
+        assertThat(result.updated(), equalTo(1));
+        assertThat(lineFor("slingstart-maven-plugin"), containsString("|1.9.0|"));
     }
 
     @Test
@@ -129,6 +255,7 @@ public class JBakeContentUpdaterTest {
             git.add()
                     .addFilepattern("downloads.tpl")
                     .addFilepattern("releases.md")
+                    .addFilepattern("news.md")
                     .call();
 
             git.commit().setMessage("Initial commit").call();

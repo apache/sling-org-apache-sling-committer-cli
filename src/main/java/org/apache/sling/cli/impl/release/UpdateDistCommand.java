@@ -390,6 +390,17 @@ public class UpdateDistCommand implements Command {
         return next == '.' || next == '-';
     }
 
+    /**
+     * Returns the names of every {@code .pom} published in {@code dist/release} for {@code version}, across
+     * all artifacts. Used to resolve a release's artifact ids from the released POMs once the staging
+     * repository is gone; the caller narrows the candidates down by reading each POM's {@code <name>}.
+     */
+    static List<String> listReleasePomFileNames(String version) throws IOException {
+        return listDistFiles(DIST_RELEASE_URL, "").stream()
+                .filter(f -> f.endsWith("-" + version + ".pom"))
+                .toList();
+    }
+
     static List<String> listDistFiles(String baseUrl, String prefix) throws IOException {
         List<String> files = new ArrayList<>();
         try {

@@ -111,6 +111,7 @@ public class TallyVotesCommandTest {
                         + "  3. create the next JIRA version and move any unresolved issues to it\n"
                         + "  4. mark the JIRA version as released\n"
                         + "  5. add the release to the Apache Reporter System\n"
+                        + "  6. update the Sling website: the releases list and the downloads page\n"
                         + "\n"
                         + "Regards,\n"
                         + "John Doe\n"));
@@ -156,6 +157,7 @@ public class TallyVotesCommandTest {
                   3. create the next JIRA version and move any unresolved issues to it
                   4. mark the JIRA version as released
                   5. add the release to the Apache Reporter System
+                  6. update the Sling website: the releases list and the downloads page
 
                 Steps 1 and 5 require PMC membership, which I do not have.
 
@@ -222,6 +224,7 @@ public class TallyVotesCommandTest {
                         + "  3. create the next JIRA version and move any unresolved issues to it\n"
                         + "  4. mark the JIRA version as released\n"
                         + "  5. add the release to the Apache Reporter System\n"
+                        + "  6. update the Sling website: the releases list and the downloads page\n"
                         + "\n"
                         + "Regards,\n"
                         + "John Doe\n");
