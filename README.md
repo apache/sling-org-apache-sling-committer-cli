@@ -89,27 +89,27 @@ password in `~/.m2/settings-security.xml`:
 
 ## Building
 
-The Docker image (`apache/sling-cli:latest`) is produced by the `docker:build` goal of the
+The Docker image (`apache/sling-committer-cli:latest`) is produced by the `docker:build` goal of the
 [fabric8 docker-maven-plugin](https://dmp.fabric8.io/). The image bundles the project jar via the
 generated `*-app.slingfeature` descriptor; the `slingfeature-maven-plugin` resolves the project's
 own bundle from the reactor, so the image always contains the jar built in the same invocation.
 
 A single command builds (and tests) the project and the image:
 
-    mvn clean package docker:build
+    mvn clean install
 
-No prior `mvn install` is needed. The `docker:build` execution is also bound to the `package`
-phase, so the CI build (`mvn package`) builds the image too.
+The `docker:build` execution is bound to the `install` phase, so the CI build (`mvn install`)
+builds the image too. Image pushes are skipped by default.
 
 To confirm the image contains the expected commands:
 
-    docker run --env-file=./docker-env apache/sling-cli release help
+    docker run --env-file=./docker-env apache/sling-committer-cli release help
 
 ## Launching
 
 After building, run the image with:
 
-    docker run --env-file=./docker-env apache/sling-cli
+    docker run --env-file=./docker-env apache/sling-committer-cli
 
 This invocation produces a list of available commands.
 
@@ -124,7 +124,7 @@ The commands can be executed in 3 different modes:
 
 To select a non-default execution mode provide the mode as an argument to the command:
 
-    docker run -it --env-file=./docker-env apache/sling-cli release prepare-email --repository=$STAGING_REPOSITORY 
+    docker run -it --env-file=./docker-env apache/sling-committer-cli release prepare-email --repository=$STAGING_REPOSITORY
     --execution-mode=INTERACTIVE
 
 Note that for running commands in the `INTERACTIVE` mode you need to run the Docker container in interactive mode with a pseudo-tty 
@@ -168,46 +168,46 @@ After `release:perform` has staged the artifacts, drive the rest with the CLI:
 0. **Find the staging repository id** if you did not capture it. `release list` shows every staging
    repo with its `[open]`/`[closed]` state and description; a freshly staged one is `[open]`:
 
-       docker run --env-file=./docker-env apache/sling-cli release list
+       docker run --env-file=./docker-env apache/sling-committer-cli release list
 
 1. **Close** the staging repository. The description is derived automatically from the staged POM's
    `<name>` + `<version>` (e.g. _Apache Sling Feature Model Launcher 1.3.6_) by browsing the
    repository content, so it works even though an open repository is not yet in the Lucene index:
 
-       docker run --env-file=./docker-env apache/sling-cli release close-staging --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+       docker run --env-file=./docker-env apache/sling-committer-cli release close-staging --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
 
 2. **Verify** the artifacts' signatures, hashes and CI status:
 
-       docker run --env-file=./docker-env apache/sling-cli release verify --repository=$STAGING_REPOSITORY_ID
+       docker run --env-file=./docker-env apache/sling-committer-cli release verify --repository=$STAGING_REPOSITORY_ID
 
 3. **Generate the vote email**:
 
-       docker run --env-file=./docker-env apache/sling-cli release prepare-email --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+       docker run --env-file=./docker-env apache/sling-committer-cli release prepare-email --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
 
 4. After the 72h vote, **tally the votes** and generate the result email. PMC membership is detected
    automatically from your ASF id: if you are a PMC member the email says you will copy the release to
    the dist directory yourself; otherwise it asks a PMC member to perform the dist upload:
 
-       docker run --env-file=./docker-env apache/sling-cli release tally-votes --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+       docker run --env-file=./docker-env apache/sling-committer-cli release tally-votes --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
 
 5. **Finalize** the release (post successful vote). This runs, in order: promote to Maven Central,
    create the next Jira version, release the current Jira version, and update the Apache Reporter:
 
-       docker run --env-file=./docker-env apache/sling-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+       docker run --env-file=./docker-env apache/sling-committer-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
 
    When the current user is detected as a PMC member, `finalize` additionally publishes to
    `dist.apache.org` (requires `subversion`, which is bundled in the image). The previous version to
    remove from `dist/release` is deduced automatically from the directory contents, so no extra flag
    is needed:
 
-       docker run --env-file=./docker-env apache/sling-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+       docker run --env-file=./docker-env apache/sling-committer-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
 
    PMC membership is determined from your ASF id (via Whimsy). A non-PMC committer's `finalize` skips
    the dist upload and the `tally-votes` result email asks a PMC member to perform it.
 
 If the vote does not pass, **drop** the staging repository:
 
-    docker run --env-file=./docker-env apache/sling-cli release drop --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+    docker run --env-file=./docker-env apache/sling-committer-cli release drop --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
 
 ### Command reference
 

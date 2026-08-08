@@ -31,6 +31,11 @@
         <project.build.outputTimestamp>2026-01-01T00:00:01Z</project.build.outputTimestamp>
         <sling.java.version>21</sling.java.version>
         <bouncycastle.version>1.85</bouncycastle.version>
+        <docker.skip.push>true</docker.skip.push>
+        <docker.image.name>apache/sling-committer-cli</docker.image.name>
+        <docker.image.tag>latest</docker.image.tag>
+        <!-- pass a list of platforms to enable multi-arch builds: linux/amd64,linux/arm64 -->
+        <docker.platforms />
     </properties>
 
     <dependencies>
@@ -318,12 +323,17 @@
                 <configuration>
                     <images>
                         <image>
-                            <name>apache/sling-cli</name>
+                            <name>${docker.image.name}:${docker.image.tag}</name>
                             <build>
                                 <contextDir>${project.basedir}</contextDir>
                                 <args>
                                     <FEATURE_FILE>target/artifacts/org/apache/sling/${project.artifactId}/${project.version}/${project.artifactId}-${project.version}-app.slingfeature</FEATURE_FILE>
                                 </args>
+                                <buildx>
+                                    <platforms>
+                                        <platform>${docker.platforms}</platform>
+                                    </platforms>
+                                </buildx>
                             </build>
                         </image>
                     </images>
@@ -333,6 +343,7 @@
                         <id>default</id>
                         <goals>
                             <goal>build</goal>
+                            <goal>push</goal>
                         </goals>
                     </execution>
                 </executions>
