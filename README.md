@@ -98,8 +98,8 @@ A single command builds (and tests) the project and the image:
 
     mvn clean install
 
-The `docker:build` execution is bound to the `install` phase, so the CI build (`mvn install`)
-builds the image too. Image pushes are skipped by default.
+The `docker:build` execution is bound to the `package` phase, so `mvn package` and later phases
+build the image too. Image pushes are never part of the lifecycle; invoke `docker:push` explicitly.
 
 To confirm the image contains the expected commands:
 
