@@ -18,9 +18,17 @@
 name: Push Sling Committer CLI Docker image
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-push
+  cancel-in-progress: false
 
 jobs:
   sling-committer-cli-push-image:
