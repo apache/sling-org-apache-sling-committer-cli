@@ -233,6 +233,60 @@ public class UpdateLocalSiteCommandTest {
         assertFalse(releases().contains("must not survive"));
     }
 
+    @Test
+    public void testEnsureRepoSurvivesADirtyFileThatDiffersBetweenBranches() throws Exception {
+        // the earlier version of this test branched at the same commit as master, so switching back was a
+        // no-op; here the other branch genuinely changes the file that is then left dirty, which is what
+        // makes a plain checkout fail with a conflict
+        try (Git git = Git.open(new File(site.checkout()))) {
+            git.checkout()
+                    .setCreateBranch(true)
+                    .setName("someones-work-in-progress")
+                    .call();
+            Files.writeString(site.releases(), "committed on their branch\n", StandardCharsets.UTF_8);
+            git.add().addFilepattern("src").call();
+            git.commit()
+                    .setMessage("their work")
+                    .setAuthor("Them", "them@example.org")
+                    .setCommitter("Them", "them@example.org")
+                    .call();
+        }
+        Files.writeString(site.releases(), "and uncommitted on top\n", StandardCharsets.UTF_8);
+
+        UpdateLocalSiteCommand.ensureRepo(site.checkout());
+
+        try (Git git = Git.open(new File(site.checkout()))) {
+            assertEquals(SiteRepository.BRANCH, git.getRepository().getBranch());
+            assertTrue("the checkout must be clean", git.status().call().isClean());
+        }
+        assertFalse(releases().contains("uncommitted on top"));
+        assertFalse(releases().contains("committed on their branch"));
+    }
+
+    @Test
+    public void testAnUpToDateEntryDoesNotHideAMissingSibling() throws Exception {
+        // a release owning two artifacts: one already at the released version, one absent from the page.
+        // The absent one must still be reported rather than swallowed by the up-to-date one.
+        RepositoryService repositoryService = mock(RepositoryService.class);
+        when(repositoryService.getArtifactIdsFromPomUrls(any(), any(), any()))
+                .thenReturn(Set.of("org.apache.sling.api", "org.apache.sling.api.absent"));
+        registerServices(repositoryService);
+
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class)) {
+            dist.when(() -> DistRepository.listReleasePomFileNames("2.20.0")).thenReturn(List.of("api-2.20.0.pom"));
+            // the fixture already lists org.apache.sling.api at 2.20.0
+            Command command = createCommand(null, "Apache Sling API 2.20.0", ExecutionMode.DRY_RUN);
+            assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+        }
+
+        assertTrue(
+                "the up-to-date entry should be reported as such",
+                logCapture.containsMessage("already lists [org.apache.sling.api] at 2.20.0"));
+        assertTrue(
+                "the missing entry must still be reported",
+                logCapture.containsMessage("has no entry for Apache Sling API 2.20.0 ([org.apache.sling.api.absent])"));
+    }
+
     private RepositoryService serviceResolving(String artifactId) throws IOException {
         RepositoryService repositoryService = mock(RepositoryService.class);
         when(repositoryService.getArtifactIdsFromPomUrls(any(), any(), any())).thenReturn(Set.of(artifactId));

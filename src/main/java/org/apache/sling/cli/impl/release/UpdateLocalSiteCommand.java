@@ -193,34 +193,53 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
             return;
         }
 
-        int updated = 0;
-        int otherMajor = 0;
-        int alreadyCurrent = 0;
+        // classified per artifact id rather than over totals: a release can own several entries, and an
+        // entry that is already current must not hide a sibling that is missing altogether
+        Set<String> updatedIds = new TreeSet<>();
+        Set<String> alreadyCurrentIds = new TreeSet<>();
+        Set<String> otherMajorIds = new TreeSet<>();
+        Set<String> absentIds = new TreeSet<>();
+        int updatedEntries = 0;
         for (String artifactId : artifactIds) {
             JBakeContentUpdater.DownloadsUpdate result =
                     updater.updateDownloadsByArtifactId(templatePath, artifactId, release.getVersion());
-            updated += result.updated();
-            otherMajor += result.skippedOtherMajor();
-            alreadyCurrent += result.alreadyCurrent();
+            if (result.updated() > 0) {
+                updatedIds.add(artifactId);
+                updatedEntries += result.updated();
+            } else if (result.alreadyCurrent() > 0) {
+                alreadyCurrentIds.add(artifactId);
+            } else if (result.skippedOtherMajor() > 0) {
+                otherMajorIds.add(artifactId);
+            } else {
+                absentIds.add(artifactId);
+            }
         }
 
-        if (updated > 0) {
-            LOGGER.info("Updated {} downloads.tpl entry/entries for {}", updated, release.getFullName());
-        } else if (alreadyCurrent > 0) {
+        if (updatedEntries > 0) {
+            LOGGER.info(
+                    "Updated {} downloads.tpl entry/entries for {} ({})",
+                    updatedEntries,
+                    release.getFullName(),
+                    updatedIds);
+        }
+        if (!alreadyCurrentIds.isEmpty()) {
             // a re-run, or a release whose entry someone already updated by hand
-            LOGGER.info("downloads.tpl already lists {} at {}; nothing to do.", artifactIds, release.getVersion());
-        } else if (otherMajor > 0) {
+            LOGGER.info(
+                    "downloads.tpl already lists {} at {}; nothing to do.", alreadyCurrentIds, release.getVersion());
+        }
+        if (!otherMajorIds.isEmpty()) {
             // dist.apache.org keeps several major streams published while the downloads page lists only the
             // latest; a maintenance release of an older line therefore has nothing to update here
             LOGGER.info(
                     "downloads.tpl lists {} only for another major version; leaving it unchanged for {}.",
-                    artifactIds,
+                    otherMajorIds,
                     release.getFullName());
-        } else {
+        }
+        if (!absentIds.isEmpty()) {
             LOGGER.warn(
                     "downloads.tpl has no entry for {} ({}); it may need to be added by hand.",
                     release.getFullName(),
-                    artifactIds);
+                    absentIds);
             notListed.add(release.getFullName());
         }
     }
@@ -337,15 +356,22 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
 
         if (!Paths.get(checkout).toFile().exists()) {
             createCheckoutParent(checkout);
-            Git.cloneRepository()
+            try (Git ignored = Git.cloneRepository()
                     .setURI(SITE_GIT_URL)
                     .setProgressMonitor(new TextProgressMonitor())
                     .setDirectory(new File(checkout))
                     .setBranch(SITE_BRANCH)
-                    .call();
+                    .call()) {
+                LOGGER.info("Cloned {} into {}.", SITE_GIT_URL, checkout);
+            }
         } else {
             try (Git git = Git.open(new File(checkout))) {
                 git.fetch().setProgressMonitor(new TextProgressMonitor()).call();
+                // discard working tree changes before switching branches: a modified file whose content
+                // differs between the current branch and the published one makes the checkout fail with a
+                // conflict, and the whole point of this location being configurable is that it may be a
+                // checkout someone else has been editing
+                git.reset().setMode(ResetType.HARD).call();
                 git.checkout().setName(SITE_BRANCH).call();
                 git.reset()
                         .setMode(ResetType.HARD)
