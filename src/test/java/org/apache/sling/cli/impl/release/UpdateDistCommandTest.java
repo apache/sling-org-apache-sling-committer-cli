@@ -36,6 +36,7 @@ import org.apache.sling.cli.impl.CredentialsService;
 import org.apache.sling.cli.impl.ExecutionMode;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
+import org.apache.sling.cli.impl.dist.DistRepository;
 import org.apache.sling.cli.impl.junit.LogCapture;
 import org.apache.sling.cli.impl.nexus.Artifact;
 import org.apache.sling.cli.impl.nexus.LocalRepository;
@@ -94,11 +95,11 @@ public class UpdateDistCommandTest {
                 ARTIFACT + "-1.3.6.pom.asc",
                 ARTIFACT + "-extra-1.0.0.pom" // a sibling artifact - must be ignored
                 );
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(releaseDir);
 
-            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "1.3.6", null);
+            List<String> old = DistRepository.listPreviousReleaseFiles(ARTIFACT, "1.3.6", null);
 
             assertEquals(4, old.size());
             assertTrue(old.contains(ARTIFACT + "-1.3.4.pom"));
@@ -116,11 +117,11 @@ public class UpdateDistCommandTest {
         // publishing 1.0.14 must not treat 1.0.140 as the same version, and must not remove it either:
         // 1.0.140 > 1.0.14, so it is a newer version and is left untouched (nothing older is present)
         List<String> releaseDir = List.of(ARTIFACT + "-1.0.140.pom", ARTIFACT + "-1.0.14.pom");
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(releaseDir);
 
-            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "1.0.14", null);
+            List<String> old = DistRepository.listPreviousReleaseFiles(ARTIFACT, "1.0.14", null);
 
             assertTrue("a newer version must never be removed", old.isEmpty());
         }
@@ -135,11 +136,11 @@ public class UpdateDistCommandTest {
                 ARTIFACT + "-1.2.4-source-release.zip",
                 ARTIFACT + "-2.0.2.pom",
                 ARTIFACT + "-2.0.2-source-release.zip");
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(releaseDir);
 
-            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "2.0.4", null);
+            List<String> old = DistRepository.listPreviousReleaseFiles(ARTIFACT, "2.0.4", null);
 
             assertEquals(2, old.size());
             assertTrue(old.contains(ARTIFACT + "-2.0.2.pom"));
@@ -158,11 +159,11 @@ public class UpdateDistCommandTest {
                 ARTIFACT + "-1.2.14-source-release.zip",
                 ARTIFACT + "-2.1.0.pom",
                 ARTIFACT + "-2.1.0-source-release.zip");
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(releaseDir);
 
-            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "1.2.16", null);
+            List<String> old = DistRepository.listPreviousReleaseFiles(ARTIFACT, "1.2.16", null);
 
             assertEquals(2, old.size());
             assertTrue(old.contains(ARTIFACT + "-1.2.14.pom"));
@@ -177,11 +178,11 @@ public class UpdateDistCommandTest {
         // publishing 2.1.2 must remove 2.1.0 and never touch the older 1.x stream
         List<String> releaseDir =
                 List.of(ARTIFACT + "-1.2.14.pom", ARTIFACT + "-2.1.0.pom", ARTIFACT + "-2.1.0-source-release.zip");
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(releaseDir);
 
-            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "2.1.2", null);
+            List<String> old = DistRepository.listPreviousReleaseFiles(ARTIFACT, "2.1.2", null);
 
             assertEquals(2, old.size());
             assertTrue(old.contains(ARTIFACT + "-2.1.0.pom"));
@@ -195,11 +196,11 @@ public class UpdateDistCommandTest {
         // the first release of a new major stream: nothing in dist/release shares its major, so the
         // previous major line stays published (it is still maintained separately)
         List<String> releaseDir = List.of(ARTIFACT + "-1.2.14.pom", ARTIFACT + "-1.2.14-source-release.zip");
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(releaseDir);
 
-            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "2.0.0", null);
+            List<String> old = DistRepository.listPreviousReleaseFiles(ARTIFACT, "2.0.0", null);
 
             assertTrue("a different major version must never be removed", old.isEmpty());
         }
@@ -207,18 +208,16 @@ public class UpdateDistCommandTest {
 
     @Test
     public void testExplicitPreviousVersionWins() throws Exception {
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(
-                            eq(UpdateDistCommand.DIST_RELEASE_URL), eq(ARTIFACT + "-1.3.4")))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), eq(ARTIFACT + "-1.3.4")))
                     .thenReturn(List.of(ARTIFACT + "-1.3.4.pom"));
 
-            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "1.3.6", "1.3.4");
+            List<String> old = DistRepository.listPreviousReleaseFiles(ARTIFACT, "1.3.6", "1.3.4");
 
             assertEquals(List.of(ARTIFACT + "-1.3.4.pom"), old);
             // when an explicit version is given, the directory is not enumerated with the bare prefix
             dist.verify(
-                    () -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), eq(ARTIFACT + "-")),
-                    never());
+                    () -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), eq(ARTIFACT + "-")), never());
         }
     }
 
@@ -231,11 +230,11 @@ public class UpdateDistCommandTest {
                 ARTIFACT + "-1.3.6.pom",
                 ARTIFACT + "-1.3.6-source-release.zip",
                 ARTIFACT + "-1.3.4.pom");
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(releaseDir);
 
-            List<String> old = UpdateDistCommand.listPreviousReleaseFiles(ARTIFACT, "1.3.6", null);
+            List<String> old = DistRepository.listPreviousReleaseFiles(ARTIFACT, "1.3.6", null);
 
             assertEquals(List.of(ARTIFACT + "-1.3.4.pom"), old);
             assertFalse(old.contains(ARTIFACT + "-1.3.6"));
@@ -250,8 +249,8 @@ public class UpdateDistCommandTest {
     public void testDryRunDescribesPublishAndRemoveWithoutCommitting() throws Exception {
         Path downloaded = downloadFolderWith(ARTIFACT + "-1.3.6-source-release.zip", ARTIFACT + "-1.3.6.pom");
         prepareRepositoryService(downloaded);
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(List.of(ARTIFACT + "-1.3.4.pom"));
 
             Command command = createCommand(ExecutionMode.DRY_RUN, null);
@@ -259,7 +258,7 @@ public class UpdateDistCommandTest {
 
             assertTrue(logCapture.containsMessage("Would publish 2 file(s) to dist/release"));
             assertTrue(logCapture.containsMessage("Would remove 1 old file(s) from dist/release:"));
-            dist.verify(() -> UpdateDistCommand.publishToDistRelease(any(), any(), any(), any(), any()), never());
+            dist.verify(() -> DistRepository.publish(any(), any(), any(), any(), any()), never());
         }
     }
 
@@ -267,29 +266,29 @@ public class UpdateDistCommandTest {
     public void testAutoPublishesToDistRelease() throws Exception {
         Path downloaded = downloadFolderWith(ARTIFACT + "-1.3.6-source-release.zip");
         prepareRepositoryService(downloaded);
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(List.of(ARTIFACT + "-1.3.4.pom"));
-            dist.when(() -> UpdateDistCommand.publishToDistRelease(any(), any(), any(), any(), any()))
+            dist.when(() -> DistRepository.publish(any(), any(), any(), any(), any()))
                     .thenAnswer(invocation -> null);
 
             Command command = createCommand(ExecutionMode.AUTO, null);
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
 
-            dist.verify(() -> UpdateDistCommand.publishToDistRelease(eq(ARTIFACT), eq("1.3.6"), any(), any(), any()));
+            dist.verify(() -> DistRepository.publish(eq(ARTIFACT), eq("1.3.6"), any(), any(), any()));
         }
     }
 
     @Test
     public void testNoDownloadedFilesReturnsUsage() throws Exception {
         prepareRepositoryService(downloadFolderWith()); // empty download
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(List.of());
 
             Command command = createCommand(ExecutionMode.AUTO, null);
             assertEquals(CommandLine.ExitCode.USAGE, (int) command.call());
-            dist.verify(() -> UpdateDistCommand.publishToDistRelease(any(), any(), any(), any(), any()), never());
+            dist.verify(() -> DistRepository.publish(any(), any(), any(), any(), any()), never());
         }
     }
 
@@ -297,11 +296,11 @@ public class UpdateDistCommandTest {
     public void testInteractiveYesPublishes() throws Exception {
         Path downloaded = downloadFolderWith(ARTIFACT + "-1.3.6-source-release.zip");
         prepareRepositoryService(downloaded);
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS);
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS);
                 MockedStatic<UserInput> userInput = mockStatic(UserInput.class)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(List.of(ARTIFACT + "-1.3.4.pom"));
-            dist.when(() -> UpdateDistCommand.publishToDistRelease(any(), any(), any(), any(), any()))
+            dist.when(() -> DistRepository.publish(any(), any(), any(), any(), any()))
                     .thenAnswer(invocation -> null);
             userInput
                     .when(() -> UserInput.yesNo(anyString(), eq(InputOption.YES)))
@@ -310,7 +309,7 @@ public class UpdateDistCommandTest {
             Command command = createCommand(ExecutionMode.INTERACTIVE, null);
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
 
-            dist.verify(() -> UpdateDistCommand.publishToDistRelease(eq(ARTIFACT), eq("1.3.6"), any(), any(), any()));
+            dist.verify(() -> DistRepository.publish(eq(ARTIFACT), eq("1.3.6"), any(), any(), any()));
         }
     }
 
@@ -318,9 +317,9 @@ public class UpdateDistCommandTest {
     public void testInteractiveNoAborts() throws Exception {
         Path downloaded = downloadFolderWith(ARTIFACT + "-1.3.6-source-release.zip");
         prepareRepositoryService(downloaded);
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS);
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS);
                 MockedStatic<UserInput> userInput = mockStatic(UserInput.class)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(eq(UpdateDistCommand.DIST_RELEASE_URL), anyString()))
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
                     .thenReturn(List.of(ARTIFACT + "-1.3.4.pom"));
             userInput
                     .when(() -> UserInput.yesNo(anyString(), eq(InputOption.YES)))
@@ -330,7 +329,7 @@ public class UpdateDistCommandTest {
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
 
             assertTrue(logCapture.containsMessage("Aborted."));
-            dist.verify(() -> UpdateDistCommand.publishToDistRelease(any(), any(), any(), any(), any()), never());
+            dist.verify(() -> DistRepository.publish(any(), any(), any(), any(), any()), never());
         }
     }
 
@@ -338,21 +337,19 @@ public class UpdateDistCommandTest {
     public void testExplicitPreviousVersionFullFlow() throws Exception {
         Path downloaded = downloadFolderWith(ARTIFACT + "-1.3.6-source-release.zip");
         prepareRepositoryService(downloaded);
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class, CALLS_REAL_METHODS)) {
-            dist.when(() -> UpdateDistCommand.listDistFiles(
-                            eq(UpdateDistCommand.DIST_RELEASE_URL), eq(ARTIFACT + "-1.3.4")))
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), eq(ARTIFACT + "-1.3.4")))
                     .thenReturn(List.of(ARTIFACT + "-1.3.4.pom"));
             // the already-published probe queries the new version's prefix; it is not yet in dist/release
-            dist.when(() -> UpdateDistCommand.listDistFiles(
-                            eq(UpdateDistCommand.DIST_RELEASE_URL), eq(ARTIFACT + "-1.3.6")))
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), eq(ARTIFACT + "-1.3.6")))
                     .thenReturn(List.of());
-            dist.when(() -> UpdateDistCommand.publishToDistRelease(any(), any(), any(), any(), any()))
+            dist.when(() -> DistRepository.publish(any(), any(), any(), any(), any()))
                     .thenAnswer(invocation -> null);
 
             Command command = createCommand(ExecutionMode.AUTO, "1.3.4");
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
 
-            dist.verify(() -> UpdateDistCommand.publishToDistRelease(eq(ARTIFACT), eq("1.3.6"), any(), any(), any()));
+            dist.verify(() -> DistRepository.publish(eq(ARTIFACT), eq("1.3.6"), any(), any(), any()));
         }
     }
 
@@ -406,7 +403,7 @@ public class UpdateDistCommandTest {
     public void testListDistFilesAgainstLocalRepository() throws Exception {
         SVNURL repo = createLocalRepoWithReleaseFiles(
                 ARTIFACT + "-1.3.6.pom", ARTIFACT + "-1.3.6-source-release.zip", "other-file.txt");
-        List<String> files = UpdateDistCommand.listDistFiles(repo + "/release/", ARTIFACT + "-1.3.6");
+        List<String> files = DistRepository.listFiles(repo + "/release/", ARTIFACT + "-1.3.6");
         assertEquals(2, files.size());
         assertTrue(files.contains(ARTIFACT + "-1.3.6.pom"));
         assertTrue(files.contains(ARTIFACT + "-1.3.6-source-release.zip"));
@@ -418,7 +415,7 @@ public class UpdateDistCommandTest {
         // a syntactically valid but non-existent local repository url triggers an SVNException,
         // which listDistFiles must surface as an IOException
         try {
-            UpdateDistCommand.listDistFiles("file:///nonexistent-" + System.nanoTime() + "/release/", "x");
+            DistRepository.listFiles("file:///nonexistent-" + System.nanoTime() + "/release/", "x");
             org.junit.Assert.fail("Expected an IOException for a missing repository.");
         } catch (IOException expected) {
             assertTrue(expected.getMessage().contains("Failed to list"));
@@ -430,7 +427,7 @@ public class UpdateDistCommandTest {
         SVNURL repo = createLocalRepoWithReleaseFiles(ARTIFACT + "-1.3.4.pom", ARTIFACT + "-1.3.4-source-release.zip");
         List<Path> newFiles = localFiles(ARTIFACT + "-1.3.6.pom", ARTIFACT + "-1.3.6-source-release.zip");
 
-        UpdateDistCommand.publishToDistRelease(
+        DistRepository.publish(
                 ARTIFACT,
                 "1.3.6",
                 newFiles,
@@ -450,7 +447,7 @@ public class UpdateDistCommandTest {
         SVNURL repo = createLocalRepoWithReleaseFiles();
         List<Path> newFiles = localFiles(ARTIFACT + "-1.3.6.pom");
 
-        UpdateDistCommand.publishToDistRelease(
+        DistRepository.publish(
                 ARTIFACT, "1.3.6", newFiles, List.of(), new Credentials("johndoe", "secret"), repo + "/release/");
 
         assertTrue(listNames(repo, "release").contains(ARTIFACT + "-1.3.6.pom"));

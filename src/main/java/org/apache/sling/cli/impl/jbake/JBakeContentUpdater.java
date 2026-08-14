@@ -26,41 +26,123 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class JBakeContentUpdater {
 
-    private static final Pattern DOWNLOAD_LINE_PATTERN =
-            Pattern.compile("^.*\"([a-zA-Z\\s\\-]+)\\|([a-zA-Z\\.\\-]+)\\|([0-9\\.\\-]+).*$");
+    /**
+     * A version column: starts with a digit and contains only version characters. Deliberately does not
+     * match a Groovy interpolation such as {@code ${starterVersion}}, which must never be rewritten.
+     */
+    private static final Pattern VERSION_COLUMN = Pattern.compile("^\\d[\\dA-Za-z.\\-]*$");
 
-    public int updateDownloads(Path downloadsTemplatePath, String newReleaseName, String newReleaseVersion)
-            throws IOException {
+    /**
+     * Updates the version of every {@code downloads.tpl} entry that declares {@code artifactId}. Keyed on the
+     * artifact id because the page's display name often differs from the component name (<em>Tracer</em> is
+     * listed as <em>Log Tracer</em>) and one release can own several entries.
+     *
+     * <p>Only entries on the same major version are rewritten: the page lists one latest-major entry per
+     * artifact while {@code dist/release} keeps older majors published, so matching on the artifact id alone
+     * would turn a {@code 1.12.18} maintenance release into a downgrade of the {@code 2.x} entry.
+     */
+    public DownloadsUpdate updateDownloadsByArtifactId(
+            Path downloadsTemplatePath, String artifactId, String newReleaseVersion) throws IOException {
 
-        int[] changeCount = new int[1];
+        int[] updated = new int[1];
+        int[] otherMajor = new int[1];
 
         List<String> updatedLines = Files.readAllLines(downloadsTemplatePath, StandardCharsets.UTF_8).stream()
                 .map(line -> {
-                    Matcher matcher = DOWNLOAD_LINE_PATTERN.matcher(line);
-                    if (!matcher.find()) return line;
-
-                    if (!matcher.group(1).equals(newReleaseName)) return line;
-
-                    changeCount[0]++;
-
-                    StringBuilder buffer = new StringBuilder();
-                    buffer.append(line.substring(0, matcher.start(3)));
-                    buffer.append(newReleaseVersion);
-                    buffer.append(line.substring(matcher.end(3)));
-
-                    return buffer.toString();
+                    String rewritten = updateDownloadsLine(line, artifactId, newReleaseVersion, otherMajor);
+                    if (rewritten != null) {
+                        updated[0]++;
+                        return rewritten;
+                    }
+                    return line;
                 })
                 .collect(Collectors.toList());
 
         Files.write(downloadsTemplatePath, updatedLines);
 
-        return changeCount[0];
+        return new DownloadsUpdate(updated[0], otherMajor[0]);
+    }
+
+    /**
+     * The outcome of a {@code downloads.tpl} update.
+     *
+     * @param updated               entries rewritten to the new version
+     * @param skippedOtherMajor     entries for the same artifact left alone because they track another major
+     *                              version; a non-zero count with {@code updated == 0} means the release is a
+     *                              maintenance release of an older line, which the downloads page does not list
+     */
+    public record DownloadsUpdate(int updated, int skippedOtherMajor) {
+
+        /** {@code true} when the artifact is not listed on the downloads page at all. */
+        public boolean notListed() {
+            return updated == 0 && skippedOtherMajor == 0;
+        }
+    }
+
+    /**
+     * Returns the rewritten line, or {@code null} when it does not declare {@code artifactId}, already
+     * carries the new version, or tracks a different major version (counted in {@code otherMajor}).
+     */
+    private String updateDownloadsLine(String line, String artifactId, String newReleaseVersion, int[] otherMajor) {
+        int quoteStart = line.indexOf('"');
+        if (quoteStart == -1) {
+            return null;
+        }
+        int quoteEnd = line.indexOf('"', quoteStart + 1);
+        if (quoteEnd == -1) {
+            return null;
+        }
+        String[] columns = line.substring(quoteStart + 1, quoteEnd).split("\\|", -1);
+
+        int artifactColumn = -1;
+        for (int i = 0; i < columns.length; i++) {
+            if (columns[i].equals(artifactId)) {
+                artifactColumn = i;
+                break;
+            }
+        }
+        if (artifactColumn == -1) {
+            return null;
+        }
+        // entries vary in column count (some carry a description or a file extension), so the version is
+        // the first version-shaped column after the artifact id rather than one at a fixed index
+        for (int i = artifactColumn + 1; i < columns.length; i++) {
+            if (!VERSION_COLUMN.matcher(columns[i]).matches()) {
+                continue;
+            }
+            if (!sameMajor(columns[i], newReleaseVersion)) {
+                otherMajor[0]++;
+                return null;
+            }
+            if (columns[i].equals(newReleaseVersion)) {
+                return null; // already up to date; do not report a change
+            }
+            columns[i] = newReleaseVersion;
+            return line.substring(0, quoteStart + 1) + String.join("|", columns) + line.substring(quoteEnd);
+        }
+        return null;
+    }
+
+    /**
+     * Compares the leading numeric segment of two versions. Handles the composite versions some Sling
+     * modules use, where the Sling version is combined with the version of what it wraps, e.g.
+     * {@code 4.1.0-1.86.0} for Testing Sling Mock Oak.
+     */
+    private static boolean sameMajor(String currentVersion, String newVersion) {
+        return majorOf(currentVersion).equals(majorOf(newVersion));
+    }
+
+    private static String majorOf(String version) {
+        int end = 0;
+        while (end < version.length() && Character.isDigit(version.charAt(end))) {
+            end++;
+        }
+        return version.substring(0, end);
     }
 
     public void updateReleases(Path releasesPath, String releaseName, String releaseVersion, LocalDateTime releaseTime)
@@ -123,6 +205,49 @@ public class JBakeContentUpdater {
         if (!changed) releasesLines.add(dateLineIdx + 2, "* " + releaseName + " " + releaseVersion + " (" + date + ")");
 
         Files.write(releasesPath, releasesLines);
+    }
+
+    /**
+     * Prepends a release announcement to the news page, directly above the existing entries.
+     *
+     * <p>Unlike the releases list, the news page is deliberately not maintained for every release — only
+     * releases worth announcing are listed — so this is never run as part of finalizing a release.
+     *
+     * @param link an optional page the announcement should link to, e.g. {@code /news/sling-14-released.html}
+     * @return {@code true} if the entry was added, {@code false} if the news page already announces it
+     */
+    public boolean updateNews(Path newsPath, String releaseFullName, String link, LocalDateTime releaseTime)
+            throws IOException {
+
+        List<String> newsLines = Files.readAllLines(newsPath, StandardCharsets.UTF_8);
+
+        String subject = (link == null || link.isBlank()) ? releaseFullName : "[" + releaseFullName + "](" + link + ")";
+        String entry = "* Released " + subject + " ("
+                + releaseTime.format(DateTimeFormatter.ofPattern("MMMM", Locale.ENGLISH)) + " "
+                + formattedDay(releaseTime) + ", "
+                + releaseTime.format(DateTimeFormatter.ofPattern("uuuu", Locale.ENGLISH)) + ").";
+
+        // an existing announcement may or may not be a link, so match on the release name rather than on
+        // the rendered entry
+        if (newsLines.stream().anyMatch(l -> l.startsWith("* Released ") && l.contains(releaseFullName))) {
+            return false;
+        }
+
+        int firstEntryIdx = -1;
+        for (int i = 0; i < newsLines.size(); i++) {
+            if (newsLines.get(i).startsWith("* ")) {
+                firstEntryIdx = i;
+                break;
+            }
+        }
+        if (firstEntryIdx == -1) {
+            newsLines.add(entry);
+        } else {
+            newsLines.add(firstEntryIdx, entry);
+        }
+
+        Files.write(newsPath, newsLines);
+        return true;
     }
 
     private String formattedDay(LocalDateTime releaseTime) {

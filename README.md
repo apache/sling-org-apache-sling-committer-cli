@@ -191,7 +191,8 @@ After `release:perform` has staged the artifacts, drive the rest with the CLI:
        docker run --env-file=./docker-env apache/sling-cli release tally-votes --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
 
 5. **Finalize** the release (post successful vote). This runs, in order: promote to Maven Central,
-   create the next Jira version, release the current Jira version, and update the Apache Reporter:
+   create the next Jira version, release the current Jira version, update the Apache Reporter, and
+   update the Sling website:
 
        docker run --env-file=./docker-env apache/sling-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
 
@@ -204,6 +205,31 @@ After `release:perform` has staged the artifacts, drive the rest with the CLI:
 
    PMC membership is determined from your ASF id (via Whimsy). A non-PMC committer's `finalize` skips
    the dist upload and the `tally-votes` result email asks a PMC member to perform it.
+
+   The last step updates the website: it adds the release to `content/releases.md` and bumps the
+   matching entries in `templates/downloads.tpl`, then commits and pushes to `sling-site` over gitbox
+   using the same ASF credentials. Entries are matched on the *artifact id* rather than on the display
+   name, because the two often differ (*Tracer* is listed as *Log Tracer*) and one release can own
+   several entries. Only entries on the same major version are touched, so a maintenance release of an
+   older line (e.g. Resource Resolver 1.12.x while the page lists 2.x) never downgrades the page. If an
+   artifact has no entry at all it is reported so it can be added by hand, which is also what the
+   release guide asks for when a brand new module is released.
+
+   The CLI keeps its own checkout of `sling-site` and never looks for one you may already have. It
+   defaults to `$HOME/.sling-cli/sling-site` — inside the container `/root/.sling-cli/sling-site`, which
+   is discarded with the container unless you mount it — and can be pointed elsewhere with
+   `--site-checkout`. Use a directory dedicated to this rather than a clone you work in: `master` is
+   checked out and hard-reset before each run, so anything uncommitted there is discarded, and the
+   release is then committed and pushed from it.
+
+       docker run --env-file=./docker-env \
+           -v "$HOME/.sling-cli:/root/.sling-cli" \
+           apache/sling-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+
+   The news page is deliberately *not* part of `finalize` — the release guide only asks for a news entry
+   when a release warrants an announcement. Run it by hand for those:
+
+       docker run --env-file=./docker-env apache/sling-cli release update-news --release "Apache Sling Foo 1.2.0" --link /documentation/bundles/foo.html --execution-mode=AUTO
 
 If the vote does not pass, **drop** the staging repository:
 
@@ -220,12 +246,13 @@ If the vote does not pass, **drop** the staging repository:
 | `release tally-votes -r <id>` | Count votes and generate the `[RESULT]` email (PMC membership auto-detected; non-PMC email asks a PMC member to do the dist upload) |
 | `release promote -r <id>` | Promote a closed staging repo to Maven Central |
 | `release update-dist -r <id>` | Move artifacts to `dist.apache.org` (PMC only); previous version auto-deduced, override with `--previous-version <v>` |
-| `release finalize -r <id>` | Promote + Jira + Reporter in one step; also updates `dist.apache.org` when you are a PMC member |
+| `release finalize -r <id>` | Promote + Jira + Reporter + website in one step; also updates `dist.apache.org` when you are a PMC member |
 | `release drop -r <id>` | Drop a staging repository (failed vote / cleanup) |
 | `release create-new-jira-version -r <id>` | Create the next Jira version and move unresolved issues |
 | `release release-jira-version -r <id>` | Mark the Jira version as released and close fixed issues |
 | `release update-reporter -r <id>` | Register the release with the Apache Reporter System |
-| `release update-local-site -r <id>` | Generate the website update (diff only for now) |
+| `release update-local-site -r <id>` | Update `releases.md` and `downloads.tpl` in a `sling-site` checkout, then commit and push |
+| `release update-news -r <id>` | Announce a release on the news page; run only for releases worth announcing (not part of `finalize`) |
 
 ## Assumptions
 

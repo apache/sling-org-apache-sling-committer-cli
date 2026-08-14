@@ -19,6 +19,7 @@
 package org.apache.sling.cli.impl;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 import org.osgi.service.component.annotations.Component;
@@ -30,7 +31,7 @@ public class DateProvider {
     private static final DateTimeFormatter jiraReleaseDate = DateTimeFormatter.ofPattern("yyyy-MM-d");
 
     public OffsetDateTime getCurrentDate() {
-        return OffsetDateTime.now();
+        return OffsetDateTime.now(ZoneId.systemDefault());
     }
 
     public String getCurrentDateForEmailHeader() {

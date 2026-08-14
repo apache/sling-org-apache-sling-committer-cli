@@ -27,12 +27,14 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.CredentialsService;
 import org.apache.sling.cli.impl.ExecutionMode;
+import org.apache.sling.cli.impl.dist.DistRepository;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.people.MembersFinder;
+import org.eclipse.jgit.api.errors.GitAPIException;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -51,6 +53,7 @@ import picocli.CommandLine;
  *   <li>Create the next JIRA version and move unresolved issues</li>
  *   <li>Mark the current JIRA version as released</li>
  *   <li>Update the Apache Reporter System</li>
+ *   <li>Update the Sling website: the releases list and the downloads page</li>
  * </ol>
  * The only repository-dependent step (dist.apache.org) runs <em>before</em> promotion, which drops the
  * staging repository; every later step is repository-independent. This makes finalize <em>resumable</em>:
@@ -75,7 +78,7 @@ import picocli.CommandLine;
 @CommandLine.Command(
         name = FinalizeCommand.NAME,
         description = "Runs all post-vote finalization steps, in order: update dist.apache.org (PMC members only),"
-                + " promote to Maven Central, update JIRA, and report to Apache.",
+                + " promote to Maven Central, update JIRA, report to Apache, and update the Sling website.",
         subcommands = CommandLine.HelpCommand.class)
 public class FinalizeCommand implements Command {
 
@@ -105,6 +108,9 @@ public class FinalizeCommand implements Command {
 
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
+
+    @CommandLine.Mixin
+    private SiteCheckoutOptions siteCheckoutOptions;
 
     @Reference
     private RepositoryService repositoryService;
@@ -174,7 +180,7 @@ public class FinalizeCommand implements Command {
         return null;
     }
 
-    /** Runs the pre-flight check and the five finalize steps for an already-resolved, non-empty target. */
+    /** Runs the pre-flight check and the six finalize steps for an already-resolved, non-empty target. */
     private Integer runFinalize(FinalizeTarget target, ExecutionMode mode) throws Exception {
         StagingRepository repository = target.repository();
         Set<Release> releases = target.releases();
@@ -213,19 +219,19 @@ public class FinalizeCommand implements Command {
 
         // Step 3: Create next JIRA version and move unresolved issues (idempotent: skips if the successor
         // already exists / there are no unresolved issues left to move)
-        LOGGER.info("--- Step 3/5: Create next JIRA version ---");
+        LOGGER.info("--- Step 3/6: Create next JIRA version ---");
         for (Release release : releases) {
             stepCreateNextJiraVersion(release, mode);
         }
 
         // Step 4: Mark JIRA version as released (idempotent: release() skips an already-released version)
-        LOGGER.info("--- Step 4/5: Release JIRA version ---");
+        LOGGER.info("--- Step 4/6: Release JIRA version ---");
         for (Release release : releases) {
             stepReleaseJiraVersion(release, stagedAt, mode);
         }
 
         // Step 5: Update Apache Reporter (idempotent: skips releases the reporter already lists)
-        LOGGER.info("--- Step 5/5: Update Apache Reporter ---");
+        LOGGER.info("--- Step 5/6: Update Apache Reporter ---");
         if (mode == ExecutionMode.DRY_RUN) {
             LOGGER.info("Would add {} release(s) to the Apache Reporter System", releases.size());
             releases.forEach(r -> LOGGER.info("  - {}", r.getFullName()));
@@ -233,18 +239,51 @@ public class FinalizeCommand implements Command {
             stepUpdateReporter(releases);
         }
 
+        // Step 6: Update the Sling website (releases list and downloads page). Last, because it is the only
+        // step that is safe to redo at any time and the only one a non-committer cannot break anything with.
+        LOGGER.info("--- Step 6/6: Update the Sling website ---");
+        stepUpdateSite(repository, releases, mode);
+
         LOGGER.info("=== Release finalization complete! ===");
         return CommandLine.ExitCode.OK;
+    }
+
+    /**
+     * Delegates to {@link UpdateLocalSiteCommand} so the site editing, committing and pushing flow lives in
+     * one place. A failure here is reported but does not fail finalize: everything irreversible has already
+     * succeeded by this point, and the website can be updated separately with {@code update-local-site}.
+     */
+    private void stepUpdateSite(StagingRepository repository, Set<Release> releases, ExecutionMode mode) {
+        try {
+            UpdateLocalSiteCommand.SiteUpdate update = UpdateLocalSiteCommand.updateLocalSite(
+                    repositoryService, repository, releases, siteCheckoutOptions.checkout);
+            UpdateLocalSiteCommand.applySiteUpdate(
+                    update,
+                    siteCheckoutOptions.checkout,
+                    mode,
+                    credentialsService.getAsfCredentials(),
+                    membersFinder.getCurrentMember());
+            if (!update.downloadsNotListed().isEmpty()) {
+                LOGGER.warn(
+                        "The downloads page has no entry for {} — please add it by hand.", update.downloadsNotListed());
+            }
+        } catch (GitAPIException | IOException e) {
+            LOGGER.warn(
+                    "Failed to update the Sling website; run '{} {}' separately to complete it.",
+                    UpdateLocalSiteCommand.GROUP,
+                    UpdateLocalSiteCommand.NAME,
+                    e);
+        }
     }
 
     private void stepUpdateDistStage(StagingRepository repository, ExecutionMode mode, boolean isPmcMember)
             throws IOException {
         if (!isPmcMember) {
-            LOGGER.info("--- Step 1/5: Update dist.apache.org --- SKIPPED (current user is not a PMC member;"
+            LOGGER.info("--- Step 1/6: Update dist.apache.org --- SKIPPED (current user is not a PMC member;"
                     + " a PMC member must update dist.apache.org separately) ---");
             return;
         }
-        LOGGER.info("--- Step 1/5: Update dist.apache.org ---");
+        LOGGER.info("--- Step 1/6: Update dist.apache.org ---");
         if (repository == null) {
             LOGGER.info("SKIPPED (staging repository already promoted; if dist still needs updating a PMC"
                     + " member must run update-dist separately)");
@@ -254,7 +293,7 @@ public class FinalizeCommand implements Command {
     }
 
     private void stepPromoteStage(StagingRepository repository, ExecutionMode mode) throws IOException {
-        LOGGER.info("--- Step 2/5: Promote to Maven Central ---");
+        LOGGER.info("--- Step 2/6: Promote to Maven Central ---");
         if (repository == null) {
             LOGGER.info("SKIPPED (staging repository already promoted and dropped)");
         } else if (mode == ExecutionMode.DRY_RUN) {
@@ -292,7 +331,7 @@ public class FinalizeCommand implements Command {
                     "Would remove {} old file(s) from dist/release",
                     plan.oldFiles().size());
         } else {
-            UpdateDistCommand.publishToDistRelease(
+            DistRepository.publish(
                     plan.artifactId(),
                     plan.newVersion(),
                     plan.newFiles(),
