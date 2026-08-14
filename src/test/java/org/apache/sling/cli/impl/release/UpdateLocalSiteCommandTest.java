@@ -18,6 +18,7 @@
  */
 package org.apache.sling.cli.impl.release;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -38,6 +39,7 @@ import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
 import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
+import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.junit.Rule;
 import org.junit.Test;
@@ -45,6 +47,7 @@ import org.mockito.MockedStatic;
 import picocli.CommandLine;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -114,6 +117,8 @@ public class UpdateLocalSiteCommandTest {
         assertEquals("Released Apache Sling Event Impl 4.4.2", head.getFullMessage());
         assertEquals("John Doe", head.getAuthorIdent().getName());
         assertEquals("johndoe@apache.org", head.getAuthorIdent().getEmailAddress());
+        // the container has no git identity, so the committer has to be set explicitly too
+        assertEquals("johndoe@apache.org", head.getCommitterIdent().getEmailAddress());
         assertTrue(site.upstreamFile("src/main/jbake/templates/downloads.tpl")
                 .contains("\"Event|org.apache.sling.event|4.4.2|"));
     }
@@ -207,6 +212,25 @@ public class UpdateLocalSiteCommandTest {
         Command command = createCommand(123, null, ExecutionMode.DRY_RUN);
         assertEquals(CommandLine.ExitCode.SOFTWARE, (int) command.call());
         assertTrue(logCapture.containsMessage("Failed executing command"));
+    }
+
+    @Test
+    public void testEnsureRepoRestoresThePublishedBranchAndDiscardsLocalWork() throws Exception {
+        Files.writeString(site.releases(), "local edit that must not survive\n", StandardCharsets.UTF_8);
+        try (Git git = Git.open(new File(site.checkout()))) {
+            git.checkout()
+                    .setCreateBranch(true)
+                    .setName("someones-work-in-progress")
+                    .call();
+        }
+
+        UpdateLocalSiteCommand.ensureRepo(site.checkout());
+
+        try (Git git = Git.open(new File(site.checkout()))) {
+            assertEquals(SiteRepository.BRANCH, git.getRepository().getBranch());
+            assertTrue("the checkout must be clean", git.status().call().isClean());
+        }
+        assertFalse(releases().contains("must not survive"));
     }
 
     private RepositoryService serviceResolving(String artifactId) throws IOException {

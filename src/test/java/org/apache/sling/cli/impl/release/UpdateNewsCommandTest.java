@@ -81,6 +81,7 @@ public class UpdateNewsCommandTest {
         RevCommit head = site.upstreamHead();
         assertEquals("Announce Apache Sling Foo 1.2.0", head.getFullMessage());
         assertEquals("johndoe@apache.org", head.getAuthorIdent().getEmailAddress());
+        assertEquals("johndoe@apache.org", head.getCommitterIdent().getEmailAddress());
     }
 
     @Test

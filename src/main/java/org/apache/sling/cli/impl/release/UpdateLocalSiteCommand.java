@@ -87,6 +87,9 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
     /** Cloned over https from gitbox so the same ASF credentials that commit to dist.apache.org can push. */
     static final String SITE_GIT_URL = "https://gitbox.apache.org/repos/asf/sling-site.git";
 
+    /** The branch the website is published from. */
+    static final String SITE_BRANCH = "master";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(UpdateLocalSiteCommand.class);
 
     @Reference
@@ -192,15 +195,20 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
 
         int updated = 0;
         int otherMajor = 0;
+        int alreadyCurrent = 0;
         for (String artifactId : artifactIds) {
             JBakeContentUpdater.DownloadsUpdate result =
                     updater.updateDownloadsByArtifactId(templatePath, artifactId, release.getVersion());
             updated += result.updated();
             otherMajor += result.skippedOtherMajor();
+            alreadyCurrent += result.alreadyCurrent();
         }
 
         if (updated > 0) {
             LOGGER.info("Updated {} downloads.tpl entry/entries for {}", updated, release.getFullName());
+        } else if (alreadyCurrent > 0) {
+            // a re-run, or a release whose entry someone already updated by hand
+            LOGGER.info("downloads.tpl already lists {} at {}; nothing to do.", artifactIds, release.getVersion());
         } else if (otherMajor > 0) {
             // dist.apache.org keeps several major streams published while the downloads page lists only the
             // latest; a maintenance release of an older line therefore has nothing to update here
@@ -289,9 +297,12 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
             throws GitAPIException, IOException {
         try (Git git = Git.open(new File(checkout))) {
             git.add().addFilepattern("src/main/jbake").call();
+            // set the committer as well as the author: the container has no git identity, so JGit would
+            // otherwise derive one from the process user and hostname (root@<container id>)
             git.commit()
                     .setMessage(message)
                     .setAuthor(author.getName(), author.getEmail())
+                    .setCommitter(author.getName(), author.getEmail())
                     .call();
             git.push()
                     .setCredentialsProvider(new UsernamePasswordCredentialsProvider(
@@ -315,8 +326,12 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
     }
 
     /**
-     * Makes sure the checkout holds a clean checkout at the tip of the default branch, so a
+     * Makes sure the checkout holds a clean checkout at the tip of {@value #SITE_BRANCH}, so a
      * previous run's leftovers are never committed and the edits apply to current content.
+     *
+     * <p>{@value #SITE_BRANCH} is checked out explicitly rather than resetting whatever happens to be
+     * checked out: the location is configurable, so it may point at a checkout someone else is using, and
+     * resetting their branch would discard their work and push the release onto it.
      */
     static void ensureRepo(String checkout) throws GitAPIException, IOException {
 
@@ -326,11 +341,16 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
                     .setURI(SITE_GIT_URL)
                     .setProgressMonitor(new TextProgressMonitor())
                     .setDirectory(new File(checkout))
+                    .setBranch(SITE_BRANCH)
                     .call();
         } else {
             try (Git git = Git.open(new File(checkout))) {
                 git.fetch().setProgressMonitor(new TextProgressMonitor()).call();
-                git.reset().setMode(ResetType.HARD).setRef("origin/master").call();
+                git.checkout().setName(SITE_BRANCH).call();
+                git.reset()
+                        .setMode(ResetType.HARD)
+                        .setRef("origin/" + SITE_BRANCH)
+                        .call();
             }
         }
     }
