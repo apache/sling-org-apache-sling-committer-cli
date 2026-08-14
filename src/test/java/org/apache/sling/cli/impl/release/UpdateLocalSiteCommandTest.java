@@ -287,6 +287,49 @@ public class UpdateLocalSiteCommandTest {
                 logCapture.containsMessage("has no entry for Apache Sling API 2.20.0 ([org.apache.sling.api.absent])"));
     }
 
+    @Test
+    public void testRefreshingAFullCheckoutDoesNotMakeItShallow() throws Exception {
+        // SiteRepository clones in full, standing in for someone pointing --site-checkout at a normal
+        // clone: refreshing it must not truncate their history, which asking for depth 1 would do
+        try (Git git = Git.open(new File(site.checkout()))) {
+            assertTrue(
+                    "precondition: the fixture clone is not shallow",
+                    git.getRepository().getObjectDatabase().getShallowCommits().isEmpty());
+        }
+
+        UpdateLocalSiteCommand.ensureRepo(site.checkout());
+
+        try (Git git = Git.open(new File(site.checkout()))) {
+            assertTrue(
+                    "a full checkout must stay full",
+                    git.getRepository().getObjectDatabase().getShallowCommits().isEmpty());
+        }
+        assertFalse(
+                "no shallow marker may be written",
+                Files.exists(java.nio.file.Path.of(site.checkout(), ".git", "shallow")));
+    }
+
+    @Test
+    public void testAFreshCloneIsShallowAndSingleBranch() throws Exception {
+        // the clone the container makes on every run: only the tip of the published branch, so a few
+        // hundred MB of site history is not fetched to edit two files
+        java.nio.file.Path target = site.checkoutPath().getParent().resolve("fresh-clone");
+
+        UpdateLocalSiteCommand.cloneSite(site.upstreamUri(), target.toString());
+
+        try (Git git = Git.open(target.toFile())) {
+            assertFalse(
+                    "the clone must be shallow",
+                    git.getRepository().getObjectDatabase().getShallowCommits().isEmpty());
+            assertEquals(SiteRepository.BRANCH, git.getRepository().getBranch());
+            assertEquals(
+                    "only the published branch should be fetched",
+                    "+refs/heads/" + SiteRepository.BRANCH + ":refs/remotes/origin/" + SiteRepository.BRANCH,
+                    git.getRepository().getConfig().getString("remote", "origin", "fetch"));
+        }
+        assertTrue(Files.exists(target.resolve("src/main/jbake/content/releases.md")));
+    }
+
     private RepositoryService serviceResolving(String artifactId) throws IOException {
         RepositoryService repositoryService = mock(RepositoryService.class);
         when(repositoryService.getArtifactIdsFromPomUrls(any(), any(), any())).thenReturn(Set.of(artifactId));

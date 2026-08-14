@@ -46,6 +46,7 @@ import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
 import org.apache.sling.cli.impl.people.Member;
 import org.apache.sling.cli.impl.people.MembersFinder;
+import org.eclipse.jgit.api.FetchCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ResetCommand.ResetType;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -356,17 +357,18 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
 
         if (!Paths.get(checkout).toFile().exists()) {
             createCheckoutParent(checkout);
-            try (Git ignored = Git.cloneRepository()
-                    .setURI(SITE_GIT_URL)
-                    .setProgressMonitor(new TextProgressMonitor())
-                    .setDirectory(new File(checkout))
-                    .setBranch(SITE_BRANCH)
-                    .call()) {
-                LOGGER.info("Cloned {} into {}.", SITE_GIT_URL, checkout);
-            }
+            cloneSite(SITE_GIT_URL, checkout);
         } else {
             try (Git git = Git.open(new File(checkout))) {
-                git.fetch().setProgressMonitor(new TextProgressMonitor()).call();
+                FetchCommand fetch = git.fetch().setProgressMonitor(new TextProgressMonitor());
+                // Stay shallow on refresh so a reused checkout does not grow into a full clone - but only
+                // when it is shallow already. Asking for depth 1 against a full clone truncates its history
+                // permanently (git writes .git/shallow, and recovering needs --unshallow), and the checkout
+                // location is configurable, so it may be a clone someone else depends on.
+                if (!git.getRepository().getObjectDatabase().getShallowCommits().isEmpty()) {
+                    fetch.setDepth(1);
+                }
+                fetch.call();
                 // discard working tree changes before switching branches: a modified file whose content
                 // differs between the current branch and the published one makes the checkout fail with a
                 // conflict, and the whole point of this location being configurable is that it may be a
@@ -378,6 +380,30 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
                         .setRef("origin/" + SITE_BRANCH)
                         .call();
             }
+        }
+    }
+
+    /**
+     * Clones {@code uri} into {@code checkout}, fetching only the tip of the published branch: the site
+     * content is edited and committed on top of it, never inspected historically. A full clone of the site
+     * repository is a few hundred MB of history against ~15 MB of content, and by default this clone
+     * happens on every run, since the checkout lives inside the container unless pointed at a directory
+     * that outlives it.
+     *
+     * <p>Takes the uri rather than reading {@link #SITE_GIT_URL} so the clone can be exercised against a
+     * local repository instead of reaching gitbox.
+     */
+    static void cloneSite(String uri, String checkout) throws GitAPIException, IOException {
+        try (Git ignored = Git.cloneRepository()
+                .setURI(uri)
+                .setProgressMonitor(new TextProgressMonitor())
+                .setDirectory(new File(checkout))
+                .setCloneAllBranches(false)
+                .setBranchesToClone(List.of("refs/heads/" + SITE_BRANCH))
+                .setBranch(SITE_BRANCH)
+                .setDepth(1)
+                .call()) {
+            LOGGER.info("Cloned {} into {}.", uri, checkout);
         }
     }
 
