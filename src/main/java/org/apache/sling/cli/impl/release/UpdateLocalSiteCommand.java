@@ -40,6 +40,7 @@ import org.apache.sling.cli.impl.CredentialsService;
 import org.apache.sling.cli.impl.ExecutionMode;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
+import org.apache.sling.cli.impl.dist.DistRepository;
 import org.apache.sling.cli.impl.jbake.JBakeContentUpdater;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
@@ -83,28 +84,8 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
     static final String GROUP = "release";
     static final String NAME = "update-local-site";
 
-    /** System property, or {@code SLING_CLI_SITE_CHECKOUT} environment variable, overriding the checkout. */
-    static final String CHECKOUT_PROPERTY = "sling.cli.site.checkout";
-
     /** Cloned over https from gitbox so the same ASF credentials that commit to dist.apache.org can push. */
     static final String SITE_GIT_URL = "https://gitbox.apache.org/repos/asf/sling-site.git";
-
-    /**
-     * Where the site is checked out. Deliberately not under the shared temporary directory: the checkout is
-     * reused across runs and is committed from, so a world-writable location would let anything else on the
-     * host substitute the content that gets pushed to the website. Resolved per call so it can be redirected.
-     */
-    static String checkoutDir() {
-        String configured = System.getProperty(CHECKOUT_PROPERTY);
-        if (configured == null || configured.isBlank()) {
-            configured = System.getenv("SLING_CLI_SITE_CHECKOUT");
-        }
-        if (configured != null && !configured.isBlank()) {
-            return configured;
-        }
-        return Paths.get(System.getProperty("user.home", "."), ".sling-cli", "sling-site")
-                .toString();
-    }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(UpdateLocalSiteCommand.class);
 
@@ -120,6 +101,9 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
+    @CommandLine.Mixin
+    private SiteCheckoutOptions siteCheckoutOptions;
+
     @Override
     public Integer call() {
         try {
@@ -130,9 +114,10 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
             }
             StagingRepository repository = repositoryId != null ? repositoryService.find(repositoryId) : null;
 
-            SiteUpdate update = updateLocalSite(repositoryService, repository, releases);
+            SiteUpdate update = updateLocalSite(repositoryService, repository, releases, siteCheckoutOptions.checkout);
             applySiteUpdate(
                     update,
+                    siteCheckoutOptions.checkout,
                     reusableCLIOptions.executionMode,
                     credentialsService.getAsfCredentials(),
                     membersFinder.getCurrentMember());
@@ -160,13 +145,13 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
      * is not duplicated there.
      */
     static SiteUpdate updateLocalSite(
-            RepositoryService repositoryService, StagingRepository repository, Set<Release> releases)
+            RepositoryService repositoryService, StagingRepository repository, Set<Release> releases, String checkout)
             throws GitAPIException, IOException {
 
-        ensureRepo();
+        ensureRepo(checkout);
         JBakeContentUpdater updater = new JBakeContentUpdater();
-        Path templatePath = Paths.get(checkoutDir(), "src", "main", "jbake", "templates", "downloads.tpl");
-        Path releasesPath = Paths.get(checkoutDir(), "src", "main", "jbake", "content", "releases.md");
+        Path templatePath = Paths.get(checkout, "src", "main", "jbake", "templates", "downloads.tpl");
+        Path releasesPath = Paths.get(checkout, "src", "main", "jbake", "content", "releases.md");
 
         List<String> notListed = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
@@ -179,8 +164,8 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
         String releaseNames =
                 releases.stream().map(Release::getFullName).sorted().collect(Collectors.joining(", "));
 
-        printDiff();
-        try (Git git = Git.open(new File(checkoutDir()))) {
+        printDiff(checkout);
+        try (Git git = Git.open(new File(checkout))) {
             boolean hasChanges = !git.status().call().isClean();
             return new SiteUpdate(hasChanges, releaseNames, notListed);
         }
@@ -244,16 +229,17 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
                 return new TreeSet<>(staged);
             }
         }
-        List<String> candidates = UpdateDistCommand.listReleasePomFileNames(release.getVersion());
+        List<String> candidates = DistRepository.listReleasePomFileNames(release.getVersion());
         if (candidates.isEmpty()) {
             return Set.of();
         }
         return new TreeSet<>(
-                repositoryService.getArtifactIdsFromPomUrls(UpdateDistCommand.DIST_RELEASE_URL, candidates, release));
+                repositoryService.getArtifactIdsFromPomUrls(DistRepository.DIST_RELEASE_URL, candidates, release));
     }
 
     /** Commits and pushes the site update, honouring the execution mode. */
-    static void applySiteUpdate(SiteUpdate update, ExecutionMode mode, Credentials credentials, Member author)
+    static void applySiteUpdate(
+            SiteUpdate update, String checkout, ExecutionMode mode, Credentials credentials, Member author)
             throws GitAPIException, IOException {
 
         if (!update.hasChanges()) {
@@ -261,6 +247,7 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
             return;
         }
         commitAndPushSiteChanges(
+                checkout,
                 "Released " + update.releaseNames(),
                 "Commit the website changes above and push to sling-site?",
                 mode,
@@ -273,9 +260,13 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
      * mode. Shared by every command that edits the site checkout.
      */
     static void commitAndPushSiteChanges(
-            String message, String confirmQuestion, ExecutionMode mode, Credentials credentials, Member author)
+            String checkout,
+            String message,
+            String confirmQuestion,
+            ExecutionMode mode,
+            Credentials credentials,
+            Member author)
             throws GitAPIException, IOException {
-        String checkout = checkoutDir();
         switch (mode) {
             case DRY_RUN:
                 LOGGER.info(
@@ -283,20 +274,20 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
                 break;
             case INTERACTIVE:
                 if (InputOption.YES.equals(UserInput.yesNo(confirmQuestion, InputOption.YES))) {
-                    commitAndPush(message, credentials, author);
+                    commitAndPush(checkout, message, credentials, author);
                 } else {
                     LOGGER.info("Aborted; the changes are left in {}.", checkout);
                 }
                 break;
             case AUTO:
-                commitAndPush(message, credentials, author);
+                commitAndPush(checkout, message, credentials, author);
                 break;
         }
     }
 
-    private static void commitAndPush(String message, Credentials credentials, Member author)
+    private static void commitAndPush(String checkout, String message, Credentials credentials, Member author)
             throws GitAPIException, IOException {
-        try (Git git = Git.open(new File(checkoutDir()))) {
+        try (Git git = Git.open(new File(checkout))) {
             git.add().addFilepattern("src/main/jbake").call();
             git.commit()
                     .setMessage(message)
@@ -312,8 +303,8 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
     }
 
     /** Logs the working tree diff of the site checkout, so the operator can review it before it is pushed. */
-    static void printDiff() throws GitAPIException, IOException {
-        try (Git git = Git.open(new File(checkoutDir()));
+    static void printDiff(String checkout) throws GitAPIException, IOException {
+        try (Git git = Git.open(new File(checkout));
                 ByteArrayOutputStream diff = new ByteArrayOutputStream()) {
             git.diff().setOutputStream(diff).call();
             String rendered = diff.toString(StandardCharsets.UTF_8);
@@ -324,20 +315,20 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
     }
 
     /**
-     * Makes sure {@link #checkoutDir()} holds a clean checkout at the tip of the default branch, so a
+     * Makes sure the checkout holds a clean checkout at the tip of the default branch, so a
      * previous run's leftovers are never committed and the edits apply to current content.
      */
-    static void ensureRepo() throws GitAPIException, IOException {
+    static void ensureRepo(String checkout) throws GitAPIException, IOException {
 
-        if (!Paths.get(checkoutDir()).toFile().exists()) {
-            createCheckoutParent();
+        if (!Paths.get(checkout).toFile().exists()) {
+            createCheckoutParent(checkout);
             Git.cloneRepository()
                     .setURI(SITE_GIT_URL)
                     .setProgressMonitor(new TextProgressMonitor())
-                    .setDirectory(new File(checkoutDir()))
+                    .setDirectory(new File(checkout))
                     .call();
         } else {
-            try (Git git = Git.open(new File(checkoutDir()))) {
+            try (Git git = Git.open(new File(checkout))) {
                 git.fetch().setProgressMonitor(new TextProgressMonitor()).call();
                 git.reset().setMode(ResetType.HARD).setRef("origin/master").call();
             }
@@ -348,8 +339,8 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
      * Creates the directory holding the checkout, restricted to its owner where the filesystem supports it,
      * so nothing else can tamper with content that is about to be committed to the website.
      */
-    private static void createCheckoutParent() throws IOException {
-        Path parent = Paths.get(checkoutDir()).getParent();
+    private static void createCheckoutParent(String checkout) throws IOException {
+        Path parent = Paths.get(checkout).getParent();
         if (parent == null || Files.exists(parent)) {
             return;
         }

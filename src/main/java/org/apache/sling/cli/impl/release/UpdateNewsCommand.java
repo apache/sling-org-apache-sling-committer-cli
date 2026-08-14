@@ -72,6 +72,9 @@ public class UpdateNewsCommand extends AbstractReleaseCommand {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
+    @CommandLine.Mixin
+    private SiteCheckoutOptions siteCheckoutOptions;
+
     @Reference
     private RepositoryService repositoryService;
 
@@ -90,9 +93,8 @@ public class UpdateNewsCommand extends AbstractReleaseCommand {
                 return CommandLine.ExitCode.USAGE;
             }
 
-            UpdateLocalSiteCommand.ensureRepo();
-            Path newsPath =
-                    Paths.get(UpdateLocalSiteCommand.checkoutDir(), "src", "main", "jbake", "content", "news.md");
+            UpdateLocalSiteCommand.ensureRepo(siteCheckoutOptions.checkout);
+            Path newsPath = Paths.get(siteCheckoutOptions.checkout, "src", "main", "jbake", "content", "news.md");
 
             JBakeContentUpdater updater = new JBakeContentUpdater();
             LocalDateTime now = LocalDateTime.now(ZoneId.systemDefault());
@@ -111,10 +113,11 @@ public class UpdateNewsCommand extends AbstractReleaseCommand {
                 return CommandLine.ExitCode.OK;
             }
 
-            UpdateLocalSiteCommand.printDiff();
+            UpdateLocalSiteCommand.printDiff(siteCheckoutOptions.checkout);
 
             String names = releases.stream().map(Release::getFullName).sorted().collect(Collectors.joining(", "));
             UpdateLocalSiteCommand.commitAndPushSiteChanges(
+                    siteCheckoutOptions.checkout,
                     "Announce " + names,
                     "Commit the news entry above and push to sling-site?",
                     reusableCLIOptions.executionMode,

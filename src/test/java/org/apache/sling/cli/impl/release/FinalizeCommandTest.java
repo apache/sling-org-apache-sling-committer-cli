@@ -30,6 +30,7 @@ import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.Credentials;
 import org.apache.sling.cli.impl.CredentialsService;
 import org.apache.sling.cli.impl.ExecutionMode;
+import org.apache.sling.cli.impl.dist.DistRepository;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.jira.VersionClient;
 import org.apache.sling.cli.impl.junit.LogCapture;
@@ -82,7 +83,7 @@ public class FinalizeCommandTest {
     @Before
     public void stubSiteStep() {
         site = mockStatic(UpdateLocalSiteCommand.class);
-        site.when(() -> UpdateLocalSiteCommand.updateLocalSite(any(), any(), any()))
+        site.when(() -> UpdateLocalSiteCommand.updateLocalSite(any(), any(), any(), any()))
                 .thenReturn(new UpdateLocalSiteCommand.SiteUpdate(true, "Apache Sling CLI Test 1.0.0", List.of()));
     }
 
@@ -155,7 +156,8 @@ public class FinalizeCommandTest {
     @Test
     public void testDryRunPmc() throws Exception {
         prepare(true);
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class)) {
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class);
+                MockedStatic<DistRepository> distRepo = mockStatic(DistRepository.class)) {
             dist.when(() -> UpdateDistCommand.planDistRelease(any(), any(), any()))
                     .thenReturn(new UpdateDistCommand.DistReleasePlan(
                             "org.apache.sling.cli.test",
@@ -167,7 +169,7 @@ public class FinalizeCommandTest {
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
             assertTrue(logCapture.containsMessage("--- Step 1/6: Update dist.apache.org ---"));
             // dry-run: dist is described, not committed
-            dist.verify(() -> UpdateDistCommand.publishToDistRelease(any(), any(), any(), any(), any()), never());
+            distRepo.verify(() -> DistRepository.publish(any(), any(), any(), any(), any()), never());
         }
     }
 
@@ -188,7 +190,8 @@ public class FinalizeCommandTest {
     @Test
     public void testAutoPmc() throws Exception {
         prepare(true);
-        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class)) {
+        try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class);
+                MockedStatic<DistRepository> distRepo = mockStatic(DistRepository.class)) {
             dist.when(() -> UpdateDistCommand.planDistRelease(any(), any(), any()))
                     .thenReturn(new UpdateDistCommand.DistReleasePlan(
                             "org.apache.sling.cli.test",
@@ -200,8 +203,8 @@ public class FinalizeCommandTest {
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
             verify(repositoryService).promote(any());
             // dist upload is actually committed for a PMC member
-            dist.verify(() -> UpdateDistCommand.publishToDistRelease(
-                    eq("org.apache.sling.cli.test"), eq("1.0.0"), any(), any(), any()));
+            distRepo.verify(
+                    () -> DistRepository.publish(eq("org.apache.sling.cli.test"), eq("1.0.0"), any(), any(), any()));
             verify(versionClient).release(any(), any());
         }
     }
@@ -215,15 +218,15 @@ public class FinalizeCommandTest {
         assertTrue(logCapture.containsMessage("--- Step 6/6: Update the Sling website ---"));
         // finalize orchestrates rather than reimplements: the editing and the commit/push both come from
         // UpdateLocalSiteCommand
-        site.verify(() -> UpdateLocalSiteCommand.updateLocalSite(any(), any(), any()));
-        site.verify(() -> UpdateLocalSiteCommand.applySiteUpdate(any(), eq(ExecutionMode.AUTO), any(), any()));
+        site.verify(() -> UpdateLocalSiteCommand.updateLocalSite(any(), any(), any(), any()));
+        site.verify(() -> UpdateLocalSiteCommand.applySiteUpdate(any(), any(), eq(ExecutionMode.AUTO), any(), any()));
     }
 
     @Test
     public void testSiteUpdateFailureDoesNotFailFinalize() throws Exception {
         prepare(false); // non-PMC: the dist step is skipped, so this test needs no network
         // everything irreversible has already succeeded by step 6, so a website hiccup must not fail the run
-        site.when(() -> UpdateLocalSiteCommand.updateLocalSite(any(), any(), any()))
+        site.when(() -> UpdateLocalSiteCommand.updateLocalSite(any(), any(), any(), any()))
                 .thenThrow(new java.io.IOException("gitbox down"));
 
         Command command = createCommand(123, ExecutionMode.AUTO);
@@ -384,6 +387,9 @@ public class FinalizeCommandTest {
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
         FieldUtils.writeField(reusableCLIOptions, "executionMode", executionMode, true);
         FieldUtils.writeField(finalizeCommand, "reusableCLIOptions", reusableCLIOptions, true);
+        SiteCheckoutOptions siteCheckoutOptions = new SiteCheckoutOptions();
+        siteCheckoutOptions.checkout = "target/unused-site-checkout";
+        FieldUtils.writeField(finalizeCommand, "siteCheckoutOptions", siteCheckoutOptions, true);
         osgiContext.registerInjectActivateService(finalizeCommand);
         Command result = osgiContext.getService(Command.class);
         assertTrue(
@@ -400,6 +406,9 @@ public class FinalizeCommandTest {
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
         FieldUtils.writeField(reusableCLIOptions, "executionMode", executionMode, true);
         FieldUtils.writeField(finalizeCommand, "reusableCLIOptions", reusableCLIOptions, true);
+        SiteCheckoutOptions siteCheckoutOptions = new SiteCheckoutOptions();
+        siteCheckoutOptions.checkout = "target/unused-site-checkout";
+        FieldUtils.writeField(finalizeCommand, "siteCheckoutOptions", siteCheckoutOptions, true);
         osgiContext.registerInjectActivateService(finalizeCommand);
         Command result = osgiContext.getService(Command.class);
         assertTrue(

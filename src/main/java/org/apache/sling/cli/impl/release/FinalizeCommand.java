@@ -27,6 +27,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.CredentialsService;
 import org.apache.sling.cli.impl.ExecutionMode;
+import org.apache.sling.cli.impl.dist.DistRepository;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.VersionClient;
@@ -107,6 +108,9 @@ public class FinalizeCommand implements Command {
 
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
+
+    @CommandLine.Mixin
+    private SiteCheckoutOptions siteCheckoutOptions;
 
     @Reference
     private RepositoryService repositoryService;
@@ -251,10 +255,14 @@ public class FinalizeCommand implements Command {
      */
     private void stepUpdateSite(StagingRepository repository, Set<Release> releases, ExecutionMode mode) {
         try {
-            UpdateLocalSiteCommand.SiteUpdate update =
-                    UpdateLocalSiteCommand.updateLocalSite(repositoryService, repository, releases);
+            UpdateLocalSiteCommand.SiteUpdate update = UpdateLocalSiteCommand.updateLocalSite(
+                    repositoryService, repository, releases, siteCheckoutOptions.checkout);
             UpdateLocalSiteCommand.applySiteUpdate(
-                    update, mode, credentialsService.getAsfCredentials(), membersFinder.getCurrentMember());
+                    update,
+                    siteCheckoutOptions.checkout,
+                    mode,
+                    credentialsService.getAsfCredentials(),
+                    membersFinder.getCurrentMember());
             if (!update.downloadsNotListed().isEmpty()) {
                 LOGGER.warn(
                         "The downloads page has no entry for {} — please add it by hand.", update.downloadsNotListed());
@@ -323,7 +331,7 @@ public class FinalizeCommand implements Command {
                     "Would remove {} old file(s) from dist/release",
                     plan.oldFiles().size());
         } else {
-            UpdateDistCommand.publishToDistRelease(
+            DistRepository.publish(
                     plan.artifactId(),
                     plan.newVersion(),
                     plan.newFiles(),
