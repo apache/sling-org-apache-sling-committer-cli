@@ -12,4 +12,4 @@
 # and limitations under the License.
 # ----------------------------------------------------------------------------------------
 
-docker run -it --env-file=./docker-env apache/sling-cli $@
+docker run -it --env-file=./docker-env apache/sling-committer-cli $@

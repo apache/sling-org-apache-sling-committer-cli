@@ -224,12 +224,12 @@ After `release:perform` has staged the artifacts, drive the rest with the CLI:
 
        docker run --env-file=./docker-env \
            -v "$HOME/.sling-cli:/root/.sling-cli" \
-           apache/sling-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+           apache/sling-committer-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
 
    The news page is deliberately *not* part of `finalize` — the release guide only asks for a news entry
    when a release warrants an announcement. Run it by hand for those:
 
-       docker run --env-file=./docker-env apache/sling-cli release update-news --release "Apache Sling Foo 1.2.0" --link /documentation/bundles/foo.html --execution-mode=AUTO
+       docker run --env-file=./docker-env apache/sling-committer-cli release update-news --release "Apache Sling Foo 1.2.0" --link /documentation/bundles/foo.html --execution-mode=AUTO
 
 If the vote does not pass, **drop** the staging repository:
 

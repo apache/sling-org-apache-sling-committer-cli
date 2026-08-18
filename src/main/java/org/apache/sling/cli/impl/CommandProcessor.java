@@ -46,7 +46,7 @@ import static org.osgi.service.component.annotations.ReferenceCardinality.MULTIP
 import static org.osgi.service.component.annotations.ReferencePolicy.DYNAMIC;
 
 @CommandLine.Command(
-        name = "docker run -it --env-file=./docker-env apache/sling-cli",
+        name = "docker run -it --env-file=./docker-env apache/sling-committer-cli",
         description = "Apache Sling Committers CLI")
 @Designate(ocd = Config.class)
 @Component(service = CommandProcessor.class)
