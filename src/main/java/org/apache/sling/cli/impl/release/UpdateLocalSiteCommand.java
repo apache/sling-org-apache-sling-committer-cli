@@ -87,6 +87,9 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
     /** Cloned over https from gitbox so the same ASF credentials that commit to dist.apache.org can push. */
     static final String SITE_GIT_URL = "https://gitbox.apache.org/repos/asf/sling-site.git";
 
+    /** The branch the website is published from. */
+    static final String SITE_BRANCH = "master";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(UpdateLocalSiteCommand.class);
 
     @Reference
@@ -190,29 +193,53 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
             return;
         }
 
-        int updated = 0;
-        int otherMajor = 0;
+        // classified per artifact id rather than over totals: a release can own several entries, and an
+        // entry that is already current must not hide a sibling that is missing altogether
+        Set<String> updatedIds = new TreeSet<>();
+        Set<String> alreadyCurrentIds = new TreeSet<>();
+        Set<String> otherMajorIds = new TreeSet<>();
+        Set<String> absentIds = new TreeSet<>();
+        int updatedEntries = 0;
         for (String artifactId : artifactIds) {
             JBakeContentUpdater.DownloadsUpdate result =
                     updater.updateDownloadsByArtifactId(templatePath, artifactId, release.getVersion());
-            updated += result.updated();
-            otherMajor += result.skippedOtherMajor();
+            if (result.updated() > 0) {
+                updatedIds.add(artifactId);
+                updatedEntries += result.updated();
+            } else if (result.alreadyCurrent() > 0) {
+                alreadyCurrentIds.add(artifactId);
+            } else if (result.skippedOtherMajor() > 0) {
+                otherMajorIds.add(artifactId);
+            } else {
+                absentIds.add(artifactId);
+            }
         }
 
-        if (updated > 0) {
-            LOGGER.info("Updated {} downloads.tpl entry/entries for {}", updated, release.getFullName());
-        } else if (otherMajor > 0) {
+        if (updatedEntries > 0) {
+            LOGGER.info(
+                    "Updated {} downloads.tpl entry/entries for {} ({})",
+                    updatedEntries,
+                    release.getFullName(),
+                    updatedIds);
+        }
+        if (!alreadyCurrentIds.isEmpty()) {
+            // a re-run, or a release whose entry someone already updated by hand
+            LOGGER.info(
+                    "downloads.tpl already lists {} at {}; nothing to do.", alreadyCurrentIds, release.getVersion());
+        }
+        if (!otherMajorIds.isEmpty()) {
             // dist.apache.org keeps several major streams published while the downloads page lists only the
             // latest; a maintenance release of an older line therefore has nothing to update here
             LOGGER.info(
                     "downloads.tpl lists {} only for another major version; leaving it unchanged for {}.",
-                    artifactIds,
+                    otherMajorIds,
                     release.getFullName());
-        } else {
+        }
+        if (!absentIds.isEmpty()) {
             LOGGER.warn(
                     "downloads.tpl has no entry for {} ({}); it may need to be added by hand.",
                     release.getFullName(),
-                    artifactIds);
+                    absentIds);
             notListed.add(release.getFullName());
         }
     }
@@ -289,9 +316,12 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
             throws GitAPIException, IOException {
         try (Git git = Git.open(new File(checkout))) {
             git.add().addFilepattern("src/main/jbake").call();
+            // set the committer as well as the author: the container has no git identity, so JGit would
+            // otherwise derive one from the process user and hostname (root@<container id>)
             git.commit()
                     .setMessage(message)
                     .setAuthor(author.getName(), author.getEmail())
+                    .setCommitter(author.getName(), author.getEmail())
                     .call();
             git.push()
                     .setCredentialsProvider(new UsernamePasswordCredentialsProvider(
@@ -315,22 +345,38 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
     }
 
     /**
-     * Makes sure the checkout holds a clean checkout at the tip of the default branch, so a
+     * Makes sure the checkout holds a clean checkout at the tip of {@value #SITE_BRANCH}, so a
      * previous run's leftovers are never committed and the edits apply to current content.
+     *
+     * <p>{@value #SITE_BRANCH} is checked out explicitly rather than resetting whatever happens to be
+     * checked out: the location is configurable, so it may point at a checkout someone else is using, and
+     * resetting their branch would discard their work and push the release onto it.
      */
     static void ensureRepo(String checkout) throws GitAPIException, IOException {
 
         if (!Paths.get(checkout).toFile().exists()) {
             createCheckoutParent(checkout);
-            Git.cloneRepository()
+            try (Git ignored = Git.cloneRepository()
                     .setURI(SITE_GIT_URL)
                     .setProgressMonitor(new TextProgressMonitor())
                     .setDirectory(new File(checkout))
-                    .call();
+                    .setBranch(SITE_BRANCH)
+                    .call()) {
+                LOGGER.info("Cloned {} into {}.", SITE_GIT_URL, checkout);
+            }
         } else {
             try (Git git = Git.open(new File(checkout))) {
                 git.fetch().setProgressMonitor(new TextProgressMonitor()).call();
-                git.reset().setMode(ResetType.HARD).setRef("origin/master").call();
+                // discard working tree changes before switching branches: a modified file whose content
+                // differs between the current branch and the published one makes the checkout fail with a
+                // conflict, and the whole point of this location being configurable is that it may be a
+                // checkout someone else has been editing
+                git.reset().setMode(ResetType.HARD).call();
+                git.checkout().setName(SITE_BRANCH).call();
+                git.reset()
+                        .setMode(ResetType.HARD)
+                        .setRef("origin/" + SITE_BRANCH)
+                        .call();
             }
         }
     }
