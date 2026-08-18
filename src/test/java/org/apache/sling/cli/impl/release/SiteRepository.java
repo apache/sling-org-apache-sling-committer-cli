@@ -104,6 +104,11 @@ class SiteRepository extends ExternalResource {
         return checkout.toString();
     }
 
+    /** The upstream as a {@code file://} uri, so a clone from it honours a requested depth. */
+    String upstreamUri() {
+        return upstream.toUri().toString();
+    }
+
     Path checkoutPath() {
         return checkout;
     }

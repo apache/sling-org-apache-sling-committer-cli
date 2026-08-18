@@ -216,15 +216,19 @@ After `release:perform` has staged the artifacts, drive the rest with the CLI:
    release guide asks for when a brand new module is released.
 
    The CLI keeps its own checkout of `sling-site` and never looks for one you may already have. It
-   defaults to `$HOME/.sling-cli/sling-site` — inside the container `/root/.sling-cli/sling-site`, which
-   is discarded with the container unless you mount it — and can be pointed elsewhere with
-   `--site-checkout`. Use a directory dedicated to this rather than a clone you work in: `master` is
-   checked out and hard-reset before each run, so anything uncommitted there is discarded, and the
-   release is then committed and pushed from it.
+   defaults to `$HOME/.sling-cli/sling-site`, which inside the container is `/root/.sling-cli/sling-site`
+   — so by default it is discarded with the container and re-cloned on every run. Only the tip of `master`
+   is cloned, which keeps that to about 25 MB rather than the ~380 MB a full clone of the site would take,
+   but to avoid re-cloning altogether mount a directory that outlives the container:
 
        docker run --env-file=./docker-env \
            -v "$HOME/.sling-cli:/root/.sling-cli" \
            apache/sling-committer-cli release finalize --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
+
+   Use `--site-checkout` to put the checkout somewhere else. Prefer a directory dedicated to this purpose:
+   `master` is checked out and hard-reset before each run, so anything uncommitted there is discarded, and
+   the release is then committed and pushed from it. Pointing it at a clone you work in will not truncate
+   its history — the shallow fetch is only requested for a checkout that is already shallow.
 
    The news page is deliberately *not* part of `finalize` — the release guide only asks for a news entry
    when a release warrants an announcement. Run it by hand for those:
