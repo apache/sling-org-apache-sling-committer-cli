@@ -370,4 +370,23 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <!--
+                The image is built FROM alpine, which a Windows docker daemon cannot pull. Skip it
+                there so the Windows build still compiles and runs the tests; producing the container
+                image needs a Linux daemon and is covered by the Linux build.
+            -->
+            <id>skip-docker-image-on-windows</id>
+            <activation>
+                <os>
+                    <family>windows</family>
+                </os>
+            </activation>
+            <properties>
+                <docker.skip>true</docker.skip>
+            </properties>
+        </profile>
+    </profiles>
 </project>

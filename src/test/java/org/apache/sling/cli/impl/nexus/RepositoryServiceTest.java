@@ -146,7 +146,7 @@ public class RepositoryServiceTest {
         }
         List<Path> artifactFiles;
         try (Stream<Path> paths = Files.walk(localRepository.getRootFolder())) {
-            artifactFiles = paths.filter(Files::isRegularFile).collect(Collectors.toList());
+            artifactFiles = paths.filter(Files::isRegularFile).toList();
         }
         LOGGER.debug("Cleaning {}.", localRepository.getRootFolder());
         for (Path artifactFile : artifactFiles) {
