@@ -260,7 +260,7 @@ public class JBakeContentUpdaterTest {
                     .addFilepattern("news.md")
                     .call();
 
-            git.commit().setMessage("Initial commit").call();
+            git.commit().setMessage("Initial commit").setSign(false).call();
 
             Path releasesPath = Paths.get(new File(tmp.getRoot(), "releases.md").toURI());
             updater.updateReleases(releasesPath, releaseName, releaseVersion, releaseDate);

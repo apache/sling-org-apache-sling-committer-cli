@@ -323,6 +323,9 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
                     .setMessage(message)
                     .setAuthor(author.getName(), author.getEmail())
                     .setCommitter(author.getName(), author.getEmail())
+                    // never sign: the container holds no key material, and JGit fails outright rather
+                    // than skipping when the ambient git config asks for a signature it cannot produce
+                    .setSign(false)
                     .call();
             git.push()
                     .setCredentialsProvider(new UsernamePasswordCredentialsProvider(

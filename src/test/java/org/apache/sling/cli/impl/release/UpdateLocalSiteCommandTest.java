@@ -249,6 +249,7 @@ public class UpdateLocalSiteCommandTest {
                     .setMessage("their work")
                     .setAuthor("Them", "them@example.org")
                     .setCommitter("Them", "them@example.org")
+                    .setSign(false)
                     .call();
         }
         Files.writeString(site.releases(), "and uncommitted on top\n", StandardCharsets.UTF_8);
