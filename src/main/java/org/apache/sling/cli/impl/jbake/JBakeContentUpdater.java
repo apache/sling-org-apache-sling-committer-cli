@@ -65,7 +65,7 @@ public class JBakeContentUpdater {
                 })
                 .collect(Collectors.toList());
 
-        Files.write(downloadsTemplatePath, updatedLines);
+        writeLines(downloadsTemplatePath, updatedLines);
 
         return new DownloadsUpdate(updated[0], otherMajor[0], alreadyCurrent[0]);
     }
@@ -210,7 +210,7 @@ public class JBakeContentUpdater {
 
         if (!changed) releasesLines.add(dateLineIdx + 2, "* " + releaseName + " " + releaseVersion + " (" + date + ")");
 
-        Files.write(releasesPath, releasesLines);
+        writeLines(releasesPath, releasesLines);
     }
 
     /**
@@ -252,7 +252,7 @@ public class JBakeContentUpdater {
             newsLines.add(firstEntryIdx, entry);
         }
 
-        Files.write(newsPath, newsLines);
+        writeLines(newsPath, newsLines);
         return true;
     }
 
@@ -268,5 +268,14 @@ public class JBakeContentUpdater {
             default:
                 return date + "th";
         }
+    }
+
+    /**
+     * Writes {@code lines} with LF terminators. {@link Files#write(Path, Iterable)} would use the platform
+     * separator, which on Windows rewrites every line of the LF-only site sources and produces a whole-file
+     * diff instead of the intended change.
+     */
+    private static void writeLines(Path path, List<String> lines) throws IOException {
+        Files.writeString(path, String.join("\n", lines) + "\n", StandardCharsets.UTF_8);
     }
 }

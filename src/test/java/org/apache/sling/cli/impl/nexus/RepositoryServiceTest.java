@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.sling.cli.impl.CredentialsService;
@@ -143,17 +144,19 @@ public class RepositoryServiceTest {
         for (Artifact artifact : localRepository.getArtifacts()) {
             assertTrue(Files.exists(localRepository.getRootFolder().resolve(artifact.getRepositoryRelativePath())));
         }
-        List<Path> artifactFiles = Files.walk(localRepository.getRootFolder())
-                .filter(path -> path.toFile().isFile())
-                .collect(Collectors.toList());
+        List<Path> artifactFiles;
+        try (Stream<Path> paths = Files.walk(localRepository.getRootFolder())) {
+            artifactFiles = paths.filter(Files::isRegularFile).collect(Collectors.toList());
+        }
         LOGGER.debug("Cleaning {}.", localRepository.getRootFolder());
         for (Path artifactFile : artifactFiles) {
             LOGGER.debug("Deleting file {}.", artifactFile.toString());
             Files.delete(artifactFile);
         }
-        List<Path> emptyDirectories = Files.walk(localRepository.getRootFolder())
-                .filter(path -> path.toFile().isDirectory())
-                .collect(Collectors.toList());
+        List<Path> emptyDirectories;
+        try (Stream<Path> paths = Files.walk(localRepository.getRootFolder())) {
+            emptyDirectories = paths.filter(Files::isDirectory).collect(Collectors.toList());
+        }
         Collections.reverse(emptyDirectories);
         for (Path directory : emptyDirectories) {
             LOGGER.debug("Deleting empty folder {}.", directory.toString());

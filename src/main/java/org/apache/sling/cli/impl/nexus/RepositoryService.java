@@ -21,6 +21,7 @@ package org.apache.sling.cli.impl.nexus;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -433,8 +434,9 @@ public class RepositoryService {
             }
             String fileName = relativeFilePath.substring(relativeFilePath.lastIndexOf('/') + 1);
             Path filePath = Files.createFile(artifactFolderPath.resolve(fileName));
-            try (InputStream content = response.getEntity().getContent()) {
-                IOUtils.copyLarge(content, Files.newOutputStream(filePath));
+            try (InputStream content = response.getEntity().getContent();
+                    OutputStream target = Files.newOutputStream(filePath)) {
+                IOUtils.copyLarge(content, target);
             }
             return true;
         }
