@@ -27,7 +27,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.CredentialsService;
 import org.apache.sling.cli.impl.ExecutionMode;
-import org.apache.sling.cli.impl.dist.DistRepository;
 import org.apache.sling.cli.impl.http.HttpClientFactory;
 import org.apache.sling.cli.impl.jira.Issue;
 import org.apache.sling.cli.impl.jira.VersionClient;
@@ -288,7 +287,7 @@ public class FinalizeCommand implements Command {
             LOGGER.info("SKIPPED (staging repository already promoted; if dist still needs updating a PMC"
                     + " member must run update-dist separately)");
         } else {
-            stepUpdateDist(repository, mode);
+            stepUpdateDist(reusableCLIOptions.executionMode);
         }
     }
 
@@ -305,39 +304,8 @@ public class FinalizeCommand implements Command {
         }
     }
 
-    private void stepUpdateDist(StagingRepository repository, ExecutionMode mode) throws IOException {
-        // Delegate the download/collect/publish flow to UpdateDistCommand so it is not duplicated here.
-        UpdateDistCommand.DistReleasePlan plan = UpdateDistCommand.planDistRelease(repositoryService, repository, null);
-
-        if (plan.alreadyPublished()) {
-            LOGGER.info("dist/release already contains {} {}; skipping.", plan.artifactId(), plan.newVersion());
-            return;
-        }
-        if (plan.newFiles().isEmpty()) {
-            LOGGER.warn(
-                    "No artifacts were downloaded for {} {}; skipping dist update.",
-                    plan.artifactId(),
-                    plan.newVersion());
-            return;
-        }
-
-        if (mode == ExecutionMode.DRY_RUN) {
-            LOGGER.info(
-                    "Would publish {} file(s) to dist/release for {} {}",
-                    plan.newFiles().size(),
-                    plan.artifactId(),
-                    plan.newVersion());
-            LOGGER.info(
-                    "Would remove {} old file(s) from dist/release",
-                    plan.oldFiles().size());
-        } else {
-            DistRepository.publish(
-                    plan.artifactId(),
-                    plan.newVersion(),
-                    plan.newFiles(),
-                    plan.oldFiles(),
-                    credentialsService.getAsfCredentials());
-        }
+    private void stepUpdateDist(ExecutionMode mode) throws IOException {
+        UpdateDistCommand.doUpdateDist(repositoryService, repositoryId, null, mode, credentialsService);
     }
 
     private void stepCreateNextJiraVersion(Release release, ExecutionMode mode) throws IOException {
