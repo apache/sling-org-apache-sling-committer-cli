@@ -80,6 +80,7 @@ public class UpdateLocalSiteGitTest {
                     .setMessage("seed")
                     .setAuthor("Seed", "seed@example.org")
                     .setCommitter("Seed", "seed@example.org")
+                    .setSign(false)
                     .call();
             git.remoteAdd()
                     .setName("origin")

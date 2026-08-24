@@ -76,6 +76,7 @@ class SiteRepository extends ExternalResource {
                     .setMessage("seed the site")
                     .setAuthor("Seed", "seed@example.org")
                     .setCommitter("Seed", "seed@example.org")
+                    .setSign(false)
                     .call();
             git.remoteAdd()
                     .setName("origin")
