@@ -1,0 +1,3 @@
+# Fixtures are hashed and PGP-verified byte-for-byte, and the email templates are compared against
+# LF-only text blocks, so no checkout may rewrite line endings (Git for Windows defaults autocrlf on).
+* -text
