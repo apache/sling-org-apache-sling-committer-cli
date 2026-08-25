@@ -55,7 +55,15 @@ public class QueryLuceneIndexHandler implements HttpExchangeHandler {
             LOGGER.warn("Expected a group (g) parameter. Skipping handler.");
             return false;
         }
-        serveFileFromClasspath(ex, "/nexus/" + repositoryId + "/lucene.json");
+        String fixture = "/nexus/" + repositoryId + "/lucene.json";
+        if (getClass().getResource(fixture) == null) {
+            // a repository Nexus does not know - one dropped after promotion, typically - is answered with
+            // an HTML error page rather than JSON; the fixture is that response, captured from
+            // repository.apache.org for the repository of SLING-13320
+            serveFileFromClasspath(ex, "/nexus/repository-gone-400.html", 400);
+        } else {
+            serveFileFromClasspath(ex, fixture);
+        }
         return true;
     }
 }

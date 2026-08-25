@@ -215,7 +215,7 @@ public class FinalizeCommand implements Command {
         stepUpdateDistStage(repository, mode, isPmcMember);
 
         // Step 2: Promote to Maven Central
-        stepPromoteStage(repository, mode);
+        repository = stepPromoteStage(repository, mode);
 
         // Step 3: Create next JIRA version and move unresolved issues (idempotent: skips if the successor
         // already exists / there are no unresolved issues left to move)
@@ -250,8 +250,9 @@ public class FinalizeCommand implements Command {
 
     /**
      * Delegates to {@link UpdateLocalSiteCommand} so the site editing, committing and pushing flow lives in
-     * one place. A failure here is reported but does not fail finalize: everything irreversible has already
-     * succeeded by this point, and the website can be updated separately with {@code update-local-site}.
+     * one place. Any failure here - unchecked ones included - is reported but does not fail finalize:
+     * everything irreversible has already succeeded by this point, and the website can be updated separately
+     * with {@code update-local-site}.
      */
     private void stepUpdateSite(StagingRepository repository, Set<Release> releases, ExecutionMode mode) {
         try {
@@ -267,7 +268,7 @@ public class FinalizeCommand implements Command {
                 LOGGER.warn(
                         "The downloads page has no entry for {} — please add it by hand.", update.downloadsNotListed());
             }
-        } catch (GitAPIException | IOException e) {
+        } catch (GitAPIException | IOException | RuntimeException e) {
             LOGGER.warn(
                     "Failed to update the Sling website; run '{} {}' separately to complete it.",
                     UpdateLocalSiteCommand.GROUP,
@@ -292,17 +293,19 @@ public class FinalizeCommand implements Command {
         }
     }
 
-    private void stepPromoteStage(StagingRepository repository, ExecutionMode mode) throws IOException {
+    private StagingRepository stepPromoteStage(StagingRepository repository, ExecutionMode mode) throws IOException {
         LOGGER.info("--- Step 2/6: Promote to Maven Central ---");
         if (repository == null) {
             LOGGER.info("SKIPPED (staging repository already promoted and dropped)");
         } else if (mode == ExecutionMode.DRY_RUN) {
             LOGGER.info("Would promote {} to Maven Central", repository.getRepositoryId());
+            return repository;
         } else {
             LOGGER.info("Promoting {}...", repository.getRepositoryId());
             repositoryService.promote(repository);
             LOGGER.info("Promoted. Artifacts will appear on Maven Central within ~10 minutes.");
         }
+        return null;
     }
 
     private void stepUpdateDist(StagingRepository repository, ExecutionMode mode) throws IOException {

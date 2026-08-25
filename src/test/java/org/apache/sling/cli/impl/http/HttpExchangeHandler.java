@@ -28,13 +28,17 @@ import org.apache.commons.io.IOUtils;
 public interface HttpExchangeHandler {
 
     default void serveFileFromClasspath(HttpExchange ex, String classpathLocation) throws IOException {
+        serveFileFromClasspath(ex, classpathLocation, 200);
+    }
+
+    default void serveFileFromClasspath(HttpExchange ex, String classpathLocation, int status) throws IOException {
         try (InputStream in = getClass().getResourceAsStream(classpathLocation)) {
             if (in == null) {
                 ex.sendResponseHeaders(404, -1);
                 return;
             }
 
-            ex.sendResponseHeaders(200, 0);
+            ex.sendResponseHeaders(status, 0);
             try (OutputStream out = ex.getResponseBody()) {
                 IOUtils.copy(in, out);
             }

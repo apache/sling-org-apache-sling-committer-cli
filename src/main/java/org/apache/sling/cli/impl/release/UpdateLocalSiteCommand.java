@@ -247,14 +247,23 @@ public class UpdateLocalSiteCommand extends AbstractReleaseCommand {
 
     /**
      * Resolves the artifact ids of {@code release}, preferring the staged POMs and falling back to the
-     * released POMs on dist.apache.org so a run after promotion still works.
+     * released POMs on dist.apache.org so a run after promotion still works — whether the staging
+     * repository is unset because the run resumes by name, or gone because this run just promoted it.
      */
     private static Set<String> resolveArtifactIds(
             RepositoryService repositoryService, StagingRepository repository, Release release) throws IOException {
         if (repository != null) {
-            Set<String> staged = repositoryService.getArtifactIds(repository, release);
-            if (!staged.isEmpty()) {
-                return new TreeSet<>(staged);
+            try {
+                Set<String> staged = repositoryService.getArtifactIds(repository, release);
+                if (!staged.isEmpty()) {
+                    return new TreeSet<>(staged);
+                }
+            } catch (IOException e) {
+                LOGGER.info(
+                        "Could not read the POMs staged in {} ({}); falling back to the released POMs on"
+                                + " dist.apache.org.",
+                        repository.getRepositoryId(),
+                        e.getMessage());
             }
         }
         List<String> candidates = DistRepository.listReleasePomFileNames(release.getVersion());

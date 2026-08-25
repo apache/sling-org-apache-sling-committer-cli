@@ -89,6 +89,19 @@ public class RepositoryServiceTest {
     }
 
     @Test
+    public void testLuceneSearchOfADroppedRepositoryFailsWithAReadableError() {
+        StagingRepository dropped = new StagingRepository();
+        dropped.setRepositoryId("orgapachesling-3121");
+        try {
+            repositoryService.getArtifacts(dropped);
+            fail("Expected an IOException for a repository Nexus no longer knows.");
+        } catch (IOException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("400"));
+            assertTrue(e.getMessage(), e.getMessage().contains("orgapachesling-3121"));
+        }
+    }
+
+    @Test
     public void testRepositoryFind() throws IOException {
         StagingRepository stagingRepository = repositoryService.find(0);
         assertNotNull(stagingRepository);
