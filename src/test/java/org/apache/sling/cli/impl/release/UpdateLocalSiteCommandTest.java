@@ -140,6 +140,31 @@ public class UpdateLocalSiteCommandTest {
     }
 
     @Test
+    public void testAnUnreadableStagingRepositoryFallsBackToTheReleasedPoms() throws Exception {
+        // finalize promotes before updating the site, and Nexus drops the repository on release; the
+        // staged POMs are then unreachable, so the released ones must answer instead (SLING-13320)
+        RepositoryService repositoryService = mock(RepositoryService.class);
+        StagingRepository repository = mock(StagingRepository.class);
+        when(repository.getRepositoryId()).thenReturn("orgapachesling-3121");
+        when(repositoryService.find(123)).thenReturn(repository);
+        when(repositoryService.getReleases(repository))
+                .thenReturn(Set.copyOf(Release.fromString("Apache Sling Event Impl 4.4.2")));
+        when(repositoryService.getArtifactIds(eq(repository), any()))
+                .thenThrow(new IOException("Got 400 instead of 200 for orgapachesling-3121"));
+        when(repositoryService.getArtifactIdsFromPomUrls(any(), any(), any()))
+                .thenReturn(Set.of("org.apache.sling.event"));
+        registerServices(repositoryService);
+
+        try (MockedStatic<DistRepository> dist = stubDist("4.4.2")) {
+            Command command = createCommand(123, null, ExecutionMode.DRY_RUN);
+            assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+        }
+
+        assertTrue(logCapture.containsMessage("falling back to the released POMs on dist.apache.org"));
+        assertTrue(downloads().contains("\"Event|org.apache.sling.event|4.4.2|"));
+    }
+
+    @Test
     public void testMaintenanceReleaseOfAnOlderMajorLeavesTheDownloadsPageAlone() throws Exception {
         // the fixture lists Resource Resolver at 1.6.6; releasing 2.0.0 must not rewrite that entry
         registerServices(serviceResolving("org.apache.sling.resourceresolver"));

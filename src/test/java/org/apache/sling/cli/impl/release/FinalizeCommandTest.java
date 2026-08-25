@@ -70,6 +70,7 @@ public class FinalizeCommandTest {
     @Rule
     public final LogCapture logCapture = new LogCapture(FinalizeCommand.class);
 
+    private StagingRepository stagingRepository;
     private RepositoryService repositoryService;
     private VersionClient versionClient;
     private CloseableHttpClient client;
@@ -97,7 +98,7 @@ public class FinalizeCommandTest {
      * a PMC member, which drives the dist.apache.org step.
      */
     private void prepare(boolean pmcMember) throws Exception {
-        StagingRepository stagingRepository = mock(StagingRepository.class);
+        stagingRepository = mock(StagingRepository.class);
         when(stagingRepository.getRepositoryId()).thenReturn("orgapachesling-123");
         when(stagingRepository.getDescription()).thenReturn("Apache Sling CLI Test 1.0.0");
 
@@ -220,6 +221,40 @@ public class FinalizeCommandTest {
         // UpdateLocalSiteCommand
         site.verify(() -> UpdateLocalSiteCommand.updateLocalSite(any(), any(), any(), any()));
         site.verify(() -> UpdateLocalSiteCommand.applySiteUpdate(any(), any(), eq(ExecutionMode.AUTO), any(), any()));
+    }
+
+    @Test
+    public void testSiteUpdateDoesNotUseTheRepositoryPromoteJustDropped() throws Exception {
+        prepare(false); // non-PMC: the dist step is skipped, so this test needs no network
+        Command command = createCommand(123, ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+        // Nexus drops the staging repository on release, so step 6 must resolve the artifact ids from
+        // dist.apache.org instead of searching a repository that is gone (SLING-13320)
+        site.verify(() -> UpdateLocalSiteCommand.updateLocalSite(any(), isNull(), any(), any()));
+    }
+
+    @Test
+    public void testDryRunKeepsTheRepositoryForTheSiteStep() throws Exception {
+        prepare(false);
+        // nothing was promoted, so the staged POMs are still the best source for the artifact ids
+        Command command = createCommand(123, ExecutionMode.DRY_RUN);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+
+        site.verify(() -> UpdateLocalSiteCommand.updateLocalSite(any(), eq(stagingRepository), any(), any()));
+    }
+
+    @Test
+    public void testSiteUpdateRuntimeFailureDoesNotFailFinalize() throws Exception {
+        prepare(false);
+        // an unchecked exception escaping step 6 used to fail the whole run after everything irreversible
+        // had already succeeded (SLING-13320)
+        site.when(() -> UpdateLocalSiteCommand.updateLocalSite(any(), any(), any(), any()))
+                .thenThrow(new com.google.gson.JsonSyntaxException("malformed JSON"));
+
+        Command command = createCommand(123, ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+        assertTrue(logCapture.containsMessage("Failed to update the Sling website"));
     }
 
     @Test

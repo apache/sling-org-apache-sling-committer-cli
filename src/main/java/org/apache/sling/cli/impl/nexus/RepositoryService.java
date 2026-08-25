@@ -245,6 +245,16 @@ public class RepositoryService {
             HttpGet get = newGet(
                     "/service/local/lucene/search?g=org.apache.sling&repositoryId=" + repository.getRepositoryId());
             try (CloseableHttpResponse response = client.execute(get)) {
+                // a repository Nexus does not know - typically one dropped right after promotion - is
+                // answered with an HTML error page, which parsed as JSON only yields an opaque
+                // MalformedJsonException (SLING-13320)
+                int statusCode = response.getStatusLine().getStatusCode();
+                if (statusCode != 200) {
+                    throw new IOException(String.format(
+                            "Got %d instead of 200 when searching for the artifacts of %s; Nexus answers 400 for"
+                                    + " a staging repository that no longer exists.",
+                            statusCode, repository.getRepositoryId()));
+                }
                 try (InputStream content = response.getEntity().getContent();
                         InputStreamReader reader = new InputStreamReader(content)) {
                     JsonParser parser = new JsonParser();

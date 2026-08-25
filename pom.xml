@@ -361,6 +361,7 @@
                 <configuration>
                     <excludes>
                         <exclude>src/main/resources/templates/*</exclude>
+                        <exclude>src/test/resources/nexus/repository-gone-400.html</exclude>
                         <exclude>**/*.md5</exclude>
                         <exclude>**/*.sha1</exclude>
                         <exclude>**/*.sha512</exclude>
