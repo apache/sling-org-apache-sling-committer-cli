@@ -160,12 +160,12 @@ public class FinalizeCommandTest {
         try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class);
                 MockedStatic<DistRepository> distRepo = mockStatic(DistRepository.class)) {
             dist.when(() -> UpdateDistCommand.planDistRelease(any(), any(), any()))
-                    .thenReturn(new UpdateDistCommand.DistReleasePlan(
+                    .thenReturn(List.of(new UpdateDistCommand.DistReleasePlan(
                             "org.apache.sling.cli.test",
                             "1.0.0",
                             List.of(java.nio.file.Path.of("org.apache.sling.cli.test-1.0.0.pom")),
                             List.of("org.apache.sling.cli.test-0.9.0.pom"),
-                            false));
+                            false)));
             Command command = createCommand(123, ExecutionMode.DRY_RUN);
             assertEquals(CommandLine.ExitCode.OK, (int) command.call());
             assertTrue(logCapture.containsMessage("--- Step 1/6: Update dist.apache.org ---"));
@@ -194,14 +194,17 @@ public class FinalizeCommandTest {
         try (MockedStatic<UpdateDistCommand> dist = mockStatic(UpdateDistCommand.class);
                 MockedStatic<DistRepository> distRepo = mockStatic(DistRepository.class)) {
             dist.when(() -> UpdateDistCommand.planDistRelease(any(), any(), any()))
-                    .thenReturn(new UpdateDistCommand.DistReleasePlan(
+                    .thenReturn(List.of(new UpdateDistCommand.DistReleasePlan(
                             "org.apache.sling.cli.test",
                             "1.0.0",
                             List.of(java.nio.file.Path.of("org.apache.sling.cli.test-1.0.0.pom")),
                             List.of("org.apache.sling.cli.test-0.9.0.pom"),
-                            false));
+                            false)));
+            dist.when(() -> UpdateDistCommand.doUpdateDist(any(), any(), any(), any(), any()))
+                    .thenCallRealMethod();
             Command command = createCommand(123, ExecutionMode.AUTO);
-            assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+            int exitCode = command.call();
+            assertEquals(CommandLine.ExitCode.OK, exitCode);
             verify(repositoryService).promote(any());
             // dist upload is actually committed for a PMC member
             distRepo.verify(

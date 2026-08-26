@@ -19,6 +19,7 @@
 package org.apache.sling.cli.impl.release;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.stream.Stream;
 
 import org.apache.sling.cli.impl.Command;
 import org.apache.sling.cli.impl.CredentialsService;
+import org.apache.sling.cli.impl.ExecutionMode;
 import org.apache.sling.cli.impl.InputOption;
 import org.apache.sling.cli.impl.UserInput;
 import org.apache.sling.cli.impl.dist.DistRepository;
@@ -33,6 +35,7 @@ import org.apache.sling.cli.impl.nexus.Artifact;
 import org.apache.sling.cli.impl.nexus.LocalRepository;
 import org.apache.sling.cli.impl.nexus.RepositoryService;
 import org.apache.sling.cli.impl.nexus.StagingRepository;
+import org.jetbrains.annotations.Nullable;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
@@ -90,27 +93,71 @@ public class UpdateDistCommand implements Command {
 
     @Override
     public Integer call() {
+        Integer ok = doUpdateDist(
+                repositoryService, repositoryId, previousVersion, reusableCLIOptions.executionMode, credentialsService);
+        if (ok != null) return ok;
+        return CommandLine.ExitCode.OK;
+    }
+
+    public static @Nullable Integer doUpdateDist(
+            RepositoryService repositoryService,
+            Integer repositoryId,
+            String previousVersion,
+            ExecutionMode executionMode,
+            CredentialsService credentialsService) {
         try {
-            DistReleasePlan plan =
+            List<DistReleasePlan> plans =
                     planDistRelease(repositoryService, repositoryService.find(repositoryId), previousVersion);
 
-            if (plan.alreadyPublished()) {
-                LOGGER.info(
-                        "dist/release already contains {} {}; nothing to do.", plan.artifactId(), plan.newVersion());
+            if (plans.stream().allMatch(DistReleasePlan::alreadyPublished)) {
+                for (DistReleasePlan plan : plans) {
+                    LOGGER.info(
+                            "dist/release already contains {} {}; nothing to do.",
+                            plan.artifactId(),
+                            plan.newVersion());
+                }
                 return CommandLine.ExitCode.OK;
             }
-            if (plan.newFiles().isEmpty()) {
+
+            boolean noArtifacts = plans.stream()
+                    .flatMap(plan -> plan.newFiles().stream())
+                    .findFirst()
+                    .isEmpty();
+            if (noArtifacts) {
                 LOGGER.warn("No artifacts were downloaded for staging repository {}.", repositoryId);
                 return CommandLine.ExitCode.USAGE;
             }
 
-            switch (reusableCLIOptions.executionMode) {
-                case DRY_RUN:
+            for (DistReleasePlan plan : plans) {
+                boolean doPerformPublish = executionMode == ExecutionMode.AUTO;
+                if (executionMode == ExecutionMode.INTERACTIVE) {
+                    String question = String.format(
+                            "Publish %d file(s) for %s %s to dist/release and remove %d older file(s) for %s?",
+                            plan.newFiles().size(),
+                            plan.artifactId(),
+                            plan.newVersion(),
+                            plan.oldFiles().size(),
+                            plan.artifactId());
+                    doPerformPublish = InputOption.YES.equals(UserInput.yesNo(question, InputOption.YES));
+                    if (!doPerformPublish) {
+                        LOGGER.info("Aborted.");
+                    }
+                }
+
+                if (doPerformPublish) {
+                    DistRepository.publish(
+                            plan.artifactId(),
+                            plan.newVersion(),
+                            plan.newFiles(),
+                            plan.oldFiles(),
+                            credentialsService.getAsfCredentials());
+                } else {
                     LOGGER.info(
                             "Would publish {} file(s) to dist/release for {} {}:",
                             plan.newFiles().size(),
                             plan.artifactId(),
                             plan.newVersion());
+
                     plan.newFiles()
                             .forEach(f -> LOGGER.info(
                                     "  put {} -> {}{}", f, DistRepository.DIST_RELEASE_URL, f.getFileName()));
@@ -120,40 +167,13 @@ public class UpdateDistCommand implements Command {
                                 plan.oldFiles().size());
                         plan.oldFiles().forEach(f -> LOGGER.info("  rm {}", DistRepository.DIST_RELEASE_URL + f));
                     }
-                    break;
-                case INTERACTIVE:
-                    String question = String.format(
-                            "Publish %d file(s) for %s %s to dist/release and remove %d older file(s) for %s?",
-                            plan.newFiles().size(),
-                            plan.artifactId(),
-                            plan.newVersion(),
-                            plan.oldFiles().size(),
-                            plan.artifactId());
-                    if (InputOption.YES.equals(UserInput.yesNo(question, InputOption.YES))) {
-                        DistRepository.publish(
-                                plan.artifactId(),
-                                plan.newVersion(),
-                                plan.newFiles(),
-                                plan.oldFiles(),
-                                credentialsService.getAsfCredentials());
-                    } else {
-                        LOGGER.info("Aborted.");
-                    }
-                    break;
-                case AUTO:
-                    DistRepository.publish(
-                            plan.artifactId(),
-                            plan.newVersion(),
-                            plan.newFiles(),
-                            plan.oldFiles(),
-                            credentialsService.getAsfCredentials());
-                    break;
+                }
             }
-        } catch (IOException e) {
+        } catch (UncheckedIOException | IOException e) {
             LOGGER.warn("Failed executing command", e);
             return CommandLine.ExitCode.SOFTWARE;
         }
-        return CommandLine.ExitCode.OK;
+        return null;
     }
 
     /** What to publish to and remove from dist/release for one staged release. */
@@ -169,22 +189,50 @@ public class UpdateDistCommand implements Command {
      * Shared by this command and {@link FinalizeCommand} so the flow is not duplicated. When the version is
      * already present in {@code dist/release} the returned plan is marked {@link DistReleasePlan#alreadyPublished()}.
      */
-    static DistReleasePlan planDistRelease(
+    static List<DistReleasePlan> planDistRelease(
             RepositoryService repositoryService, StagingRepository repository, String previousVersion)
             throws IOException {
         LocalRepository localRepository = repositoryService.download(repository);
-        Artifact primary = localRepository.getArtifacts().stream()
+        List<Artifact> artifacts = localRepository.getArtifacts().stream()
                 .filter(a -> "pom".equals(a.getType()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("No POM artifact found in staging repository"));
-        String artifactId = primary.getArtifactId();
-        String newVersion = primary.getVersion();
-        if (DistRepository.isVersionPublished(artifactId, newVersion)) {
-            return new DistReleasePlan(artifactId, newVersion, List.of(), List.of(), true);
+                .toList();
+
+        if (artifacts.isEmpty()) {
+            throw new IllegalStateException("No POM artifact found in staging repository");
         }
-        List<Path> newFiles = collectDownloadedFiles(localRepository.getRootFolder());
-        List<String> oldFiles = DistRepository.listPreviousReleaseFiles(artifactId, newVersion, previousVersion);
-        return new DistReleasePlan(artifactId, newVersion, newFiles, oldFiles, false);
+
+        List<DistReleasePlan> plans = artifacts.stream()
+                .filter(a -> {
+                    try {
+                        return DistRepository.isVersionPublished(a.getArtifactId(), a.getVersion());
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                })
+                .map(a -> new DistReleasePlan(a.getArtifactId(), a.getVersion(), List.of(), List.of(), true))
+                .toList();
+
+        if (!plans.isEmpty()) {
+            return plans;
+        } else {
+            return artifacts.stream()
+                    .map(a -> {
+                        try {
+                            String artifactId = a.getArtifactId();
+                            String newVersion = a.getVersion();
+                            List<Path> newFiles = collectDownloadedFiles(localRepository.getRootFolder()).stream()
+                                    .filter(path ->
+                                            path.getFileName().toString().startsWith(artifactId + "-" + newVersion))
+                                    .toList();
+                            List<String> oldFiles =
+                                    DistRepository.listPreviousReleaseFiles(artifactId, newVersion, previousVersion);
+                            return new DistReleasePlan(artifactId, newVersion, newFiles, oldFiles, false);
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    })
+                    .toList();
+        }
     }
 
     /**

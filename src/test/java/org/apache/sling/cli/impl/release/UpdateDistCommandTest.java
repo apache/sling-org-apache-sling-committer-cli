@@ -21,6 +21,7 @@ package org.apache.sling.cli.impl.release;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -91,7 +92,7 @@ public class UpdateDistCommandTest {
                 ARTIFACT + "-1.3.4.pom.asc",
                 ARTIFACT + "-1.3.4-source-release.zip",
                 ARTIFACT + "-1.3.4-source-release.zip.asc",
-                ARTIFACT + "-1.3.6.pom", // the new version - must be kept (not removed)
+                ARTIFACT + "-1.3.6.pom", // the new newVersion - must be kept (not removed)
                 ARTIFACT + "-1.3.6.pom.asc",
                 ARTIFACT + "-extra-1.0.0.pom" // a sibling artifact - must be ignored
                 );
@@ -104,7 +105,7 @@ public class UpdateDistCommandTest {
             assertEquals(4, old.size());
             assertTrue(old.contains(ARTIFACT + "-1.3.4.pom"));
             assertTrue(old.contains(ARTIFACT + "-1.3.4-source-release.zip"));
-            // the version being published is never removed
+            // the newVersion being published is never removed
             assertFalse(old.contains(ARTIFACT + "-1.3.6.pom"));
             assertFalse(old.contains(ARTIFACT + "-1.3.6.pom.asc"));
             // sibling artifact with a non-numeric component is ignored
@@ -114,8 +115,8 @@ public class UpdateDistCommandTest {
 
     @Test
     public void testAutoDeduceDoesNotConfuseVersionPrefixesAndKeepsNewerVersions() throws Exception {
-        // publishing 1.0.14 must not treat 1.0.140 as the same version, and must not remove it either:
-        // 1.0.140 > 1.0.14, so it is a newer version and is left untouched (nothing older is present)
+        // publishing 1.0.14 must not treat 1.0.140 as the same newVersion, and must not remove it either:
+        // 1.0.140 > 1.0.14, so it is a newer newVersion and is left untouched (nothing older is present)
         List<String> releaseDir = List.of(ARTIFACT + "-1.0.140.pom", ARTIFACT + "-1.0.14.pom");
         try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
             dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
@@ -123,13 +124,13 @@ public class UpdateDistCommandTest {
 
             List<String> old = DistRepository.listPreviousReleaseFiles(ARTIFACT, "1.0.14", null);
 
-            assertTrue("a newer version must never be removed", old.isEmpty());
+            assertTrue("a newer newVersion must never be removed", old.isEmpty());
         }
     }
 
     @Test
     public void testAutoDeduceRemovesOnlyClosestOlderVersionAcrossStreams() throws Exception {
-        // parallel maintenance streams: publishing 2.0.4 must remove 2.0.2 (the closest older version)
+        // parallel maintenance streams: publishing 2.0.4 must remove 2.0.2 (the closest older newVersion)
         // but keep 1.2.4 (a different, still-maintained stream)
         List<String> releaseDir = List.of(
                 ARTIFACT + "-1.2.4.pom",
@@ -202,7 +203,49 @@ public class UpdateDistCommandTest {
 
             List<String> old = DistRepository.listPreviousReleaseFiles(ARTIFACT, "2.0.0", null);
 
-            assertTrue("a different major version must never be removed", old.isEmpty());
+            assertTrue("a different major newVersion must never be removed", old.isEmpty());
+        }
+    }
+
+    @Test
+    public void testAutoDeduceIdentifiesMultiArtifactReleases() throws Exception {
+        List<ArtifactUpdate> artifacts = List.of(
+                new ArtifactUpdate("org.apache.sling.servlets.resolver", "2.12.0", "2.11.4"),
+                new ArtifactUpdate("org.apache.sling.servlets.resolver", "3.0.10", "3.0.8"));
+
+        List<String> oldFiles = List.of(
+                "org.apache.sling.servlets.resolver-3.0.8.pom",
+                "org.apache.sling.servlets.resolver-3.0.8.pom.asc",
+                "org.apache.sling.servlets.resolver-3.0.8-source-release.zip",
+                "org.apache.sling.servlets.resolver-3.0.8-source-release.zip.asc",
+                "org.apache.sling.servlets.resolver-2.11.4.pom",
+                "org.apache.sling.servlets.resolver-2.11.4.pom.asc",
+                "org.apache.sling.servlets.resolver-2.11.4-source-release.zip",
+                "org.apache.sling.servlets.resolver-2.11.4-source-release.zip.asc",
+
+                // unrelated files
+                "org.apache.sling.servlets.resolver-3.0.6.pom",
+                "org.apache.sling.servlets.resolver-3.0.6.pom.asc");
+
+        try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
+            dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), anyString()))
+                    .thenReturn(oldFiles);
+
+            artifacts.forEach(a -> {
+                try {
+                    List<String> old = DistRepository.listPreviousReleaseFiles(a.artifactId(), a.newVersion(), null);
+
+                    assertEquals(4, old.size());
+
+                    String oldArtifact = a.oldArtifact();
+                    assertTrue(old.contains(oldArtifact + ".pom"));
+                    assertTrue(old.contains(oldArtifact + ".pom.asc"));
+                    assertTrue(old.contains(oldArtifact + "-source-release.zip"));
+                    assertTrue(old.contains(oldArtifact + "-source-release.zip.asc"));
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
         }
     }
 
@@ -215,7 +258,7 @@ public class UpdateDistCommandTest {
             List<String> old = DistRepository.listPreviousReleaseFiles(ARTIFACT, "1.3.6", "1.3.4");
 
             assertEquals(List.of(ARTIFACT + "-1.3.4.pom"), old);
-            // when an explicit version is given, the directory is not enumerated with the bare prefix
+            // when an explicit newVersion is given, the directory is not enumerated with the bare prefix
             dist.verify(
                     () -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), eq(ARTIFACT + "-")), never());
         }
@@ -223,10 +266,10 @@ public class UpdateDistCommandTest {
 
     @Test
     public void testAutoDeduceKeepsNewVersionWithClassifierAndExtension() throws Exception {
-        // files for the version being published (with both an extension '.' and a classifier '-' right
-        // after the version) must be kept, exercising belongsToVersion's trailing-character check
+        // files for the newVersion being published (with both an extension '.' and a classifier '-' right
+        // after the newVersion) must be kept, exercising belongsToVersion's trailing-character check
         List<String> releaseDir = List.of(
-                ARTIFACT + "-1.3.6", // exact match: filename equals the version prefix with no extension
+                ARTIFACT + "-1.3.6", // exact match: filename equals the newVersion prefix with no extension
                 ARTIFACT + "-1.3.6.pom",
                 ARTIFACT + "-1.3.6-source-release.zip",
                 ARTIFACT + "-1.3.4.pom");
@@ -340,7 +383,7 @@ public class UpdateDistCommandTest {
         try (MockedStatic<DistRepository> dist = mockStatic(DistRepository.class, CALLS_REAL_METHODS)) {
             dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), eq(ARTIFACT + "-1.3.4")))
                     .thenReturn(List.of(ARTIFACT + "-1.3.4.pom"));
-            // the already-published probe queries the new version's prefix; it is not yet in dist/release
+            // the already-published probe queries the new newVersion's prefix; it is not yet in dist/release
             dist.when(() -> DistRepository.listFiles(eq(DistRepository.DIST_RELEASE_URL), eq(ARTIFACT + "-1.3.6")))
                     .thenReturn(List.of());
             dist.when(() -> DistRepository.publish(any(), any(), any(), any(), any()))
@@ -539,4 +582,15 @@ public class UpdateDistCommandTest {
                 result instanceof UpdateDistCommand);
         return result;
     }
+
+    private record ArtifactUpdate(String artifactId, String newVersion, String oldVersion) {
+        String oldArtifact() {
+            return artifactId() + "-" + oldVersion();
+        }
+
+        String newArtifact() {
+            return artifactId() + "-" + newVersion();
+        }
+    }
+    ;
 }
