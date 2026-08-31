@@ -190,6 +190,9 @@ After `release:perform` has staged the artifacts, drive the rest with the CLI:
 
        docker run --env-file=./docker-env apache/sling-committer-cli release tally-votes --repository=$STAGING_REPOSITORY_ID --execution-mode=AUTO
 
+   The result email is sent as a reply to the `[VOTE]` email, so a release stays a single thread in the
+   archive and in threading mail clients.
+
 5. **Finalize** the release (post successful vote). This runs, in order: promote to Maven Central,
    create the next Jira version, release the current Jira version, update the Apache Reporter, and
    update the Sling website:
@@ -247,7 +250,7 @@ If the vote does not pass, **drop** the staging repository:
 | `release close-staging -r <id>` | Close an open staging repo, setting the description from the staged POM |
 | `release verify -r <id>` | Download and verify artifact signatures, hashes and CI status |
 | `release prepare-email -r <id>` | Generate (and send) the `[VOTE]` email |
-| `release tally-votes -r <id>` | Count votes and generate the `[RESULT]` email (PMC membership auto-detected; non-PMC email asks a PMC member to do the dist upload) |
+| `release tally-votes -r <id>` | Count votes and generate the `[RESULT]` email, sent as a reply to the `[VOTE]` email (PMC membership auto-detected; non-PMC email asks a PMC member to do the dist upload) |
 | `release promote -r <id>` | Promote a closed staging repo to Maven Central |
 | `release update-dist -r <id>` | Move artifacts to `dist.apache.org` (PMC only); previous version auto-deduced, override with `--previous-version <v>` |
 | `release finalize -r <id>` | Promote + Jira + Reporter + website in one step; also updates `dist.apache.org` when you are a PMC member |
