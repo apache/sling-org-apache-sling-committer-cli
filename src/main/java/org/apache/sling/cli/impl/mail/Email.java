@@ -44,12 +44,23 @@ import org.apache.http.impl.client.HttpClients;
 public class Email {
 
     private String id;
+    private String messageId;
     private InternetAddress from;
     private String subject;
     private String body;
 
     public Email(String id) {
+        this(id, null);
+    }
+
+    /**
+     * @param id        the archive-internal identifier, used to retrieve the message source
+     * @param messageId the RFC 5322 {@code Message-ID} of the message, as reported by the archive
+     *                  search; may be {@code null} when the archive does not report one
+     */
+    public Email(String id, String messageId) {
         this.id = id;
+        this.messageId = messageId;
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             URI uri = new URIBuilder(
                             "https://lists.apache.org/api/source.lua/" + URLEncoder.encode(id, StandardCharsets.UTF_8))
@@ -76,6 +87,15 @@ public class Email {
 
     public String getId() {
         return id;
+    }
+
+    /**
+     * Returns the RFC 5322 {@code Message-ID} of this message, needed to reply to it in-thread.
+     *
+     * @return the message id, or {@code null} if unknown
+     */
+    public String getMessageId() {
+        return messageId;
     }
 
     public InternetAddress getFrom() {

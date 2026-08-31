@@ -28,6 +28,7 @@ import java.util.List;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -40,18 +41,28 @@ import org.osgi.service.component.annotations.Component;
 public class VoteThreadFinder {
 
     public List<Email> findVoteThread(String releaseName) throws IOException {
-        try (CloseableHttpClient client = HttpClients.createDefault()) {
-            String threadSubject = "[VOTE] Release " + releaseName;
+        URI uri = buildSearchUri("[VOTE] Release " + releaseName);
+        return toEmails(fetchThreadStats(uri), uri);
+    }
+
+    private URI buildSearchUri(String threadSubject) {
+        try {
             // Look back 6 months: a vote may be tallied well after the 72h period ends, so a 1-month
             // window can miss threads for releases that linger before being finalized. The version in
             // the query keeps the match specific to a single release.
-            URI uri = new URIBuilder("https://lists.apache.org/api/stats.lua")
+            return new URIBuilder("https://lists.apache.org/api/stats.lua")
                     .addParameter("domain", "sling.apache.org")
                     .addParameter("list", "dev")
                     .addParameter("d", "lte=6M")
                     .addParameter("q", threadSubject)
                     .build();
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
 
+    JsonObject fetchThreadStats(URI uri) throws IOException {
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
             HttpGet get = new HttpGet(uri);
             try (CloseableHttpResponse response = client.execute(get)) {
                 try (InputStream content = response.getEntity().getContent();
@@ -60,27 +71,37 @@ public class VoteThreadFinder {
                         throw new IOException("Status line : " + response.getStatusLine());
                     }
                     JsonParser parser = new JsonParser();
-                    List<Email> emails = new ArrayList<>();
-                    JsonElement emailsJson =
-                            parser.parse(reader).getAsJsonObject().get("emails");
-                    if (emailsJson == null) {
-                        throw new IllegalStateException(String.format(
-                                "Unable to correctly parse JSON from %s. Missing \"emails\" "
-                                        + "property in the JSON response.",
-                                uri.toString()));
-                    }
-                    if (emailsJson.isJsonArray()) {
-                        JsonArray emailsArray = emailsJson.getAsJsonArray();
-                        for (JsonElement email : emailsArray) {
-                            emails.add(
-                                    new Email(email.getAsJsonObject().get("id").getAsString()));
-                        }
-                    }
-                    return emails;
+                    return parser.parse(reader).getAsJsonObject();
                 }
             }
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException(e);
         }
+    }
+
+    private List<Email> toEmails(JsonObject stats, URI uri) {
+        JsonElement emailsJson = stats.get("emails");
+        if (emailsJson == null) {
+            throw new IllegalStateException(String.format(
+                    "Unable to correctly parse JSON from %s. Missing \"emails\" " + "property in the JSON response.",
+                    uri.toString()));
+        }
+        List<Email> emails = new ArrayList<>();
+        if (emailsJson.isJsonArray()) {
+            JsonArray emailsArray = emailsJson.getAsJsonArray();
+            for (JsonElement email : emailsArray) {
+                JsonObject emailObject = email.getAsJsonObject();
+                // The archive reports the original Message-ID here; the message source served by
+                // source.lua carries it too, but reading it from the search response saves parsing.
+                emails.add(createEmail(emailObject.get("id").getAsString(), asString(emailObject.get("message-id"))));
+            }
+        }
+        return emails;
+    }
+
+    Email createEmail(String id, String messageId) {
+        return new Email(id, messageId);
+    }
+
+    private static String asString(JsonElement element) {
+        return element == null || element.isJsonNull() ? null : element.getAsString();
     }
 }

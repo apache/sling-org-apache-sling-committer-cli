@@ -2,7 +2,7 @@ From: ##FROM##
 To: "Sling Developers List" <dev@sling.apache.org>
 Reply-To: "Sling Developers List" <dev@sling.apache.org>
 Date: ##DATE##
-Subject: [RESULT] [VOTE] Release ##RELEASE_NAME##
+##REPLY_HEADERS##Subject: [RESULT] [VOTE] Release ##RELEASE_NAME##
 
 Hi,
 
