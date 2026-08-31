@@ -57,6 +57,8 @@ import static org.mockito.Mockito.when;
 
 public class TallyVotesCommandTest {
 
+    private static final String VOTE_MESSAGE_ID = "<vote-message-id@sling.apache.org>";
+
     @Before
     public void beforeClass() {
         DateProvider dateProvider = mock(DateProvider.class);
@@ -75,7 +77,7 @@ public class TallyVotesCommandTest {
         Mailer mailer = mock(Mailer.class);
         List<Email> thread = new ArrayList<>() {
             {
-                add(mockEmail("johndoe@apache.org", "John Doe"));
+                add(mockVoteEmail("johndoe@apache.org", "John Doe"));
                 add(mockEmail("alice@apache.org", "Alice"));
                 add(mockEmail("bob@apache.org", "Bob"));
                 add(mockEmail("charlie@apache.org", "Charlie"));
@@ -94,6 +96,8 @@ public class TallyVotesCommandTest {
                 "From: John Doe <johndoe@apache.org>\n" + "To: \"Sling Developers List\" <dev@sling.apache.org>\n"
                         + "Reply-To: \"Sling Developers List\" <dev@sling.apache.org>\n"
                         + "Date: Thu, 1 Jan 1970 01:00:00 +0100\n"
+                        + "In-Reply-To: <vote-message-id@sling.apache.org>\n"
+                        + "References: <vote-message-id@sling.apache.org>\n"
                         + "Subject: [RESULT] [VOTE] Release Apache Sling CLI Test 1.0.0\n"
                         + "\n"
                         + "Hi,\n"
@@ -125,7 +129,7 @@ public class TallyVotesCommandTest {
         Mailer mailer = mock(Mailer.class);
         List<Email> thread = new ArrayList<>() {
             {
-                add(mockEmail("daniel@apache.org", "Daniel"));
+                add(mockVoteEmail("daniel@apache.org", "Daniel"));
                 add(mockEmail("alice@apache.org", "Alice"));
                 add(mockEmail("bob@apache.org", "Bob"));
                 add(mockEmail("charlie@apache.org", "Charlie"));
@@ -140,6 +144,8 @@ public class TallyVotesCommandTest {
                 To: "Sling Developers List" <dev@sling.apache.org>
                 Reply-To: "Sling Developers List" <dev@sling.apache.org>
                 Date: Thu, 1 Jan 1970 01:00:00 +0100
+                In-Reply-To: <vote-message-id@sling.apache.org>
+                References: <vote-message-id@sling.apache.org>
                 Subject: [RESULT] [VOTE] Release Apache Sling CLI Test 1.0.0
 
                 Hi,
@@ -173,7 +179,7 @@ public class TallyVotesCommandTest {
         Mailer mailer = mock(Mailer.class);
         List<Email> thread = new ArrayList<>() {
             {
-                add(mockEmail("johndoe@apache.org", "John Doe"));
+                add(mockVoteEmail("johndoe@apache.org", "John Doe"));
                 add(mockEmail("alice@apache.org", "Alice"));
                 add(mockEmail("bob@apache.org", "Bob"));
                 add(mockEmail("daniel@apache.org", "Daniel"));
@@ -191,7 +197,7 @@ public class TallyVotesCommandTest {
     public void testAuto() throws Exception {
         List<Email> thread = new ArrayList<>() {
             {
-                add(mockEmail("johndoe@apache.org", "John Doe"));
+                add(mockVoteEmail("johndoe@apache.org", "John Doe"));
                 add(mockEmail("alice@apache.org", "Alice"));
                 add(mockEmail("bob@apache.org", "Bob"));
                 add(mockEmail("charlie@apache.org", "Charlie"));
@@ -207,6 +213,8 @@ public class TallyVotesCommandTest {
                 .send("From: John Doe <johndoe@apache.org>\n" + "To: \"Sling Developers List\" <dev@sling.apache.org>\n"
                         + "Reply-To: \"Sling Developers List\" <dev@sling.apache.org>\n"
                         + "Date: Thu, 1 Jan 1970 01:00:00 +0100\n"
+                        + "In-Reply-To: <vote-message-id@sling.apache.org>\n"
+                        + "References: <vote-message-id@sling.apache.org>\n"
                         + "Subject: [RESULT] [VOTE] Release Apache Sling CLI Test 1.0.0\n"
                         + "\n"
                         + "Hi,\n"
@@ -230,6 +238,134 @@ public class TallyVotesCommandTest {
                         + "John Doe\n");
     }
 
+    @Test
+    public void testAutoVoteEmailWithoutMessageId() throws Exception {
+        // Older archived emails may not expose a Message-ID; the result email is then sent standalone.
+        List<Email> thread = new ArrayList<>() {
+            {
+                add(mockVoteEmail("johndoe@apache.org", "John Doe", null));
+                add(mockEmail("alice@apache.org", "Alice"));
+                add(mockEmail("bob@apache.org", "Bob"));
+                add(mockEmail("charlie@apache.org", "Charlie"));
+            }
+        };
+        Mailer mailer = mock(Mailer.class);
+        prepareExecution(mailer, thread);
+        Command command = createCommand(123, ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+        verify(mailer).send(expectedEmail(""));
+        assertTrue(logCapture.containsMessage(
+                "The [VOTE] email has no Message-ID; the result email will not be sent as a reply."));
+    }
+
+    @Test
+    public void testAutoVoteEmailOutsideLookupWindow() throws Exception {
+        // The archive search only looks back a fixed period, so a vote opened before the start of that
+        // window returns replies only. The first reply must not be mistaken for the vote email and
+        // dropped from the tally, and it must not be replied to either.
+        List<Email> thread = new ArrayList<>() {
+            {
+                add(mockEmail("alice@apache.org", "Alice"));
+                add(mockEmail("bob@apache.org", "Bob"));
+                add(mockEmail("charlie@apache.org", "Charlie"));
+            }
+        };
+        Mailer mailer = mock(Mailer.class);
+        prepareExecution(mailer, thread);
+        Command command = createCommand(123, ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.USAGE, (int) command.call());
+        verifyNoInteractions(mailer);
+        assertTrue(logCapture.containsMessage("Could not identify the [VOTE] email in the thread for release"));
+    }
+
+    @Test
+    public void testDryRunCountsAnUnknownVoterAsNonBinding() throws Exception {
+        // A voter who cannot be resolved to an ASF member has no known PMC membership, so their vote
+        // counts as non-binding, under the name they signed with.
+        Mailer mailer = mock(Mailer.class);
+        List<Email> thread = new ArrayList<>() {
+            {
+                add(mockVoteEmail("johndoe@apache.org", "John Doe"));
+                add(mockEmail("alice@apache.org", "Alice"));
+                add(mockEmail("bob@apache.org", "Bob"));
+                add(mockEmail("charlie@apache.org", "Charlie"));
+                add(mockEmail("stranger@example.com", "Some Stranger"));
+            }
+        };
+        prepareExecution(mailer, thread);
+        Command command = createCommand(123, ExecutionMode.DRY_RUN);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+        verifyNoInteractions(mailer);
+        assertTrue(logCapture.containsMessage("+1 (binding): Alice, Bob, Charlie"));
+        assertTrue(logCapture.containsMessage("+1 (non-binding): Some Stranger"));
+    }
+
+    @Test
+    public void testDryRunWithoutAVoteThread() throws Exception {
+        Mailer mailer = mock(Mailer.class);
+        prepareExecution(mailer, List.of());
+        Command command = createCommand(123, ExecutionMode.DRY_RUN);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+        verifyNoInteractions(mailer);
+        assertTrue(logCapture.containsMessage(
+                "Could not find a corresponding email voting thread for release \"Apache Sling CLI Test 1.0.0\"."));
+    }
+
+    private String expectedEmail(String replyHeaders) {
+        return """
+                From: John Doe <johndoe@apache.org>
+                To: "Sling Developers List" <dev@sling.apache.org>
+                Reply-To: "Sling Developers List" <dev@sling.apache.org>
+                Date: Thu, 1 Jan 1970 01:00:00 +0100
+                """ + replyHeaders + """
+                Subject: [RESULT] [VOTE] Release Apache Sling CLI Test 1.0.0
+
+                Hi,
+
+                The vote has passed with the following result:
+
+                +1 (binding): Alice, Bob, Charlie
+                +1 (non-binding): none
+
+                I will finalize this release:
+
+                  1. copy the artifacts to the Sling dist directory
+                     (https://dist.apache.org/repos/dist/release/sling/)
+                  2. promote the staged artifacts to the central Maven repository
+                  3. create the next JIRA version and move any unresolved issues to it
+                  4. mark the JIRA version as released
+                  5. add the release to the Apache Reporter System
+                  6. update the Sling website: the releases list and the downloads page
+
+                Regards,
+                John Doe
+                """;
+    }
+
+    @Test
+    public void testAutoIgnoresResultEmailOfAnEarlierRun() throws Exception {
+        // Re-running tally-votes finds the result email of the previous run in the thread. Its body
+        // repeats the tally it announced, so it must not be counted as a vote by the member who sent
+        // it: Daniel never voted here and must not show up as a voter.
+        List<Email> thread = new ArrayList<>() {
+            {
+                add(mockVoteEmail("johndoe@apache.org", "John Doe"));
+                add(mockEmail("alice@apache.org", "Alice"));
+                add(mockEmail("bob@apache.org", "Bob"));
+                add(mockEmail("charlie@apache.org", "Charlie"));
+                add(mockResultEmail("daniel@apache.org", "Daniel", "[RESULT] "));
+                add(mockResultEmail("daniel@apache.org", "Daniel", "Re: [RESULT] "));
+            }
+        };
+        Mailer mailer = mock(Mailer.class);
+        prepareExecution(mailer, thread);
+        Command command = createCommand(123, ExecutionMode.AUTO);
+        assertEquals(CommandLine.ExitCode.OK, (int) command.call());
+        verify(mailer)
+                .send(expectedEmail(
+                        "In-Reply-To: " + VOTE_MESSAGE_ID + "\n" + "References: " + VOTE_MESSAGE_ID + "\n"));
+    }
+
     private Command createCommand(int repositoryId, ExecutionMode executionMode) throws IllegalAccessException {
         TallyVotesCommand tallyVotesCommand = spy(new TallyVotesCommand());
         ReusableCLIOptions reusableCLIOptions = mock(ReusableCLIOptions.class);
@@ -241,10 +377,35 @@ public class TallyVotesCommandTest {
         return (Command) osgiContext.bundleContext().getService(reference);
     }
 
+    private Email mockVoteEmail(String address, String name) throws Exception {
+        return mockVoteEmail(address, name, VOTE_MESSAGE_ID);
+    }
+
+    private Email mockVoteEmail(String address, String name, String messageId) throws Exception {
+        Email email = mockEmail(address, name);
+        when(email.getSubject()).thenReturn("[VOTE] Release Apache Sling CLI Test 1.0.0");
+        when(email.getMessageId()).thenReturn(messageId);
+        return email;
+    }
+
+    private Email mockResultEmail(String address, String name, String subjectPrefix) throws Exception {
+        Email email = mock(Email.class);
+        when(email.getBody()).thenReturn("""
+                The vote has passed with the following result:
+
+                +1 (binding): Alice, Bob, Charlie
+                +1 (non-binding): none
+                """);
+        when(email.getFrom()).thenReturn(new InternetAddress(address, name));
+        when(email.getSubject()).thenReturn(subjectPrefix + "[VOTE] Release Apache Sling CLI Test 1.0.0");
+        return email;
+    }
+
     private Email mockEmail(String address, String name) throws Exception {
         Email email = mock(Email.class);
         when(email.getBody()).thenReturn("+1");
         when(email.getFrom()).thenReturn(new InternetAddress(address, name));
+        when(email.getSubject()).thenReturn("Re: [VOTE] Release Apache Sling CLI Test 1.0.0");
         return email;
     }
 
@@ -279,7 +440,7 @@ public class TallyVotesCommandTest {
         when(repositoryService.getReleases(stagingRepository)).thenReturn(Set.of(release));
 
         VoteThreadFinder voteThreadFinder = mock(VoteThreadFinder.class);
-        when(voteThreadFinder.findVoteThread("CLI Test 1.0.0")).thenReturn(thread);
+        when(voteThreadFinder.findVoteThread("Apache Sling CLI Test 1.0.0")).thenReturn(thread);
 
         osgiContext.registerService(CredentialsService.class, credentialsService);
         osgiContext.registerInjectActivateService(membersFinder);

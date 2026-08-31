@@ -28,6 +28,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
@@ -89,6 +90,16 @@ public class TallyVotesCommand implements Command {
     @CommandLine.Mixin
     private ReusableCLIOptions reusableCLIOptions;
 
+    /** Prefix of the subject of the email that opens a vote thread. */
+    private static final String VOTE_SUBJECT_PREFIX = "[VOTE]";
+
+    /** Prefix of the subject of the email that announces the outcome of a vote. */
+    private static final String RESULT_SUBJECT_PREFIX = "[RESULT]";
+
+    /** A single reply or forward prefix, as mail clients prepend it to the subject of a reply. */
+    private static final Pattern REPLY_SUBJECT_PREFIX =
+            Pattern.compile("^\\s*(?:re|fw|fwd|aw)\\s*:\\s*", Pattern.CASE_INSENSITIVE);
+
     /** The steps {@link FinalizeCommand} performs, in the order it performs them. */
     private static final String FINALIZE_STEPS = "  1. copy the artifacts to the Sling dist directory\n"
             + "     (https://dist.apache.org/repos/dist/release/sling/)\n"
@@ -115,30 +126,42 @@ public class TallyVotesCommand implements Command {
         try {
             StagingRepository repository = repositoryService.find(repositoryId);
             Set<Release> releases = repositoryService.getReleases(repository);
-            String releaseName = releases.stream().map(Release::getName).collect(Collectors.joining(", "));
             String releaseFullName = releases.stream().map(Release::getFullName).collect(Collectors.joining(", "));
             Set<String> bindingVoters = new LinkedHashSet<>();
             Set<String> nonBindingVoters = new LinkedHashSet<>();
             Collator collator = Collator.getInstance(Locale.US);
             collator.setDecomposition(Collator.NO_DECOMPOSITION);
-            List<Email> emailThread = voteThreadFinder.findVoteThread(releaseName);
+            List<Email> emailThread = voteThreadFinder.findVoteThread(releaseFullName);
             if (emailThread.isEmpty()) {
-                LOGGER.error("Could not find a corresponding email voting thread for release \"{}\".", releaseName);
+                LOGGER.error("Could not find a corresponding email voting thread for release \"{}\".", releaseFullName);
             } else {
-                emailThread.stream().skip(1).filter(this::isPositiveVote).forEachOrdered(email -> {
-                    String from = email.getFrom().getAddress();
-                    String name = email.getFrom().getPersonal();
-                    Member m = membersFinder.findByNameOrEmail(name, from);
-                    if (m != null) {
-                        if (m.isPMCMember()) {
-                            bindingVoters.add(m.getName());
-                        } else {
-                            nonBindingVoters.add(m.getName());
-                        }
-                    } else {
-                        nonBindingVoters.add(name);
-                    }
-                });
+                Email voteEmail = findVoteEmail(emailThread);
+                if (voteEmail == null) {
+                    LOGGER.warn(
+                            "Could not identify the [VOTE] email in the thread for release \"{}\"; it may have been "
+                                    + "sent before the start of the lookup window. The result email will not be sent "
+                                    + "as a reply and the first email in the thread is assumed to be the [VOTE] one.",
+                            releaseFullName);
+                }
+                Email threadStart = voteEmail != null ? voteEmail : emailThread.get(0);
+                emailThread.stream()
+                        .filter(email -> email != threadStart)
+                        .filter(email -> !isResultEmail(email))
+                        .filter(this::isPositiveVote)
+                        .forEachOrdered(email -> {
+                            String from = email.getFrom().getAddress();
+                            String name = email.getFrom().getPersonal();
+                            Member m = membersFinder.findByNameOrEmail(name, from);
+                            if (m != null) {
+                                if (m.isPMCMember()) {
+                                    bindingVoters.add(m.getName());
+                                } else {
+                                    nonBindingVoters.add(m.getName());
+                                }
+                            } else {
+                                nonBindingVoters.add(name);
+                            }
+                        });
                 Member currentMember = membersFinder.getCurrentMember();
                 String email = EMAIL_TEMPLATE
                         .replace(
@@ -146,6 +169,7 @@ public class TallyVotesCommand implements Command {
                                 new InternetAddress(currentMember.getEmail(), currentMember.getName())
                                         .toUnicodeString())
                         .replace("##DATE##", dateProvider.getCurrentDateForEmailHeader())
+                        .replace("##REPLY_HEADERS##", replyHeaders(voteEmail))
                         .replace("##RELEASE_NAME##", releaseFullName)
                         .replace("##BINDING_VOTERS##", String.join(", ", bindingVoters))
                         .replace("##CLOSING_ACTION##", closingAction(releaseFullName, currentMember.isPMCMember()))
@@ -201,6 +225,76 @@ public class TallyVotesCommand implements Command {
             return CommandLine.ExitCode.SOFTWARE;
         }
         return CommandLine.ExitCode.OK;
+    }
+
+    /**
+     * Returns the email that opened the vote thread, identified by its subject. Replies carry a
+     * {@code Re:}-style prefix and the result email of an earlier run carries a {@code [RESULT]} one,
+     * so only the original vote email starts with {@value #VOTE_SUBJECT_PREFIX}. Position in the
+     * thread is not a reliable indicator: the archive search only looks back a fixed period, so the
+     * vote email is missing from the results when the vote was opened before that window starts.
+     *
+     * @param emailThread the emails found for the release
+     * @return the vote email, or {@code null} if the thread does not contain one
+     */
+    private Email findVoteEmail(List<Email> emailThread) {
+        return emailThread.stream()
+                .filter(email ->
+                        email.getSubject() != null && email.getSubject().startsWith(VOTE_SUBJECT_PREFIX))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Returns whether the email announces the outcome of the vote rather than casting one. The result
+     * email of an earlier run repeats the tally it announced ("+1 (binding): ..."), which the "+1"
+     * detection would otherwise count as a vote cast by the release manager who sent it.
+     *
+     * @param email the email to inspect
+     * @return {@code true} if the email is a result email or a reply to one
+     */
+    private boolean isResultEmail(Email email) {
+        String subject = email.getSubject();
+        return subject != null && stripReplyPrefixes(subject).startsWith(RESULT_SUBJECT_PREFIX);
+    }
+
+    /**
+     * Strips every reply and forward prefix from a subject, so that a subject is recognised however
+     * often it has been replied to or forwarded.
+     *
+     * @param subject the subject to strip
+     * @return the subject without its reply and forward prefixes
+     */
+    private static String stripReplyPrefixes(String subject) {
+        String stripped = subject;
+        while (true) {
+            String candidate = REPLY_SUBJECT_PREFIX.matcher(stripped).replaceFirst("");
+            if (candidate.equals(stripped)) {
+                return stripped;
+            }
+            stripped = candidate;
+        }
+    }
+
+    /**
+     * Builds the headers that make the result email a reply to the vote email, so that both are part
+     * of a single thread. Returns an empty string when the vote email or its {@code Message-ID} could
+     * not be determined, in which case the email is sent standalone.
+     *
+     * @param voteEmail the vote email to reply to, may be {@code null}
+     * @return the {@code In-Reply-To} and {@code References} headers, each terminated by a newline
+     */
+    private String replyHeaders(Email voteEmail) {
+        if (voteEmail == null) {
+            return "";
+        }
+        String messageId = voteEmail.getMessageId();
+        if (messageId == null || messageId.isBlank()) {
+            LOGGER.warn("The [VOTE] email has no Message-ID; the result email will not be sent as a reply.");
+            return "";
+        }
+        messageId = messageId.trim();
+        return "In-Reply-To: " + messageId + "\n" + "References: " + messageId + "\n";
     }
 
     /**
