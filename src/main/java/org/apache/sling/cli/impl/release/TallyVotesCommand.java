@@ -28,6 +28,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.io.IOUtils;
@@ -92,6 +93,13 @@ public class TallyVotesCommand implements Command {
     /** Prefix of the subject of the email that opens a vote thread. */
     private static final String VOTE_SUBJECT_PREFIX = "[VOTE]";
 
+    /** Prefix of the subject of the email that announces the outcome of a vote. */
+    private static final String RESULT_SUBJECT_PREFIX = "[RESULT]";
+
+    /** A single reply or forward prefix, as mail clients prepend it to the subject of a reply. */
+    private static final Pattern REPLY_SUBJECT_PREFIX =
+            Pattern.compile("^\\s*(?:re|fw|fwd|aw)\\s*:\\s*", Pattern.CASE_INSENSITIVE);
+
     /** The steps {@link FinalizeCommand} performs, in the order it performs them. */
     private static final String FINALIZE_STEPS = "  1. copy the artifacts to the Sling dist directory\n"
             + "     (https://dist.apache.org/repos/dist/release/sling/)\n"
@@ -138,6 +146,7 @@ public class TallyVotesCommand implements Command {
                 Email threadStart = voteEmail != null ? voteEmail : emailThread.get(0);
                 emailThread.stream()
                         .filter(email -> email != threadStart)
+                        .filter(email -> !isResultEmail(email))
                         .filter(this::isPositiveVote)
                         .forEachOrdered(email -> {
                             String from = email.getFrom().getAddress();
@@ -234,6 +243,37 @@ public class TallyVotesCommand implements Command {
                         email.getSubject() != null && email.getSubject().startsWith(VOTE_SUBJECT_PREFIX))
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * Returns whether the email announces the outcome of the vote rather than casting one. The result
+     * email of an earlier run repeats the tally it announced ("+1 (binding): ..."), which the "+1"
+     * detection would otherwise count as a vote cast by the release manager who sent it.
+     *
+     * @param email the email to inspect
+     * @return {@code true} if the email is a result email or a reply to one
+     */
+    private boolean isResultEmail(Email email) {
+        String subject = email.getSubject();
+        return subject != null && stripReplyPrefixes(subject).startsWith(RESULT_SUBJECT_PREFIX);
+    }
+
+    /**
+     * Strips every reply and forward prefix from a subject, so that a subject is recognised however
+     * often it has been replied to or forwarded.
+     *
+     * @param subject the subject to strip
+     * @return the subject without its reply and forward prefixes
+     */
+    private static String stripReplyPrefixes(String subject) {
+        String stripped = subject;
+        while (true) {
+            String candidate = REPLY_SUBJECT_PREFIX.matcher(stripped).replaceFirst("");
+            if (candidate.equals(stripped)) {
+                return stripped;
+            }
+            stripped = candidate;
+        }
     }
 
     /**
