@@ -63,6 +63,12 @@ public class CommandProcessor {
     private BundleContext ctx;
     private Config cfg;
 
+    @CommandLine.Option(
+            names = {"-V", "--version"},
+            versionHelp = true,
+            description = "Print version information and exit.")
+    private boolean versionRequested;
+
     private static final Map<String, Class> CLI_GROUPS;
 
     static {
@@ -73,7 +79,7 @@ public class CommandProcessor {
     private Map<String, TreeSet<CommandWithProps>> commands = new ConcurrentHashMap<>();
 
     @Activate
-    private void activate(BundleContext ctx, Config cfg) {
+    void activate(BundleContext ctx, Config cfg) {
         this.ctx = ctx;
         this.cfg = cfg;
     }
@@ -99,6 +105,9 @@ public class CommandProcessor {
     void runCommand() {
         System.setProperty("picocli.usage.width", "140");
         CommandLine commandLine = new CommandLine(this);
+        commandLine
+                .getCommandSpec()
+                .version("Apache Sling Committer CLI " + ctx.getBundle().getVersion());
         commandLine.addSubcommand(CommandLine.HelpCommand.class);
         for (Map.Entry<String, TreeSet<CommandWithProps>> entry : commands.entrySet()) {
             String group = entry.getKey();
