@@ -113,6 +113,13 @@ After building, run the image with:
 
 This invocation produces a list of available commands.
 
+To print the CLI version and exit, use `--version` (or `-V`):
+
+    docker run --rm apache/sling-committer-cli --version
+
+The version comes from the running OSGi bundle and uses OSGi notation, for example
+`Apache Sling Committer CLI 1.0.0.SNAPSHOT`.
+
 ## Commands
 
 The commands can be executed in 3 different modes:

@@ -20,13 +20,17 @@ package org.apache.sling.cli.impl;
 
 import java.util.Map;
 
-import org.apache.sling.testing.mock.osgi.junit.OsgiContext;
-import org.junit.Rule;
+import org.junit.Before;
 import org.junit.Test;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
+import org.osgi.framework.Version;
 import picocli.CommandLine;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class CommandProcessorTest {
 
@@ -58,8 +62,15 @@ public class CommandProcessorTest {
         }
     }
 
-    @Rule
-    public final OsgiContext context = new OsgiContext();
+    private BundleContext bundleContext;
+
+    @Before
+    public void setUp() {
+        Bundle bundle = mock(Bundle.class);
+        when(bundle.getVersion()).thenReturn(new Version("1.2.3.SNAPSHOT"));
+        bundleContext = mock(BundleContext.class);
+        when(bundleContext.getBundle()).thenReturn(bundle);
+    }
 
     /**
      * Validates that a variety of arguments are parsed correctly
@@ -93,6 +104,7 @@ public class CommandProcessorTest {
                         Command.PROPERTY_NAME_COMMAND_NAME,
                         MockCommand.COMMAND_NAME));
 
+        commandProcessor.activate(bundleContext, mock(CommandProcessor.Config.class));
         commandProcessor.runCommand();
 
         assertThat(cmd.invocationCount, equalTo(1));
@@ -132,6 +144,7 @@ public class CommandProcessorTest {
                         Command.PROPERTY_NAME_COMMAND_NAME,
                         MockCommand.COMMAND_NAME));
 
+        commandProcessor.activate(bundleContext, mock(CommandProcessor.Config.class));
         commandProcessor.runCommand();
 
         assertThat(cmd.invocationCount, equalTo(1));
