@@ -137,7 +137,7 @@ public class RepositoryService {
     }
 
     public void drop(StagingRepository repository) throws IOException {
-        executeBulkAction("delete", repository.getRepositoryId(), Collections.emptyMap());
+        executeBulkAction("drop", repository.getRepositoryId(), Collections.emptyMap());
     }
 
     private void executeBulkAction(String action, String repositoryId, Map<String, Object> extraData)
