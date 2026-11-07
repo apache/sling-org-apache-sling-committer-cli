@@ -247,7 +247,7 @@ public class RepositoryServiceTest {
     @Test
     public void testDrop() throws IOException {
         repositoryService.drop(getStagingRepository());
-        assertEquals("delete", nexus.getLastBulkAction());
+        assertEquals("drop", nexus.getLastBulkAction());
     }
 
     @Test

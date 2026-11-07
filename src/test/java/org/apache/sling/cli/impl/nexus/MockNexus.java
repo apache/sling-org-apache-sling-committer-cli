@@ -39,7 +39,7 @@ public class MockNexus extends ExternalResource {
     private HttpServer server;
     private volatile String lastBulkAction;
 
-    /** The last staging bulk action (e.g. {@code close}, {@code promote}, {@code delete}) posted, or {@code null}. */
+    /** The last staging bulk action (e.g. {@code close}, {@code promote}, {@code drop}) posted, or {@code null}. */
     public String getLastBulkAction() {
         return lastBulkAction;
     }
@@ -73,7 +73,7 @@ public class MockNexus extends ExternalResource {
         handlers.add(new StagingRepositoriesHandler());
         handlers.add(new RepositoryContentListingHandler());
         handlers.add(new RepositoryContentHandler());
-        // staging bulk actions (close/promote/delete) are POSTs answered with HTTP 201
+        // staging bulk actions (close/promote/drop) are POSTs answered with HTTP 201
         handlers.add(ex -> {
             String path = ex.getRequestURI().getPath();
             if ("POST".equals(ex.getRequestMethod()) && path.startsWith("/service/local/staging/bulk/")) {
